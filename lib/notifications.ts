@@ -382,7 +382,7 @@ export async function checkForgotClockOut(
     if (existing) continue
 
     const title   = 'Did you forget to clock out?'
-    const message = `You've been clocked in for ${hoursAgo}+ hours. Please go to RPS Intelligence and clock out now.`
+    const message = `You've been clocked in for ${hoursAgo}+ hours. Please go to RP Intelligence and clock out now.`
     const link    = '/shop/clock'
 
     await admin.from('notifications').insert({

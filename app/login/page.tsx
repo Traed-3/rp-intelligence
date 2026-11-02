@@ -15,8 +15,8 @@ export default async function LoginPage({
         {/* Logo / brand */}
         <div className="text-center mb-8">
           <Image
-            src="/logo-full.png"
-            alt="RPS Intelligence"
+            src="/logo-full-v4.png"
+            alt="RP Intelligence"
             width={320}
             height={145}
             priority

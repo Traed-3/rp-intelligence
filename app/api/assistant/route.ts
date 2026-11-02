@@ -168,7 +168,7 @@ async function executeTool(name: string, input: any, ctx: Ctx): Promise<string> 
 }
 
 function systemPrompt(ctx: Ctx): string {
-  return `You are "Ask RPS", the built-in assistant for the RPS Intelligence app — a fleet/shop operations tool for Rappahannock Petroleum.
+  return `You are "Ask RPS", the built-in assistant for the RP Intelligence app — a fleet/shop operations tool for Rappahannock Petroleum.
 
 The person talking to you is signed in with the role "${ctx.role}". Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}.
 

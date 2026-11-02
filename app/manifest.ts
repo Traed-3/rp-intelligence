@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'RPS Intelligence',
-    short_name: 'RPS',
-    description: 'RPS Fleet & Shop Operations Platform',
+    name: 'RP Intelligence',
+    short_name: 'RP Intel',
+    description: 'RP Intelligence — Rappahannock Petroleum operations platform',
     start_url: '/mobile',
     display: 'standalone',
     background_color: '#ffffff',

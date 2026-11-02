@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# RPS Intelligence (formerly RPS Maintenance & Asset Tracker) — Master Context (CLAUDE.md)
+# RP Intelligence (formerly RPS Maintenance & Asset Tracker) — Master Context (CLAUDE.md)
 
 > Read this file at the start of EVERY session before doing anything.
 > AGENTS.md (imported above) is critical: this app runs on Next.js 16 + React 19,
@@ -51,7 +51,7 @@ Backend: Supabase (PostgreSQL + Auth + Storage + RLS). Google OAuth login.
 Hosting: Vercel (deploys from GitHub).
 Routing/auth note: Next 16 renamed middleware → proxy. Route protection lives in proxy.ts at repo root.
 
-Project folder (Trae's Mac): ~/Documents/Claude/Claude Projects/RPS Maintenance & System Software/RPS Maintenance & Asset Project/rps-maintenance (GitHub Traed-3/rps-maintenance). Product name is RPS Intelligence; the repo/Vercel/Supabase slugs still say rps-maintenance — see docs/rebrand/RPS_Intelligence_Rename_Runbook.md.
+Project folder (Trae's Mac): ~/Documents/Claude/Claude Projects/RPS Maintenance & System Software/RPS Maintenance & Asset Project/rps-maintenance (GitHub Traed-3/rps-maintenance). Product name is RP Intelligence; the repo/Vercel/Supabase slugs still say rps-maintenance — see docs/rebrand/RPS_Intelligence_Rename_Runbook.md.
 
 ---
 

@@ -7,12 +7,12 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'RPS Intelligence',
-  description: 'RPS Fleet & Shop Operations Platform',
+  title: 'RP Intelligence',
+  description: 'RP Intelligence — Rappahannock Petroleum operations platform',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'RPS',
+    title: 'RP Intel',
   },
   formatDetection: { telephone: false },
   icons: {

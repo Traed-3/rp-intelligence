@@ -173,7 +173,7 @@ export default async function AlertsPage() {
       <div className="mt-10">
         <h2 className="text-base font-bold text-gray-900 mb-1">Browser Push Notifications</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Enable push notifications so your browser alerts you even when RPS Intelligence is not open.
+          Enable push notifications so your browser alerts you even when RP Intelligence is not open.
           You need to enable this per device (phone, tablet, computer).
         </p>
         <PushToggle />
@@ -219,7 +219,7 @@ export default async function AlertsPage() {
             </ol>
             <div className="mt-2 bg-gray-900 text-green-400 text-xs font-mono rounded-lg p-3 space-y-1">
               <p>RESEND_API_KEY=re_xxxxxxxxxxxx</p>
-              <p>RESEND_FROM_EMAIL=RPS Intelligence &lt;alerts@yourdomain.com&gt;</p>
+              <p>RESEND_FROM_EMAIL=RP Intelligence &lt;alerts@yourdomain.com&gt;</p>
               <p>NEXT_PUBLIC_APP_URL=https://your-app.vercel.app</p>
             </div>
             <p className="mt-2 text-gray-500">You can send from <code>@resend.dev</code> for testing without domain setup.</p>
