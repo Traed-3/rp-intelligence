@@ -604,7 +604,8 @@ export async function addDailyUpdate(jobId: string, _state: ActionState, formDat
   const { data: du, error } = await admin.from('con_daily_updates').insert({
     company_id: profile.company_id,
     job_id: jobId,
-    work_date: str(formData.get('work_date')),
+    // A blank date used to hit the NOT NULL constraint and lose the whole update; default to today (Eastern).
+    work_date: str(formData.get('work_date')) ?? new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }),
     work_description: workDescription || '',
     notes: str(formData.get('notes')),
     submitted_by: profile.id,

@@ -75,7 +75,7 @@ export default async function JobDetailPage({
     admin.from('con_closeout_tasks').select('*').eq('job_id', id).order('created_at'),
     admin.from('con_job_labor').select('*').eq('job_id', id).order('work_date', { ascending: false }),
     admin.from('con_documents').select('*').eq('job_id', id).order('created_at', { ascending: false }),
-    admin.from('con_daily_updates').select('*, con_daily_update_techs(*), con_documents(id, file_name, doc_type)').eq('job_id', id).order('work_date', { ascending: false }),
+    admin.from('con_daily_updates').select('*, con_daily_update_techs(*), con_documents!con_documents_daily_update_id_fkey(id, file_name, doc_type)').eq('job_id', id).order('work_date', { ascending: false }),
     admin.from('con_disposables_forms').select('*').eq('job_id', id).order('form_date', { ascending: false }),
     admin.from('con_job_subcontractors').select('id, role, con_subcontractors(id, name, trade, phone)').eq('job_id', id),
     admin.from('con_subcontractors').select('id, name, trade').eq('company_id', company_id).eq('is_active', true).order('name'),
