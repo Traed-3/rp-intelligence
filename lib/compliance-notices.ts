@@ -24,7 +24,7 @@ function esc(s: string): string {
 function shell(title: string, intro: string, body: string): string {
   return `
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:640px;margin:0 auto;padding:28px 20px;color:#1a1a1a">
-    <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#6b7280;letter-spacing:.08em;text-transform:uppercase">RPS Intelligence · DQF &amp; Certifications</p>
+    <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#6b7280;letter-spacing:.08em;text-transform:uppercase">RP Intelligence · DQF &amp; Certifications</p>
     <h2 style="margin:0 0 10px;font-size:20px;font-weight:700">${esc(title)}</h2>
     <p style="margin:0 0 18px;font-size:14px;color:#374151;line-height:1.6">${intro}</p>
     ${body}
@@ -188,7 +188,7 @@ export async function runComplianceCheck(admin: SupabaseClient, companyId: strin
   if (!process.env.RESEND_API_KEY) { result.failed.push('RESEND_API_KEY is not set'); return result }
 
   const resend = new Resend(process.env.RESEND_API_KEY)
-  const from = process.env.RESEND_COMPLIANCE_FROM ?? process.env.RESEND_FROM_EMAIL ?? 'RPS Intelligence <alerts@rpsmaintenance.com>'
+  const from = process.env.RESEND_COMPLIANCE_FROM ?? process.env.RESEND_FROM_EMAIL ?? 'RP Intelligence <alerts@rpsmaintenance.com>'
   const replyTo = process.env.RESEND_REPLY_TO
   const logs: { company_id: string; item_id: string | null; stage: string; expiration_date: string | null; recipient: string }[] = []
 
@@ -215,10 +215,10 @@ export async function runComplianceCheck(admin: SupabaseClient, companyId: strin
 export async function sendTestEmail(to: string): Promise<string | null> {
   if (!process.env.RESEND_API_KEY) return 'RESEND_API_KEY is not set in Vercel, so the app cannot send email yet.'
   const resend = new Resend(process.env.RESEND_API_KEY)
-  const from = process.env.RESEND_COMPLIANCE_FROM ?? process.env.RESEND_FROM_EMAIL ?? 'RPS Intelligence <alerts@rpsmaintenance.com>'
+  const from = process.env.RESEND_COMPLIANCE_FROM ?? process.env.RESEND_FROM_EMAIL ?? 'RP Intelligence <alerts@rpsmaintenance.com>'
   const { error } = await resend.emails.send({
     from, to, subject: '[RPS] Test — DQF & certification notices',
-    html: shell('Test notice', 'This is what expiry notices from RPS Intelligence look like.', table([
+    html: shell('Test notice', 'This is what expiry notices from RP Intelligence look like.', table([
       { who: 'Sample Driver', what: "Medical Examiner's Certificate - DOT Card", when: '12/01/26', status: 'expires in 30 days', tone: 'gray' },
       { who: 'Sample Tech', what: 'OPW Certification', when: '10/01/26', status: 'EXPIRED 22 days ago', tone: 'red' },
     ], true)),

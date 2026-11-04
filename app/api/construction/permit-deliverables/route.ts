@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     type,
     filename,
     storage_path: storagePath,
-    where_it_lives: whereItLives ?? (storagePath ? 'Uploaded to RPS Intelligence' : null),
+    where_it_lives: whereItLives ?? (storagePath ? 'Uploaded to RP Intelligence' : null),
     open_items: openItems,
   })
   if (insErr) {

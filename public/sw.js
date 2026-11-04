@@ -1,4 +1,4 @@
-// RPS Intelligence — Service Worker
+// RP Intelligence — Service Worker
 // Minimal service worker to enable PWA install prompt + push notifications.
 // No caching — Next.js handles caching on its own.
 
@@ -23,7 +23,7 @@ self.addEventListener('fetch', (event) => {
 
 // Show a browser notification when a push message arrives
 self.addEventListener('push', (event) => {
-  let data = { title: 'RPS Intelligence', body: 'You have a new alert.', link: '/' }
+  let data = { title: 'RP Intelligence', body: 'You have a new alert.', link: '/' }
   try { data = { ...data, ...event.data.json() } } catch {}
 
   event.waitUntil(

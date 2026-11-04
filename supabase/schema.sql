@@ -1,5 +1,5 @@
 -- ============================================================
--- RPS Intelligence (formerly RPS Maintenance & Asset Tracker) — Full Database Schema
+-- RP Intelligence (formerly RPS Maintenance & Asset Tracker) — Full Database Schema
 -- Run this entire file in the Supabase SQL Editor
 -- ============================================================
 

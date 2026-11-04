@@ -81,7 +81,7 @@ export default async function MobilePage() {
           <span className="inline-flex items-center justify-center bg-white rounded-lg p-1">
             <Image src="/logo-mark-v2.png" alt="" width={32} height={32} className="h-7 w-7" />
           </span>
-          <span className="font-semibold tracking-tight text-white/95">RPS Intelligence</span>
+          <span className="font-semibold tracking-tight text-white/95">RP Intelligence</span>
         </div>
         <p className="text-white/60 text-sm">{greeting}</p>
         <h1 className="text-2xl font-bold mt-0.5">{firstName}</h1>

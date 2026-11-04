@@ -122,7 +122,7 @@ function SumpPage({ b, sump, idx }: { b: SurveyBundle; sump: SumpRow; idx: numbe
       )}
       {sump.notes ? <View style={{ marginTop: 8 }}><Text style={s.sec}>Tech notes</Text><Text>{sump.notes}</Text></View> : null}
       <Text style={{ marginTop: 10, textAlign: 'center', fontFamily: 'Helvetica-Bold' }}>Email with pictures to techsupport@icontainment.com</Text>
-      <View style={s.foot} fixed><Text>Rappahannock Petroleum · field survey recorded in RPS Intelligence</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
+      <View style={s.foot} fixed><Text>Rappahannock Petroleum · field survey recorded in RP Intelligence</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
     </Page>
   )
 }
@@ -145,7 +145,7 @@ function PhotoPages({ b }: { b: SurveyBundle }) {
               </View>
             ))}
           </View>
-          <View style={s.foot} fixed><Text>Rappahannock Petroleum · field survey recorded in RPS Intelligence</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
+          <View style={s.foot} fixed><Text>Rappahannock Petroleum · field survey recorded in RP Intelligence</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
         </Page>
       ))}
     </>

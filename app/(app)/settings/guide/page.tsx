@@ -199,7 +199,7 @@ export default async function GuidePage() {
 
           <Step n={3} title='"Add to Home Screen"'>
             <p>Scroll down in the share sheet and tap <strong>Add to Home Screen</strong>.</p>
-            <p>Edit the name to <strong>RPS</strong> if you like, then tap <strong>Add</strong>.</p>
+            <p>Edit the name to <strong>RP Intel</strong> if you like, then tap <strong>Add</strong>.</p>
           </Step>
 
           <Step n={4} title="Open from your home screen">

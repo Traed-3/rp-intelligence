@@ -4,7 +4,7 @@
 // ============================================================
 import { CON_READ_ROLES, CON_WRITE_ROLES } from '@/lib/construction'
 
-/** Role for people (Glen Blankenship, 10/2/26) who may use Field Surveys and nothing else in RPS Intelligence. */
+/** Role for people (Glen Blankenship, 10/2/26) who may use Field Surveys and nothing else in RP Intelligence. */
 export const SURVEY_ONLY_ROLE = 'field_surveyor'
 /** Roles that can run surveys without having the Construction module (the crew's phones). */
 export const SURVEY_TECH_ROLES: readonly string[] = ['construction_tech', SURVEY_ONLY_ROLE]
