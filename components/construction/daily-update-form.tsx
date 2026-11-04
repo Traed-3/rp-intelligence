@@ -56,7 +56,7 @@ export function DailyUpdateForm({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className={lbl}>Date</label>
-          <input name="work_date" type="date" className={inp} />
+          <input name="work_date" type="date" required defaultValue={new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })} className={inp} />
         </div>
         <div>
           <label className={lbl}>Ticket / PO image</label>
