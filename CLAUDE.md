@@ -329,3 +329,18 @@ module key `compliance`; roles owner/manager/construction_manager — `lib/compl
   expired notices repeat every `overdue_repeat_days`. Employee emails + management lists + weekly roll-up via Resend.
 - Import: `node --env-file=.env.local scripts/import-smartsheet-dqf.mjs <seed.json> [--apply]` (idempotent). The seed holds
   personal data, so it is NOT in git: Work Mac copy at ~/Library/Application Support/RPS Compliance/. Sheet password/code columns deliberately NOT imported.
+- DOT audit (added 2026-11-05): `lib/compliance-audit.ts` (pure rules: required DQF item missing/expired = violation,
+  company-only items (no regulation) missing = warning; expiring, in progress, no date, on file without a stored copy,
+  pre-hire MVR / prior-employer inquiry > 30 days after hire, registry check older than the med card, annual review
+  older than the annual MVR = warning; no hire date / license # / CDL status unknown, former-driver 3-year retention,
+  people with DQF paperwork who aren't flagged DOT = info). Page `/compliance/audit`, panel on each employee file,
+  line in the weekly digest. CLI: `npx tsx --env-file=.env.local scripts/dqf-audit-report.mts [--json]`.
+  Migration `supabase/migrations/hr_dqf_audit.sql` (APPLIED 2026-11-05 via the Supabase MCP connector): adds CDL items
+  (Clearinghouse pre-employment full query, limited-query consent, random pool enrollment, ELDT) + optional Hazmat
+  Employee Training (36 mo), "how to get it" guidance in every DQF type's description, MCSA-5875 long form → optional.
+- Smartsheet attachments: `node --env-file=.env.local scripts/sync-smartsheet-dqf-files.mjs <export dir> [--apply]`
+  (dry run default; parent row id = hr_employee_items.smartsheet_row_id; same-day files merged to one PDF with
+  img2pdf + pdfunite; newest day = current document, earlier days = hr_item_history "earlier copies" (openable via
+  /api/compliance/documents/<item>?history=<id>); synced ids in <export dir>/synced.json). Export dir is outside git.
+- DDL can now be applied with the Supabase MCP connector (`apply_migration`, project zktmhxheouwbyupeizjq).
+

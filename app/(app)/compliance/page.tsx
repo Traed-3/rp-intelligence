@@ -5,7 +5,7 @@ import { loadFiles } from '@/lib/compliance-data'
 import { departmentLabel, fmtDate, CATEGORIES } from '@/lib/compliance'
 import { ClickableRow } from '@/components/clickable-row'
 import { HealthChip } from '@/components/compliance/health-chip'
-import { ShieldCheck, Truck, BadgeCheck, Settings, Grid3x3, UserPlus, AlertTriangle, Clock, FileWarning, Users } from 'lucide-react'
+import { ShieldCheck, Truck, BadgeCheck, Settings, Grid3x3, UserPlus, AlertTriangle, Clock, FileWarning, Users, ClipboardCheck } from 'lucide-react'
 
 const VIEWS = [
   { value: '',        label: 'Everyone' },
@@ -53,6 +53,7 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/compliance/audit" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-sm font-semibold text-blue-700 hover:border-blue-400"><ClipboardCheck className="w-4 h-4" />DOT file audit</Link>
           <Link href="/compliance/matrix" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-300"><Grid3x3 className="w-4 h-4" />Matrix</Link>
           <Link href="/compliance/settings" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-300"><Settings className="w-4 h-4" />Notices &amp; settings</Link>
           {me.canWrite && <Link href="/compliance/employees/new" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"><UserPlus className="w-4 h-4" />Add employee</Link>}
@@ -69,7 +70,7 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className={kpi}><p className="text-xs font-medium text-gray-500 inline-flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-red-500" />Expired</p><p className="text-2xl font-bold text-red-600 mt-1">{expired}</p></div>
         <div className={kpi}><p className="text-xs font-medium text-gray-500 inline-flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-amber-500" />Expiring ≤ {windowMax} days</p><p className="text-2xl font-bold text-amber-600 mt-1">{soon}</p></div>
-        <div className={kpi}><p className="text-xs font-medium text-gray-500 inline-flex items-center gap-1.5"><FileWarning className="w-3.5 h-3.5 text-gray-500" />Driver files incomplete</p><p className="text-2xl font-bold text-gray-900 mt-1">{incompleteDqf}<span className="text-sm font-medium text-gray-400"> / {drivers.length}</span></p></div>
+        <div className={kpi}><Link href="/compliance/audit" className="block"><p className="text-xs font-medium text-gray-500 inline-flex items-center gap-1.5"><FileWarning className="w-3.5 h-3.5 text-gray-500" />Driver files incomplete</p><p className="text-2xl font-bold text-gray-900 mt-1">{incompleteDqf}<span className="text-sm font-medium text-gray-400"> / {drivers.length}</span></p></Link></div>
         <div className={kpi}><p className="text-xs font-medium text-gray-500 inline-flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-blue-500" />Employees tracked</p><p className="text-2xl font-bold text-gray-900 mt-1">{active.length}</p></div>
       </div>
 
