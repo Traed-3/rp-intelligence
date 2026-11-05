@@ -33,7 +33,7 @@ export function NoticeSettingsForm({ settings, canWrite }: { settings: Complianc
         <div>
           <label className={lbl}>DQF / DOT card notices — days before expiry</label>
           <input name="dqf_notice_days" defaultValue={s.dqf_notice_days.join(', ')} disabled={!canWrite} className={inp} />
-          <p className={hint}>Medical (DOT physical) card, driver license, annual MVR &amp; review, Clearinghouse. e.g. 60, 30, 14, 7</p>
+          <p className={hint}>DOT medical card and the annual MVR &amp; review. e.g. 60, 30, 14, 7</p>
         </div>
         <div>
           <label className={lbl}>Certification notices — days before expiry</label>
