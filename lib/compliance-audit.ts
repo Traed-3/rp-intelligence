@@ -1,5 +1,5 @@
 /**
- * DQF Manager — DOT audit rules (49 CFR Parts 382 / 391). Pure functions over an EmployeeFile; no DB access.
+ * DQF Manager — DOT audit rules (49 CFR Part 391). RPS runs non-CDL DOT trucks only (over 10,001 lb, no CDL), so Part 382 CDL testing is not checked. Pure functions over an EmployeeFile; no DB access.
  *
  * Severity:
  *   violation — an auditor would cite this (required item missing or expired).
@@ -110,9 +110,6 @@ export function auditFile(file: EmployeeFile, today = todayET()): DriverAudit | 
   // ── Driver identity ────────────────────────────────────────────────────
   if (!e.license_number || !e.license_state) {
     add('info', 'Add license number and state', 'Needed to order MVRs and to match the medical card. Edit employee details.', null, '49 CFR 391.21(b)')
-  }
-  if (!e.is_cdl && !e.license_class) {
-    add('info', 'Confirm CDL status', 'License class is blank. If this driver holds a CDL and drives a CDL vehicle, turn on "CDL" — that adds drug & alcohol testing and Clearinghouse requirements (Part 382).', null, '49 CFR 382 / 383')
   }
 
   return summarize(file, out, 'driver')

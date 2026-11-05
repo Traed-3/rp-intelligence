@@ -17,7 +17,7 @@ function DriverCard({ a, open }: { a: DriverAudit; open: boolean }) {
         <span className="flex-1 min-w-48">
           <Link href={`/compliance/employees/${e.id}`} className="font-semibold text-gray-900 hover:text-blue-700">{e.full_name}</Link>
           <span className="block text-xs text-gray-500">
-            {[e.job_title, departmentLabel(e.department), e.hire_date ? `hired ${fmtDate(e.hire_date)}` : null, e.is_cdl ? 'CDL' : null].filter(Boolean).join(' · ')}
+            {[e.job_title, departmentLabel(e.department), e.hire_date ? `hired ${fmtDate(e.hire_date)}` : null].filter(Boolean).join(' · ')}
           </span>
         </span>
         {a.ready && a.scope === 'driver' && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-semibold bg-green-100 text-green-800 border-green-200"><CheckCircle2 className="w-3.5 h-3.5" />Audit-ready</span>}
@@ -73,7 +73,7 @@ export default async function DqfAuditPage({ searchParams }: { searchParams: Pro
         <div>
           <h1 className="inline-flex items-center gap-2.5 text-2xl font-bold text-gray-900 tracking-tight"><ClipboardCheck className="w-6 h-6 text-blue-600" />DOT file audit</h1>
           <p className="text-sm text-gray-500 mt-0.5 max-w-2xl">
-            Every DOT driver&apos;s qualification file checked against 49 CFR 391 (and Part 382 for CDL drivers) — what is missing, expired,
+            Every DOT driver&apos;s qualification file checked against 49 CFR 391 (non-CDL trucks over 10,001 lb) — what is missing, expired,
             done late, or marked on file without a copy. Each line says how to fix it. Run {fmtDate(new Date().toISOString().slice(0, 10))}.
           </p>
         </div>
@@ -113,7 +113,7 @@ export default async function DqfAuditPage({ searchParams }: { searchParams: Pro
       </>)}
 
       <p className="text-xs text-gray-400 mt-6">
-        Checks are based on 49 CFR 391.21–391.51 (driver qualification), 395.8(j)(2), and Part 382 (CDL drug &amp; alcohol, Clearinghouse).
+        Checks are based on 49 CFR 391.21–391.51 (driver qualification) and 395.8(j)(2). RPS does not employ CDL drivers, so Part 382 drug &amp; alcohol testing / Clearinghouse items are retired.
         This is a working tool, not legal advice — the FMCSA regulations are the final word.
       </p>
     </div>

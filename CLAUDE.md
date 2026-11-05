@@ -343,4 +343,7 @@ module key `compliance`; roles owner/manager/construction_manager — `lib/compl
   img2pdf + pdfunite; newest day = current document, earlier days = hr_item_history "earlier copies" (openable via
   /api/compliance/documents/<item>?history=<id>); synced ids in <export dir>/synced.json). Export dir is outside git.
 - DDL can now be applied with the Supabase MCP connector (`apply_migration`, project zktmhxheouwbyupeizjq).
+- 2026-11-05: department `parts` (Parts Department) added (migration hr_parts_department.sql, APPLIED). RPS has NO CDL drivers.
+  Its DOT drivers run non-CDL trucks over 10,001 lb, so every applies_to='cdl' requirement is retired (is_active=false) and the audit
+  no longer asks about CDL status. Don't re-add Part 382 / Clearinghouse items.
 
