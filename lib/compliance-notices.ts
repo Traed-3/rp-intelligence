@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { departmentLabel, fmtDate, noticeDaysFor, noticeStage, stageLabel, todayET, daysBetween } from '@/lib/compliance'
 import { loadFiles, type EmployeeFile, type Row } from '@/lib/compliance-data'
+import { auditAll } from '@/lib/compliance-audit'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://rps-maintenance.vercel.app'
 
@@ -158,11 +159,16 @@ export async function planEmails(admin: SupabaseClient, companyId: string, opts:
         if (gaps.length) missingDqf.push(`<li style="margin:0 0 6px"><b>${esc(f.employee.full_name)}</b> <span style="color:#6b7280">(${esc(departmentLabel(f.employee.department))})</span> — ${gaps.map(g => esc(g.type.name)).join(', ')}</li>`)
       }
       expiring.sort((a, b) => a.when.localeCompare(b.when))
+      const audits = auditAll(files).filter(a => a.scope === 'driver')
+      const auditLine = audits.length
+        ? `<p style="font-size:14px;margin:18px 0 0"><b>DOT file audit:</b> ${audits.filter(a => a.ready).length} of ${audits.length} driver files audit-ready · ${audits.reduce((n, a) => n + a.violations, 0)} violations · ${audits.reduce((n, a) => n + a.warnings, 0)} items to fix. <a href="${APP_URL}/compliance/audit">See the audit →</a></p>`
+        : ''
       const html = shell(
         'Weekly DQF & certification roll-up',
         `${files.length} active employees tracked · ${expiring.filter(e => e.tone === 'red').length} expired · ${expiring.filter(e => e.tone !== 'red').length} expiring within ${windowMax} days · ${missingDqf.length} driver file${missingDqf.length === 1 ? '' : 's'} incomplete.`,
         (expiring.length ? `<h3 style="font-size:15px;margin:8px 0">Expired / expiring</h3>${table(expiring, true)}` : '<p>Nothing expired or expiring. 👍</p>') +
         (missingDqf.length ? `<h3 style="font-size:15px;margin:22px 0 8px">Driver files missing paperwork</h3><ul style="padding-left:18px;font-size:14px;line-height:1.5">${missingDqf.join('')}</ul>` : '') +
+        auditLine +
         `<a href="${APP_URL}/compliance" style="display:inline-block;margin-top:20px;padding:10px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600">Open the tracker →</a>`,
       )
       for (const to of digestTo) emails.push({ to, kind: 'digest', notices: [], subject: `Weekly DQF & certification roll-up — ${fmtDate(today)}`, html })

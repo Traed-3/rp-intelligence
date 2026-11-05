@@ -4,13 +4,17 @@ import { complianceCaller } from '@/lib/compliance-guard'
 import { HR_BUCKET } from '@/lib/compliance'
 
 // Short-lived signed URL for a scanned card / DQF document (private bucket), after checking the caller's access.
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const me = await complianceCaller()
   if (!me) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const admin = createAdminClient()
-  const { data: item } = await admin.from('hr_employee_items').select('document_path, company_id').eq('id', id).single()
+  // ?history=<id> opens an earlier copy of this item (from hr_item_history).
+  const historyId = request.nextUrl.searchParams.get('history')
+  const { data: item } = historyId
+    ? await admin.from('hr_item_history').select('document_path, company_id').eq('id', historyId).eq('item_id', id).single()
+    : await admin.from('hr_employee_items').select('document_path, company_id').eq('id', id).single()
   if (!item || item.company_id !== me.company_id || !item.document_path) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }

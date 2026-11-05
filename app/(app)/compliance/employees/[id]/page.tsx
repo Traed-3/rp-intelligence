@@ -8,7 +8,8 @@ import { EmployeeForm } from '@/components/compliance/employee-form'
 import { ItemRow } from '@/components/compliance/item-row'
 import { HealthChip } from '@/components/compliance/health-chip'
 import { updateEmployee, addRequirement } from '../../actions'
-import { Truck, Mail, Phone, IdCard } from 'lucide-react'
+import { auditFile, SEVERITY_STYLE } from '@/lib/compliance-audit'
+import { Truck, Mail, Phone, IdCard, ClipboardCheck, Paperclip } from 'lucide-react'
 
 export default async function EmployeeFilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -20,9 +21,10 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
   const e = file.employee
 
   const { data: history } = await admin.from('hr_item_history')
-    .select('id, item_id, issued_date, expiration_date, cert_number, replaced_at, hr_employee_items!inner(employee_id, hr_requirement_types(name))')
-    .eq('hr_employee_items.employee_id', id).order('replaced_at', { ascending: false }).limit(30)
+    .select('id, item_id, issued_date, expiration_date, cert_number, replaced_at, document_path, document_name, hr_employee_items!inner(employee_id, hr_requirement_types(name))')
+    .eq('hr_employee_items.employee_id', id).order('replaced_at', { ascending: false }).limit(200)
 
+  const audit = auditFile(file)
   const present = new Set(file.rows.map(r => r.type.id))
   const addable = types.filter(t => t.is_active && !present.has(t.id))
 
@@ -46,6 +48,29 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
         </div>
         <HealthChip health={file.worst} />
       </div>
+
+      {audit && audit.findings.length > 0 && (
+        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+          <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold text-gray-900 inline-flex items-center gap-2"><ClipboardCheck className="w-4 h-4 text-blue-600" />DOT audit</h2>
+            <span className="text-xs text-gray-400">{audit.violations} violation{audit.violations === 1 ? '' : 's'} · {audit.warnings} to fix · <Link href="/compliance/audit" className="hover:underline">all drivers</Link></span>
+          </div>
+          <ul className="divide-y divide-gray-50">
+            {audit.findings.map((f, i) => (
+              <li key={i} className="px-4 py-2 flex gap-3">
+                <span className={`shrink-0 h-fit mt-0.5 px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase ${SEVERITY_STYLE[f.severity].cls}`}>{SEVERITY_STYLE[f.severity].label}</span>
+                <div className="min-w-0">
+                  <p className="text-sm text-gray-900">{f.title}{f.rule && <span className="ml-2 text-xs text-gray-400">{f.rule}</span>}</p>
+                  {f.detail && <p className="text-xs text-gray-500">{f.detail}</p>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {audit?.ready && audit.scope === 'driver' && (
+        <p className="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800 font-medium">DOT file is audit-ready — every required item is on file, current, and has a copy attached.</p>
+      )}
 
       {CATEGORIES.map(cat => {
         const rows = file.rows.filter(r => r.type.category === cat.value)
@@ -88,7 +113,7 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
 
       {!!history?.length && (
         <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
-          <h2 className="px-4 py-3 border-b border-gray-100 font-semibold text-gray-900">Renewal history</h2>
+          <h2 className="px-4 py-3 border-b border-gray-100 font-semibold text-gray-900">Earlier copies &amp; renewal history</h2>
           <table className="w-full text-sm">
             <tbody className="divide-y divide-gray-50">
               {history.map(h => {
@@ -97,6 +122,7 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
                   <tr key={h.id}>
                     <td className="px-4 py-2 text-gray-800">{rel?.hr_requirement_types?.name}</td>
                     <td className="px-4 py-2 text-gray-500 text-xs">issued {fmtDate(h.issued_date)} · expired {fmtDate(h.expiration_date)}{h.cert_number ? ` · #${h.cert_number}` : ''}</td>
+                    <td className="px-4 py-2 text-xs">{h.document_path && <a href={`/api/compliance/documents/${h.item_id}?history=${h.id}`} target="_blank" className="inline-flex items-center gap-1 text-blue-600 hover:underline"><Paperclip className="w-3 h-3" />{h.document_name ?? 'file'}</a>}</td>
                     <td className="px-4 py-2 text-gray-400 text-xs text-right">replaced {fmtDate(String(h.replaced_at).slice(0, 10))}</td>
                   </tr>
                 )
