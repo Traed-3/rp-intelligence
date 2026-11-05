@@ -158,6 +158,7 @@ export function RequirementTypeForm({ type, canWrite, onDone }: { type?: Require
       <input type="hidden" name="description" value={t?.description ?? ''} />
       <div className="col-span-2 md:col-span-6 flex flex-wrap items-center gap-4">
         <label className="inline-flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="expires" defaultChecked={t?.expires ?? true} disabled={!canWrite} className="w-4 h-4" />Expires</label>
+        <label className="inline-flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="notify" defaultChecked={t?.notify ?? t?.category === 'dqf'} disabled={!canWrite} className="w-4 h-4" />Send expiry emails</label>
         {t && <label className="inline-flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="retired" defaultChecked={!t.is_active} disabled={!canWrite} className="w-4 h-4" />Retired (hide)</label>}
         {canWrite && <button disabled={pending} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50">{pending ? 'Saving…' : t ? 'Save' : 'Add requirement'}</button>}
         <Status s={state} />
@@ -180,7 +181,7 @@ export function RequirementTypeList({ types, canWrite }: { types: RequirementTyp
               ) : (
                 <button type="button" onClick={() => canWrite && setEditing(t.id)} className="w-full text-left flex flex-wrap items-center gap-x-3 gap-y-0.5">
                   <span className="text-sm font-medium text-gray-900">{t.name}</span>
-                  <span className="text-xs text-gray-500">{[t.issuer, APPLIES_TO.find(a => a.value === t.applies_to)?.label, t.expires ? (t.renewal_months ? `valid ${t.renewal_months} mo` : 'expires') : 'no expiry', t.notice_days?.length ? `notices ${t.notice_days.join('/')}d` : null, t.is_active ? null : 'retired'].filter(Boolean).join(' · ')}</span>
+                  <span className="text-xs text-gray-500">{[t.issuer, APPLIES_TO.find(a => a.value === t.applies_to)?.label, t.expires ? (t.renewal_months ? `valid ${t.renewal_months} mo` : 'expires') : 'no expiry', t.notice_days?.length ? `notices ${t.notice_days.join('/')}d` : null, t.expires && !t.notify ? 'no emails' : null, t.is_active ? null : 'retired'].filter(Boolean).join(' · ')}</span>
                   {canWrite && <span className="ml-auto text-xs text-blue-600">Edit</span>}
                 </button>
               )}

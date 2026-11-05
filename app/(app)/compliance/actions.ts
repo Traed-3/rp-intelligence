@@ -223,6 +223,7 @@ export async function saveRequirementType(_prev: ActionState, fd: FormData): Pro
     issuer: str(fd, 'issuer'),
     applies_to: ['dot', 'cdl', 'all', 'optional'].includes(applies) ? applies : 'optional',
     expires: bool(fd, 'expires'),
+    notify: bool(fd, 'notify'),
     renewal_months: Number.isFinite(months) && months > 0 ? months : null,
     notice_days: notice.length ? notice : null,
     regulation: str(fd, 'regulation'),

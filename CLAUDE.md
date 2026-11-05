@@ -346,4 +346,10 @@ module key `compliance`; roles owner/manager/construction_manager — `lib/compl
 - 2026-11-05: department `parts` (Parts Department) added (migration hr_parts_department.sql, APPLIED). RPS has NO CDL drivers.
   Its DOT drivers run non-CDL trucks over 10,001 lb, so every applies_to='cdl' requirement is retired (is_active=false) and the audit
   no longer asks about CDL status. Don't re-add Part 382 / Clearinghouse items.
+- 2026-11-05 "minimum DQF" (Trae): required DOT items = ONLY the 49 CFR 391.51(b) non-CDL set: application, pre-hire MVR,
+  prior-employer safety history, road test, medical card, National Registry check (no expiry; must be newer than the
+  med card), annual MVR, annual review. License copy, license-compliance cert, 7-day hours statement, driver record card
+  and D&A policy ack are optional. `hr_requirement_types.notify` (migration hr_dqf_minimum.sql, APPLIED): DOT items email,
+  certifications/personnel do NOT unless that type's "Send expiry emails" is ticked in Settings. The dashboard splits
+  "DOT driver files — must stay current" (red) from "Certifications — for reference".
 

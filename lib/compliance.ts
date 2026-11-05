@@ -67,6 +67,7 @@ export type RequirementType = {
   description: string | null
   sort_order: number
   is_active: boolean
+  notify: boolean          // send automatic expiry emails for this type (DOT items yes; certifications only if switched on)
 }
 
 export type Employee = {

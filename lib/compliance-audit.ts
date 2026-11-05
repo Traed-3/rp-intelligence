@@ -107,11 +107,6 @@ export function auditFile(file: EmployeeFile, today = todayET()): DriverAudit | 
     add('warning', 'Annual review is older than the latest MVR', `The latest annual MVR is dated ${fmtDate(issued(mvr))} but the last review was ${fmtDate(issued(review))}. Review the new MVR and sign/date the review.`, review)
   }
 
-  // ── Driver identity ────────────────────────────────────────────────────
-  if (!e.license_number || !e.license_state) {
-    add('info', 'Add license number and state', 'Needed to order MVRs and to match the medical card. Edit employee details.', null, '49 CFR 391.21(b)')
-  }
-
   return summarize(file, out, 'driver')
 }
 
