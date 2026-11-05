@@ -26,6 +26,13 @@ const dir = process.argv.slice(2).find(a => !a.startsWith('--'))
 if (!dir) { console.error('Usage: sync-smartsheet-dqf-files.mjs <export dir> [--apply]'); process.exit(1) }
 const COMPANY_ID = process.env.RPS_COMPANY_ID ?? 'f3d06874-2e21-40f3-a7d0-a1d86bad02e7'
 const BUCKET = 'hr-compliance'
+// A failed upload can poison Node's shared connection pool (every later request fails instantly) — reset it on retry.
+let resetPool = () => {}
+try {
+  const { Agent, setGlobalDispatcher } = await import('undici')
+  resetPool = () => setGlobalDispatcher(new Agent({ headersTimeout: 60_000, bodyTimeout: 300_000 }))
+  resetPool()
+} catch { /* undici not installed: retries still back off */ }
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
 
 const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')).filter(m => m.ok !== false && m.local_path)
@@ -34,9 +41,50 @@ const synced = existsSync(syncedPath) ? JSON.parse(readFileSync(syncedPath, 'utf
 
 const { data: items, error } = await admin.from('hr_employee_items')
   .select('id, employee_id, type_id, status, issued_date, expiration_date, cert_number, document_path, document_name, smartsheet_row_id, updated_at, hr_employees(full_name), hr_requirement_types(name)')
-  .eq('company_id', COMPANY_ID).not('smartsheet_row_id', 'is', null)
+  .eq('company_id', COMPANY_ID)
 if (error) throw error
-const itemByRow = new Map(items.map(i => [String(i.smartsheet_row_id), i]))
+const itemById = new Map(items.map(i => [i.id, i]))
+const itemByRow = new Map(items.filter(i => i.smartsheet_row_id).map(i => [String(i.smartsheet_row_id), i]))
+// row_map.json from sync-smartsheet-dqf-rows.mjs: older duplicate rows → item, and "emp:<row>" → employee id.
+const rowMap = existsSync(join(dir, 'row_map.json')) ? JSON.parse(readFileSync(join(dir, 'row_map.json'), 'utf8')) : {}
+const { data: typeRows } = await admin.from('hr_requirement_types').select('id, name').eq('company_id', COMPANY_ID)
+const typeIdByName = new Map(typeRows.map(t => [t.name, t.id]))
+// Files attached to an EMPLOYEE row (not a requirement row): file by what the file name says, when it is clear.
+const EMPLOYEE_FILE_HINTS = [
+  [/medical verification|national registry/i, 'Medical Examiner National Registry Verification'],
+  [/request for check of driving record/i, 'Request for Check of Driving Record (pre-hire MVR)'],
+  [/\bw-?4\b/i, 'W-4'],
+  [/on duty hours/i, 'Drivers Statement of On-Duty Hours'],
+  [/medical cert|dot card|physical/i, "Medical Examiner's Certificate - DOT Card"],
+  [/drivers? licen[sc]e/i, 'Driver License'],
+  [/drivers? app/i, "Driver's Application for Employment"],
+  [/cert(ification)?\.? of violations/i, 'Certification of Violations (Not required after 5/9/2022)'],
+  [/compliance with driver li[sc]en[sc]e/i, 'Cert. of Compliance with Driver License Req.'],
+  [/\bapplication\b/i, 'Employment Application'],
+]
+// <export dir>/overrides.json (optional): files attached to the wrong person's row → { attachmentId: { employee, type } }.
+const overrides = existsSync(join(dir, 'overrides.json')) ? JSON.parse(readFileSync(join(dir, 'overrides.json'), 'utf8')) : {}
+const ignoreRows = new Set((overrides.rows_ignore ?? []).map(String))
+const { data: empRows } = await admin.from('hr_employees').select('id, full_name').eq('company_id', COMPANY_ID)
+function itemFor(empId, typeId) {
+  return items.find(i => i.employee_id === empId && i.type_id === typeId) ?? { _create: true, employee_id: empId, type_id: typeId, id: `new:${empId}:${typeId}`, status: 'missing' }
+}
+function resolveItem(m) {
+  const o = overrides.attachments?.[String(m.attachment_id)]
+  if (o) {
+    const emp = empRows.find(e => e.full_name === o.employee), typeId = typeIdByName.get(o.type)
+    return emp && typeId ? itemFor(emp.id, typeId) : null
+  }
+  const row = String(m.parent_id)
+  if (ignoreRows.has(row)) return null
+  const direct = itemByRow.get(row) ?? itemById.get(rowMap[row])
+  if (direct) return direct
+  const empId = rowMap[`emp:${row}`]
+  const hint = empId && EMPLOYEE_FILE_HINTS.find(([re]) => re.test(m.name))
+  if (!hint) return null
+  const typeId = typeIdByName.get(hint[1])
+  return items.find(i => i.employee_id === empId && i.type_id === typeId) ?? { _create: true, employee_id: empId, type_id: typeId, id: `new:${empId}:${typeId}`, status: 'missing' }
+}
 
 const etDay = iso => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(iso))
 const safe = s => s.replace(/[^\w.\-]+/g, '_').slice(-80) || 'document'
@@ -61,29 +109,48 @@ function mergeGroup(files) {
 
 async function upload(item, doc, stamp) {
   const path = `${COMPANY_ID}/${item.employee_id}/${item.type_id}/${stamp}-${safe(doc.name)}`
-  const { error } = await admin.storage.from(BUCKET).upload(path, readFileSync(doc.path), { contentType: doc.mime, upsert: true })
-  if (error) throw new Error(`upload ${path}: ${error.message}`)
-  return path
+  const body = readFileSync(doc.path)
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const { error } = await admin.storage.from(BUCKET).upload(path, body, { contentType: doc.mime, upsert: true })
+      if (!error) return path
+      if (attempt >= 4) throw new Error(error.message)
+    } catch (e) {
+      console.error("  retry", attempt, e.message, e.cause?.code ?? e.cause?.message ?? ""); if (attempt >= 4) throw new Error(`upload ${path}: ${e.message}`)
+    }
+    resetPool()
+    await new Promise(r => setTimeout(r, 2000 * attempt))   // transient network failures: back off and retry
+  }
 }
 
-const byRow = new Map()
+// Group every not-yet-synced file under the record it belongs to (several Smartsheet rows can feed one record).
+const byItem = new Map()
+let unmatched = []
 for (const m of manifest) {
   if (synced[m.attachment_id]) continue
-  if (!byRow.has(String(m.parent_id))) byRow.set(String(m.parent_id), [])
-  byRow.get(String(m.parent_id)).push({ ...m, abs: m.local_path.startsWith('/') ? m.local_path : join(dir, m.local_path) })
+  const item = resolveItem(m)
+  if (!item) { unmatched.push({ row: String(m.parent_id), type: m.parent_type, name: m.name }); continue }
+  if (!byItem.has(item.id)) byItem.set(item.id, { item, files: [] })
+  byItem.get(item.id).files.push({ ...m, abs: m.local_path.startsWith('/') ? m.local_path : join(dir, m.local_path) })
 }
 
-let linked = 0, history = 0, unmatched = []
-for (const [rowId, files] of byRow) {
-  const item = itemByRow.get(rowId)
-  if (!item) { unmatched.push(...files.map(f => ({ row: rowId, type: f.parent_type, name: f.name }))); continue }
+let linked = 0, history = 0
+for (const { item: found, files } of byItem.values()) {
+  let item = found
   const groups = [...files.reduce((g, f) => g.set(etDay(f.created_at), [...(g.get(etDay(f.created_at)) ?? []), f]), new Map()).entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
   const who = `${item.hr_employees?.full_name} — ${item.hr_requirement_types?.name}`
-  // An existing scan uploaded in the app after the newest Smartsheet file stays current.
-  const appIsNewer = item.document_path && !item.document_path.includes('/smartsheet-') && item.updated_at.slice(0, 10) >= groups.at(-1)[0]
+  // The record's current scan stays current when it is newer than everything being added
+  // (a Smartsheet file synced earlier: its day is in the path; an app upload: its last update).
+  const curDay = item.document_path ? (item.document_path.match(/\/smartsheet-(\d{4}-\d{2}-\d{2})-/)?.[1] ?? item.updated_at.slice(0, 10)) : null
+  const appIsNewer = !!curDay && curDay >= groups.at(-1)[0]
   console.log(`${who}: ${files.length} file(s) in ${groups.length} day group(s)${appIsNewer ? ' (app scan stays current)' : ''}`)
   if (!APPLY) { linked += appIsNewer ? 0 : 1; history += groups.length - (appIsNewer ? 0 : 1); continue }
+  if (item._create) {
+    const { data, error } = await admin.from('hr_employee_items').insert({ company_id: COMPANY_ID, employee_id: item.employee_id, type_id: item.type_id, status: 'on_file' }).select('*').single()
+    if (error) throw error
+    item = data
+  }
 
   for (let gi = 0; gi < groups.length; gi++) {
     const [day, gFiles] = groups[gi]
