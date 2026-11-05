@@ -55,7 +55,7 @@ const navItems: NavItem[] = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
-export default function AppNav({ email, role, userId, blockedModules }: { email: string; role?: string; userId?: string; blockedModules?: string[] }) {
+export default function AppNav({ email, role, userId, blockedModules, complianceGranted }: { email: string; role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const isAdmin = ['owner', 'manager'].includes(role ?? '')
@@ -73,7 +73,7 @@ export default function AppNav({ email, role, userId, blockedModules }: { email:
   ].filter(i =>
     (canSeeConstruction || !('construction' in i)) &&
     (canSeeBilling || !('billing' in i)) &&
-    (canReadCompliance({ id: userId, role }) || !('compliance' in i)) &&
+    (canReadCompliance({ id: userId, role }, !!complianceGranted) || !('compliance' in i)) &&
     !(i.module && blocked.has(i.module))
   )
 

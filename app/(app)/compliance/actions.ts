@@ -254,3 +254,13 @@ export async function sendTest(_prev: ActionState, fd: FormData): Promise<Action
   const err = await sendTestEmail(to)
   return err ? { error: err } : { ok: true, message: `Test sent to ${to}.` }
 }
+
+/** DQF settings → "Who else can use DQF & Certs": people (any role) with full DQF access. Owners/managers only. */
+export async function saveComplianceAccess(fd: FormData): Promise<void> {
+  const me = await complianceCaller(true)
+  if (!me || !['owner', 'manager'].includes(me.role)) return
+  const ids = fd.getAll('profile_id').map(String).filter(v => /^[0-9a-f-]{36}$/i.test(v))
+  const admin = createAdminClient()
+  await admin.from('hr_compliance_settings').update({ access_profile_ids: ids, updated_by: me.id, updated_at: new Date().toISOString() }).eq('company_id', me.company_id)
+  revalidatePath('/compliance/settings')
+}

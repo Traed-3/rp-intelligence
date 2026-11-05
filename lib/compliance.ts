@@ -9,8 +9,9 @@ export const COMPLIANCE_READ_ROLES = ['owner', 'manager', 'construction_manager'
 export const COMPLIANCE_WRITE_ROLES = ['owner', 'manager', 'construction_manager']
 
 type GateProfile = { id?: string | null; role?: string | null } | null | undefined
-export const canReadCompliance = (p: GateProfile) => !!p?.id && COMPLIANCE_READ_ROLES.includes(p.role ?? '')
-export const canWriteCompliance = (p: GateProfile) => !!p?.id && COMPLIANCE_WRITE_ROLES.includes(p.role ?? '')
+/** `granted` = the person is on the DQF settings "Who else can use DQF & Certs" list (full access, any role). */
+export const canReadCompliance = (p: GateProfile, granted = false) => !!p?.id && (granted || COMPLIANCE_READ_ROLES.includes(p.role ?? ''))
+export const canWriteCompliance = (p: GateProfile, granted = false) => !!p?.id && (granted || COMPLIANCE_WRITE_ROLES.includes(p.role ?? ''))
 
 export const HR_BUCKET = 'hr-compliance'
 
@@ -117,6 +118,7 @@ export type ComplianceSettings = {
   cert_management_emails: string[]
   weekly_digest: boolean
   digest_weekday: number
+  access_profile_ids: string[]
 }
 
 /** Does this requirement belong in this employee's file even if nobody added it by hand? */

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import AppNav from '@/components/app-nav'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { AskRps } from '@/components/assistant/ask-rps'
+import { hasComplianceGrant } from '@/lib/compliance-guard'
 import { isSurveyOnly, DEFAULT_NEW_USER_ROLE, SURVEY_ONLY_HOME } from '@/lib/field-surveys'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -59,10 +60,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const { data: blocks } = await admin.from('profile_module_blocks').select('module').eq('profile_id', user.id)
   const blockedModules = (blocks ?? []).map(b => b.module)
+  const complianceGranted = await hasComplianceGrant(admin, profile?.company_id, user.id)
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <AppNav email={user.email ?? ''} role={profile?.role ?? DEFAULT_NEW_USER_ROLE} userId={user.id} blockedModules={blockedModules} />
+      <AppNav email={user.email ?? ''} role={profile?.role ?? DEFAULT_NEW_USER_ROLE} userId={user.id} blockedModules={blockedModules} complianceGranted={complianceGranted} />
 
       {/* Notification bell — top right on desktop */}
       {!surveyOnly && <div className="fixed top-3 right-4 z-20 hidden md:block">
