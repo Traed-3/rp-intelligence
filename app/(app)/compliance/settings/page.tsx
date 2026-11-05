@@ -3,17 +3,24 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCompliance } from '@/lib/compliance-guard'
 import { loadSettings, loadTypes } from '@/lib/compliance-data'
 import { fmtDate } from '@/lib/compliance'
+import { saveComplianceAccess } from '../actions'
+import { COMPLIANCE_READ_ROLES } from '@/lib/compliance'
 import { NoticeSettingsForm, PreviewAndTest, RequirementTypeForm, RequirementTypeList } from '@/components/compliance/settings-forms'
 
 export default async function ComplianceSettingsPage() {
   const me = await requireCompliance()
   const admin = createAdminClient()
-  const [settings, types, { data: log }] = await Promise.all([
+  const [settings, types, { data: log }, { data: people }] = await Promise.all([
     loadSettings(admin, me.company_id),
     loadTypes(admin, me.company_id, true),
     admin.from('hr_notice_log').select('id, stage, recipient, sent_at, expiration_date, hr_employee_items(hr_employees(full_name), hr_requirement_types(name))')
       .eq('company_id', me.company_id).order('sent_at', { ascending: false }).limit(25),
+    admin.from('profiles').select('id, full_name, email, role, is_active').eq('company_id', me.company_id).order('full_name'),
   ])
+  const canManageAccess = ['owner', 'manager'].includes(me.role)
+  const granted = new Set(settings.access_profile_ids ?? [])
+  const byRole = (people ?? []).filter(p => p.is_active !== false && COMPLIANCE_READ_ROLES.includes(p.role))
+  const others = (people ?? []).filter(p => p.is_active !== false && !COMPLIANCE_READ_ROLES.includes(p.role))
   const card = 'bg-white rounded-2xl border border-gray-200 shadow-sm mb-6'
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -23,6 +30,23 @@ export default async function ComplianceSettingsPage() {
       <section className={`${card} p-5`}>
         <h2 className="font-semibold text-gray-900 mb-4">Expiry notices</h2>
         <NoticeSettingsForm settings={settings} canWrite={me.canWrite} />
+      </section>
+
+      <section className={`${card} p-5`}>
+        <h2 className="font-semibold text-gray-900">Who else can use DQF &amp; Certs</h2>
+        <p className="text-xs text-gray-500 mt-0.5 mb-3">
+          Owners, managers and construction managers always have it ({byRole.map(p => p.full_name ?? p.email).join(', ') || 'none'}).
+          Tick anyone else who keeps the driver files — they get full DQF &amp; Certs access without changing their role for the rest of the app.
+        </p>
+        <form action={saveComplianceAccess} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1.5">
+          {others.map(p => (
+            <label key={p.id} className="inline-flex items-center gap-2 text-sm text-gray-800">
+              <input type="checkbox" name="profile_id" value={p.id} defaultChecked={granted.has(p.id)} disabled={!canManageAccess} className="w-4 h-4" />
+              <span>{p.full_name ?? p.email} <span className="text-xs text-gray-400">({p.role})</span></span>
+            </label>
+          ))}
+          {canManageAccess && <div className="sm:col-span-2 lg:col-span-3 pt-2"><button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">Save access</button></div>}
+        </form>
       </section>
 
       <section className={`${card} p-5`}>

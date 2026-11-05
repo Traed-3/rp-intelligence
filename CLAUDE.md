@@ -352,4 +352,8 @@ module key `compliance`; roles owner/manager/construction_manager — `lib/compl
   and D&A policy ack are optional. `hr_requirement_types.notify` (migration hr_dqf_minimum.sql, APPLIED): DOT items email,
   certifications/personnel do NOT unless that type's "Send expiry emails" is ticked in Settings. The dashboard splits
   "DOT driver files — must stay current" (red) from "Certifications — for reference".
+- 2026-11-05: per-person DQF access. `hr_compliance_settings.access_profile_ids` (migration hr_compliance_access.sql, APPLIED)
+  lists people of ANY role with full DQF & Certs access (`hasComplianceGrant` in lib/compliance-guard.ts; nav gets
+  `complianceGranted` from the (app) layout). Edited in DQF → Notices & settings → "Who else can use DQF & Certs" (owners/managers).
+  Peggy Wilmoth (role viewer) is on it.
 
