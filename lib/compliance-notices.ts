@@ -64,6 +64,7 @@ export async function findDueNotices(admin: SupabaseClient, companyId: string) {
     for (const row of file.rows) {
       if (!row.type.expires || !row.exp || row.daysLeft == null || !row.item) continue
       if (row.item.status === 'not_required') continue
+      if (row.type.notify === false) continue   // tracked on the dashboard only, no emails
       const stage = noticeStage(row.daysLeft, noticeDaysFor(row.type, settings))
       if (stage) candidates.push({ file, row, stage })
     }
@@ -149,8 +150,10 @@ export async function planEmails(admin: SupabaseClient, companyId: string, opts:
       const windowMax = Math.max(...settings.dqf_notice_days, ...settings.cert_notice_days, 0)
       const expiring: { who: string; what: string; when: string; status: string; tone: 'red' | 'amber' | 'gray' }[] = []
       const missingDqf: string[] = []
+      let quietExpired = 0
       for (const f of files) {
         for (const r of f.rows) {
+          if (r.type.notify === false) { if (r.health === 'expired') quietExpired++; continue }
           if ((r.health === 'expired' || r.health === 'due_soon') && r.daysLeft != null) {
             expiring.push({ who: f.employee.full_name, what: r.type.name, when: fmtDate(r.exp), status: stageLabel(r.health === 'expired' ? 'expired' : String(windowMax), r.daysLeft), tone: r.health === 'expired' ? 'red' : r.daysLeft <= 14 ? 'amber' : 'gray' })
           }
@@ -169,6 +172,7 @@ export async function planEmails(admin: SupabaseClient, companyId: string, opts:
         (expiring.length ? `<h3 style="font-size:15px;margin:8px 0">Expired / expiring</h3>${table(expiring, true)}` : '<p>Nothing expired or expiring. 👍</p>') +
         (missingDqf.length ? `<h3 style="font-size:15px;margin:22px 0 8px">Driver files missing paperwork</h3><ul style="padding-left:18px;font-size:14px;line-height:1.5">${missingDqf.join('')}</ul>` : '') +
         auditLine +
+        (quietExpired ? `<p style="font-size:13px;color:#6b7280;margin:14px 0 0">${quietExpired} certification${quietExpired === 1 ? ' is' : 's are'} expired with notices turned off — listed on the tracker, no action emailed.</p>` : '') +
         `<a href="${APP_URL}/compliance" style="display:inline-block;margin-top:20px;padding:10px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600">Open the tracker →</a>`,
       )
       for (const to of digestTo) emails.push({ to, kind: 'digest', notices: [], subject: `Weekly DQF & certification roll-up — ${fmtDate(today)}`, html })
