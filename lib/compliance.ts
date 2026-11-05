@@ -18,6 +18,7 @@ export const DEPARTMENTS = [
   { value: 'construction', label: 'Construction' },
   { value: 'service',      label: 'Service' },
   { value: 'mechanics',    label: 'Mechanics / Warehouse' },
+  { value: 'parts',        label: 'Parts Department' },
   { value: 'office',       label: 'Office' },
   { value: 'management',   label: 'Management' },
 ] as const

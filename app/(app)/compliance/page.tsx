@@ -13,6 +13,7 @@ const VIEWS = [
   { value: 'construction', label: 'Construction' },
   { value: 'service', label: 'Service' },
   { value: 'mechanics', label: 'Mechanics' },
+  { value: 'parts', label: 'Parts' },
   { value: 'office', label: 'Office' },
   { value: 'inactive', label: 'Former employees' },
 ]
@@ -27,7 +28,7 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
   const view = sp.view ?? ''
   const q = (sp.q ?? '').trim().toLowerCase()
   const files = (view === 'inactive' ? all.filter(f => !f.employee.is_active) : active)
-    .filter(f => view === 'drivers' ? f.employee.is_dot_driver : ['construction', 'service', 'mechanics', 'office'].includes(view) ? f.employee.department === view : true)
+    .filter(f => view === 'drivers' ? f.employee.is_dot_driver : ['construction', 'service', 'mechanics', 'parts', 'office'].includes(view) ? f.employee.department === view : true)
     .filter(f => !q || f.employee.full_name.toLowerCase().includes(q))
 
   // Attention list = every expired / expiring record across active employees.
