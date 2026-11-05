@@ -192,7 +192,6 @@ export default async function CompanyDashboardPage({
             title="Construction"
             icon={HardHat}
             accent="bg-amber-100 text-amber-700"
-            badge="Currently being built"
             figures={[
               { label: 'Active Jobs', value: conJobsActive },
               { label: 'Docs to Review', value: conReviewCount, alert: !!conReviewCount },
