@@ -30,7 +30,7 @@ export default async function CardAuditPage({
   const viewer = await cardAuditViewer()
   if (!viewer) redirect('/login')
   if (!viewer.allowed) {
-    return <div className="p-6 max-w-3xl mx-auto text-sm text-gray-600">Card audit is limited to owners, managers and the office.</div>
+    return <div className="p-6 max-w-3xl mx-auto text-sm text-gray-600">Card audit is limited to owners, managers and office staff.</div>
   }
 
   const { range, rows, methods, code } = await loadCardAudit(viewer.company_id, sp.card ?? 'TEC', sp.month)
