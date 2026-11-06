@@ -273,13 +273,13 @@ async function buildTicketNumber(
   const m    = date.getMonth() + 1
   const d    = date.getDate()
   const y    = date.getFullYear().toString().slice(-2)
-  const base = `${m}${d}${y}${unitNumber}`
-
+  // Every ticket from that day — generateTicketNumber decides the exact base (it adds a
+  // dash for units like "Shop Work"), so the clash check must see all of them.
   const { data: existing } = await admin
     .from('repair_tickets')
     .select('ticket_number')
     .eq('company_id', COMPANY_ID)
-    .or(`ticket_number.eq.${base},ticket_number.like.${base}[A-Z]`)
+    .like('ticket_number', `${m}${d}${y}%`)
 
   const existingNums = (existing ?? []).map((t: any) => t.ticket_number)
   return generateTicketNumber(date, unitNumber, existingNums)
@@ -915,7 +915,7 @@ async function processThread(
   }
 
   const ticketNumber = await buildTicketNumber(admin, msgDate, unitNumber)
-  const { data: ticket } = await admin.from('repair_tickets').insert({
+  const { data: ticket, error: ticketErr } = await admin.from('repair_tickets').insert({
     company_id:          COMPANY_ID,
     asset_id:            assetId,
     created_by:          reporterId,
@@ -935,7 +935,7 @@ async function processThread(
     completion_notes:    duplicate ? 'Duplicate email (per the shop).' : completionNote,
     created_at:          msgDate.toISOString(),   // backdate to the email
   }).select('id').single()
-  if (!ticket) return 'skipped'
+  if (!ticket) throw new Error(`ticket insert failed (${ticketNumber}): ${ticketErr?.message ?? 'unknown'}`)
 
   if (pendingMsgIds.size) {
     await admin.from('gmail_imports').update({ status: 'converted', converted_ticket_id: ticket.id, detected_asset: unitNumber })
