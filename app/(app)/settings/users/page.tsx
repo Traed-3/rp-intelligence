@@ -55,9 +55,9 @@ export default async function UsersSettingsPage() {
       <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 mb-6 text-sm text-blue-800">
         <p className="font-semibold mb-1">How employees get access:</p>
         <ol className="list-decimal list-inside space-y-0.5 text-blue-700">
-          <li>Each employee visits the app URL and signs in with their company Gmail.</li>
-          <li>Their account is created automatically as <strong>Field Survey Only (locked)</strong>. They can see nothing but their own field surveys.</li>
-          <li>Only an owner or manager can give them more, by changing their role here.</li>
+          <li>An owner or manager adds them here with <strong>+ Add Employee</strong> (name, company Gmail, role).</li>
+          <li>They visit the app URL and sign in with that Gmail. Anyone not on this list is turned away.</li>
+          <li>Change what they can see any time with the role picker on their row.</li>
           <li>No Gmail? Use <strong>Password</strong> on their row to set one, then they sign in with their email and that password.</li>
         </ol>
       </div>
@@ -176,7 +176,6 @@ export default async function UsersSettingsPage() {
           <p><strong>Mechanic</strong> — Shop mechanic. Can clock in/out, work on tickets, and log labor time.</p>
           <p><strong>Service Tech</strong> — Field technician. Can log mileage/hours and update asset status.</p>
           <p><strong>Construction Tech</strong> — Construction field technician. Can log time, view assigned work, and run Field Surveys (big button on the phone home screen).</p>
-          <p><strong>New sign-ins</strong> start locked to Field Surveys (they see only the surveys they start themselves) until you pick a role here.</p>
           <p><strong>Construction Administrator</strong> — Construction jobs, permits and scheduling, Quotes &amp; Invoices, and DQF &amp; Certs.</p>
           <p><strong>Parts Manager</strong> — Runs the parts room: receives stock, transfers, counts and the parts catalog in Inventory.</p>
           <p><strong>Office Staff</strong> — Office and accounting: Quotes &amp; Invoices and Card Audit; can view assets and records.</p>
