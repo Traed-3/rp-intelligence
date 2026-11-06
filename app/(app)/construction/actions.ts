@@ -146,6 +146,8 @@ function jobFields(formData: FormData) {
     site_number:         str(formData.get('site_number')),
     customer_id:         str(formData.get('customer_id')),
     work_order_number:   str(formData.get('work_order_number')),
+    po_number:           str(formData.get('po_number')),
+    master_sync_hold:    formData.get('master_sync_hold') === 'on',
     stage:               str(formData.get('stage')) ?? 'survey',
     status_detail:       str(formData.get('status_detail')),
     scope_of_work:       str(formData.get('scope_of_work')),

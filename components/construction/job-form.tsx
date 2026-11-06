@@ -19,6 +19,8 @@ export type JobRecord = {
   site_number: string | null
   customer_id: string | null
   work_order_number: string | null
+  po_number?: string | null
+  master_sync_hold?: boolean | null
   stage: string
   status_detail: string | null
   scope_of_work: string | null
@@ -120,6 +122,10 @@ export function JobForm({
             <label className={lbl}>Work Order #</label>
             <input name="work_order_number" className={inp} placeholder="WOT…, FWKD…, MG 450" defaultValue={j?.work_order_number ?? ''} />
           </div>
+          <div>
+            <label className={lbl}>Customer PO #</label>
+            <input name="po_number" className={inp} placeholder="e.g. 24304" defaultValue={j?.po_number ?? ''} />
+          </div>
           <div className="sm:col-span-2">
             <label className={lbl}>Facility Address</label>
             <input name="facility_address" className={inp} defaultValue={j?.facility_address ?? ''} />
@@ -188,6 +194,10 @@ export function JobForm({
           <label className={lbl}>Notes</label>
           <textarea name="notes" rows={2} className={inp} defaultValue={j?.notes ?? ''} />
         </div>
+        <label className="mt-4 flex items-start gap-2 text-sm text-gray-700">
+          <input type="checkbox" name="master_sync_hold" defaultChecked={!!j?.master_sync_hold} className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+          <span>Keep the Master Schedule sync off this job <span className="text-gray-400">(it will not change the stage or close it, e.g. while our closeout is pending)</span></span>
+        </label>
       </section>
 
       <div className="flex items-center gap-3 pt-1">

@@ -184,12 +184,14 @@ export default async function JobDetailPage({
           <div className="space-y-5">
             <NotificationCard jobId={job.id} status={projectNotificationStatus(job)} canWrite={canWrite} />
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3 text-sm">
+              <Detail label="Customer PO #" value={job.po_number} />
               <Detail label="Program" value={job.program} />
               <Detail label="Facility Address" value={job.facility_address} />
               <Detail label="Manager" value={managerName} />
               <Detail label="Response Time" value={job.response_time} />
               <Detail label="Date Received" value={fmtDate(job.date_received)} />
               <Detail label="Project Start" value={fmtDate(job.project_start_date)} />
+              {job.master_sync_hold && <p className="text-xs text-amber-700">Master Schedule sync is off for this job.</p>}
             </div>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Stage History</h2></div>
