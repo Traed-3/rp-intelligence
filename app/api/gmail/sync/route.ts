@@ -11,9 +11,9 @@ export const maxDuration = 60
 /**
  * GET /api/gmail/sync
  *
- * Called every 15 minutes by Supabase pg_cron (header x-cron-key, see
- * supabase/migrations/maintenance_sync_schedule.sql) and by GitHub Actions /
- * the Settings page with ?secret=CRON_SECRET.
+ * Called every 15 minutes by Supabase pg_cron (Bearer rps_sync_token, see
+ * supabase/migrations/maintenance_sync_schedule.sql) and manually from GitHub
+ * Actions / the Settings page with ?secret=CRON_SECRET.
  *
  * Query params:
  *  - after / before=YYYY/MM/DD → backfill a date window (oldest first, time-boxed;
@@ -32,10 +32,9 @@ export async function GET(request: NextRequest) {
   let isAuthed =
     !!cronSecret && (authHeader === `Bearer ${cronSecret}` || querySecret === cronSecret)
 
-  // Supabase pg_cron calls with its own key (kept in Supabase Vault), checked in the DB
-  const cronKey = request.headers.get('x-cron-key')
-  if (!isAuthed && cronKey) {
-    const { data } = await createAdminClient().rpc('verify_cron_key', { p_name: 'maint_sync_cron_key', p_key: cronKey })
+  // Supabase pg_cron sends the shared Vault token (rps_sync_token) as a Bearer header — checked in the DB
+  if (!isAuthed && authHeader?.startsWith('Bearer ')) {
+    const { data } = await createAdminClient().rpc('sync_token_ok', { t: authHeader.slice(7) })
     isAuthed = data === true
   }
 
