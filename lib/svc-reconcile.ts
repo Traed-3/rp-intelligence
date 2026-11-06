@@ -150,6 +150,7 @@ async function replayStatuses(
     .from('svc_gmail_imports')
     .select('id, gmail_message_id, received_at, subject, sender, parsed')
     .eq('mailbox', 'rpdispatcher')
+    .neq('status', 'ignored')   // failed the live sync's forged-sender check
     .or('subject.ilike.%invoice approved%,subject.ilike.%has been redirected%,subject.ilike.%is terminated%')
   for (const n of notices ?? []) {
     const wo = (n.parsed as any)?.woNumber as string | undefined
@@ -245,6 +246,7 @@ async function billingNotices(admin: Admin, onlyWo?: string) {
       .from('svc_gmail_imports')
       .select('received_at, subject, sender, parsed')
       .eq('mailbox', 'rpdispatcher')
+      .neq('status', 'ignored')   // the live sync logs a notice that failed its DKIM/SPF check as 'ignored'
       .or('subject.ilike.%invoice approved%,parsed->>isInvoiceRejection.eq.true')
       .order('received_at', { ascending: true })
       .range(from, from + 999)

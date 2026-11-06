@@ -146,8 +146,10 @@ async function unloggedIds(admin: ReturnType<typeof createAdminClient>, mailbox:
 
 /** Is there a logged rpdispatcher billing notice for this WO# of the given kind, newer than `after`? */
 async function laterBillingNotice(admin: ReturnType<typeof createAdminClient>, woNumber: string, kind: 'approved' | 'rejected', after: Date): Promise<boolean> {
+  // Only notices the live sync accepted ('ignored' = failed the forged-sender check) from the portal itself.
   let q = admin.from('svc_gmail_imports').select('id').eq('mailbox', 'rpdispatcher')
-    .eq('parsed->>woNumber', woNumber).gt('received_at', after.toISOString()).limit(1)
+    .eq('parsed->>woNumber', woNumber).gt('received_at', after.toISOString())
+    .neq('status', 'ignored').ilike('sender', '%@service-now.com').limit(1)
   q = kind === 'approved' ? q.ilike('subject', '%invoice approved%') : q.eq('parsed->>isInvoiceRejection', 'true')
   const { data } = await q
   return !!data?.length
@@ -215,7 +217,7 @@ export async function syncDispatcher(opts: SvcPassOptions = {}): Promise<SvcSync
       let importStatus = 'ignored'
 
       // Approval / redirect / termination notices close calls, so a forged one must never act.
-      const untrustedClosure = (parsed.isInvoiceApproved || parsed.isRedirected || parsed.isTerminated)
+      const untrustedClosure = (parsed.isInvoiceApproved || parsed.isInvoiceRejection || parsed.isRedirected || parsed.isTerminated)
         && !isTrustedPortalNotice(senderEmail, getHeader(headers, 'Authentication-Results'))
 
       if (!parsed.woNumber) {
