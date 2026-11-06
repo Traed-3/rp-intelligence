@@ -48,7 +48,7 @@ jobs:
           INV_UNTIL: ${{ github.event.inputs.invoicing_until_days }}
           DISP_Q: ${{ github.event.inputs.dispatcher_q }}
         run: |
-          BASE="https://rps-maintenance.vercel.app/api/svc/gmail-sync"
+          BASE="https://rpintelligence.app/api/svc/gmail-sync"
           # $1 = query string, $2 = optional extra Gmail terms. Retries a failed call twice.
           call() {
             for attempt in 1 2 3; do

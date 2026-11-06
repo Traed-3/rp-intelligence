@@ -24,4 +24,4 @@ jobs:
           curl --fail-with-body -sS --max-time 150 \
             -H "Authorization: Bearer $CRON_SECRET" \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/compliance/check"
+            "https://rpintelligence.app/api/compliance/check"

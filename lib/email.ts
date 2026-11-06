@@ -1,6 +1,6 @@
 import { Resend } from 'resend'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://rps-maintenance.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://rpintelligence.app'
 
 // Alert titles/messages can contain user-typed text (ticket titles, item names), so never inject them raw.
 function escapeHtml(s: string): string {
