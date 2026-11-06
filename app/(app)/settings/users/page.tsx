@@ -172,11 +172,11 @@ export default async function UsersSettingsPage() {
           <p><strong>Owner</strong> — Full access. Can manage users, settings, and see everything.</p>
           <p><strong>Manager</strong> — Can create/edit tickets, view reports, approve time entries.</p>
           <p><strong>Shop Manager</strong> — Manages repair tickets and shop employees. Can approve time.</p>
-          <p><strong>Shop Employee</strong> — Can clock in/out, update ticket status, log time.</p>
+          <p><strong>Shop Technician</strong> — Can clock in/out, update ticket status, log time.</p>
           <p><strong>Mechanic</strong> — Shop mechanic. Can clock in/out, work on tickets, and log labor time.</p>
           <p><strong>Service Tech</strong> — Field technician. Can log mileage/hours and update asset status.</p>
           <p><strong>Construction Tech</strong> — Construction field technician. Can log time, view assigned work, and run Field Surveys (big button on the phone home screen).</p>
-          <p><strong>Field Survey Only</strong> — Locked to Field Surveys. Sees only the surveys they start themselves; nothing else in the app (no dashboard, jobs, tickets, quotes, settings or Ask RPS), and the database refuses them everything else too.</p>
+          <p><strong>New sign-ins</strong> start locked to Field Surveys (they see only the surveys they start themselves) until you pick a role here.</p>
           <p><strong>Office Staff</strong> — Administrative access. Can view assets and records.</p>
           <p><strong>Viewer</strong> — Read-only. Cannot edit anything.</p>
         </div>
