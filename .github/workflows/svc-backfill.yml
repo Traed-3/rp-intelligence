@@ -76,13 +76,16 @@ jobs:
                 jq -r ".$pass.errors[]?" resp.json | head -5
                 jq -r ".$pass.unknownSenders[]? | \"UNKNOWN SENDER \" + ." resp.json
                 rem=$(jq ".$pass.remaining" resp.json); proc=$(jq ".$pass.processed" resp.json)
+                # Gmail allows a limited number of query units per user per minute: wait it out and retry the slice.
+                if grep -q "Quota exceeded\|rateLimitExceeded\|userRateLimitExceeded" resp.json; then echo "Gmail per-minute quota hit — waiting 70 s"; sleep 70; continue; fi
                 [ "$rem" = "0" ] && break
                 [ "$proc" = "0" ] && { echo "nothing processed — moving on"; break; }
+                sleep 3
               done
               s=$u
             done
           }
-          case ",$PASSES," in *,dispatcher,*) run_pass dispatcher 200 "$UNTIL" "$DISP_Q" ;; esac
+          case ",$PASSES," in *,dispatcher,*) run_pass dispatcher 80 "$UNTIL" "$DISP_Q" ;; esac
           case ",$PASSES," in *,invoicing,*) run_pass invoicing 80 "${INV_UNTIL:-$UNTIL}" ;; esac
           case ",$PASSES," in *,reconcile,*)
             for i in $(seq 1 40); do

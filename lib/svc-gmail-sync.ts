@@ -411,6 +411,8 @@ export async function syncDispatcher(opts: SvcPassOptions = {}): Promise<SvcSync
 
     } catch (e: any) {
       result.errors.push(`Message ${msgId}: ${e.message}`)
+      // Out of Gmail quota for this minute: stop instead of failing every remaining message; the next run carries on.
+      if (/Quota exceeded|rateLimitExceeded/i.test(String(e?.message))) break
     }
   }
 
@@ -602,6 +604,8 @@ export async function syncInvoicing(opts: SvcPassOptions = {}): Promise<SvcSyncR
 
     } catch (e: any) {
       result.errors.push(`Message ${msgId}: ${e.message}`)
+      // Out of Gmail quota for this minute: stop instead of failing every remaining message; the next run carries on.
+      if (/Quota exceeded|rateLimitExceeded/i.test(String(e?.message))) break
     }
   }
 
