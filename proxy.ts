@@ -89,6 +89,15 @@ export async function proxy(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle()
 
+    // Signed in but not on the user list (e.g. an account left over from before sign-ins were limited
+    // to employees): sign them out. On /login itself just clear the session so the page can show.
+    if (!profile) {
+      await supabase.auth.signOut()
+      const out = pathname === '/login' ? supabaseResponse : NextResponse.redirect(new URL('/login?denied=1', request.url))
+      supabaseResponse.cookies.getAll().forEach((c) => out.cookies.set(c))
+      return out
+    }
+
     if (profile?.is_active === false) {
       await supabase.auth.signOut()
       const redirect = NextResponse.redirect(new URL('/login?disabled=1', request.url))

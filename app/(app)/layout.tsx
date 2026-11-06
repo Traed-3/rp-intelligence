@@ -5,7 +5,7 @@ import AppNav from '@/components/app-nav'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { AskRps } from '@/components/assistant/ask-rps'
 import { hasComplianceGrant } from '@/lib/compliance-guard'
-import { isSurveyOnly, DEFAULT_NEW_USER_ROLE, SURVEY_ONLY_HOME } from '@/lib/field-surveys'
+import { isSurveyOnly, DEFAULT_NEW_USER_ROLE } from '@/lib/field-surveys'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -14,33 +14,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const admin = createAdminClient()
 
-  // Fetch profile; create it on the fly if missing (belt-and-suspenders in
-  // case the callback's ensureProfile server action didn't complete)
-  let { data: profile } = await admin
+  // Only people added in Settings → Users have a profile; proxy.ts signs anyone else out before this runs.
+  const { data: profile } = await admin
     .from('profiles')
     .select('id, company_id, role')
     .eq('id', user.id)
     .single()
-
-  if (!profile) {
-    const { data: company } = await admin
-      .from('companies').select('id').eq('slug', 'rps').single()
-    const fullName =
-      user.user_metadata?.full_name ??
-      user.user_metadata?.name ??
-      user.email?.split('@')[0] ??
-      'Unknown'
-    // Same rule as the sign-in callback: new profiles are always Field Survey Only.
-    const { data: created } = await admin.from('profiles').insert({
-      id: user.id,
-      company_id: company?.id ?? null,
-      full_name: fullName,
-      email: user.email!,
-      role: DEFAULT_NEW_USER_ROLE,
-      default_landing_page: SURVEY_ONLY_HOME,
-    }).select('id, company_id, role').single()
-    profile = created
-  }
+  if (!profile) redirect('/login?denied=1')
 
   // Notifications — skip if we still have no profile (should never happen)
   const surveyOnly = isSurveyOnly(profile?.role)   // Field Survey Only login: no bell, no Ask RPS, slim nav
