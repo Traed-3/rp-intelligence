@@ -86,7 +86,8 @@ export default async function ServiceDispatchPage({
   const unknownSenderCounts = new Map<string, number>()
   for (const r of recentSenders ?? []) {
     const e = (r.sender ?? '').toLowerCase()
-    if (!e || roster.has(e) || !isTicketSender(e) || !/\.rp@gmail\.com$/.test(e)) continue
+    // Strict shape only (Gmail local parts are letters, digits, dots, +, -): the address goes into a database filter below.
+    if (!e || roster.has(e) || !isTicketSender(e) || !/^[a-z0-9.+-]+\.rp@gmail\.com$/.test(e)) continue
     unknownSenderCounts.set(e, (unknownSenderCounts.get(e) ?? 0) + 1)
   }
   // Construction crews, managers and office mailboxes send tickets too — only flag addresses the company directory
