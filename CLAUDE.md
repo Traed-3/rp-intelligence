@@ -357,3 +357,18 @@ module key `compliance`; roles owner/manager/construction_manager — `lib/compl
   `complianceGranted` from the (app) layout). Edited in DQF → Notices & settings → "Who else can use DQF & Certs" (owners/managers).
   Peggy Wilmoth (role viewer) is on it.
 
+
+---
+
+## CARD AUDIT (added 2026-11-06)
+
+Expenses → Card audit (`/expenses/cards?card=TEC&month=2026-10[&show=review|unmatched]`). Reads the receipts crews
+email in (`billing_inbox_documents`), NOT the `expenses` table (which barely gets used). Roles: owner/manager/office/
+accounting (`CARD_AUDIT_ROLES` in lib/card-audit.ts).
+- lib/card-audit.ts: `parseCardSubject` ("648.77 TEC 26941 rebar", "8.47-TEC-A1 …", "Re: …" replies skipped), flags
+  (duplicate, subject ≠ receipt total from `extracted.total`, no amount, refund, no job #, policy words like traffic
+  ticket), `isLikelyDuplicate` (same person + same cents AND same reference, or ≤1 day apart, or same wording ≤45 days),
+  by-person totals. Month = receipt date (`extracted.document_date`), else emailed date.
+- Card codes come from Settings → Payment methods (TEC, HDP, LWS, CC, CASH, CHK).
+- Statement tick-off: `billing_inbox_documents.card_matched_at/_by` (migration `card_audit_matching.sql`, APPLIED
+  2026-11-06). Action app/(app)/expenses/cards/actions.ts. CSV: GET /api/expenses/card-audit-csv?card&month.

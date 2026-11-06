@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { canAuditCards } from '@/lib/card-audit'
 import { ClickableRow } from '@/components/clickable-row'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -83,7 +84,12 @@ export default async function ExpensesPage({
             {f.label}
           </Link>
         ))}
-        <Link href="/expenses/report" className="ml-auto px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 bg-white text-gray-600 hover:border-gray-400">
+        {canAuditCards(profile!.role) && (
+          <Link href="/expenses/cards" className="ml-auto px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 bg-white text-gray-600 hover:border-gray-400">
+            💳 Card audit →
+          </Link>
+        )}
+        <Link href="/expenses/report" className="px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 bg-white text-gray-600 hover:border-gray-400">
           📊 Report →
         </Link>
       </div>
