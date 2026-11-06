@@ -4,6 +4,14 @@ import { syncJobEmailFeed } from '@/lib/job-email-feed'
 import { BILLING_INBOXES, inboxStatus, type BillingInbox } from '@/lib/billing-gmail-client'
 import { backfillPermitEmails } from '@/lib/permit-email-backfill'
 import { backfillFieldTicketsForJob } from '@/lib/field-ticket-gmail-match'
+import { createAdminClient } from '@/lib/supabase/admin'
+
+/** Supabase pg_cron (migration billing_sync_pg_cron.sql) sends the Vault token `rps_sync_token`; sync_token_ok() checks it in the DB. */
+async function syncTokenOk(token: string | null): Promise<boolean> {
+  if (!token) return false
+  const { data, error } = await createAdminClient().rpc('sync_token_ok', { t: token })
+  return !error && data === true
+}
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -11,8 +19,8 @@ export const maxDuration = 60
 /**
  * GET /api/billing/inbox-sync?secret=…&pass=sync|extract|both|updates|orders|backfill-permits[&inbox=econstruction][&max=30][&since=14][&limit=3]
  *
- * Cron hits `pass=sync` then `pass=extract` on separate ticks so each stays
- * under the 60 s budget. `pass=both` is for a manual "sync now".
+ * Supabase pg_cron (billing_sync_pg_cron.sql) hits `pass=sync`, `extract`, `updates` and `orders` on separate
+ * ticks every 15 minutes so each stays under the 60 s budget (GitHub's schedule only fired every 5-7 hours). `pass=both` is for a manual "sync now".
  *
  * `pass=backfill-permits[&offset=0][&limit=5][&apply=1]` is the one-time
  * historical-permit-email backfill (see lib/permit-email-backfill.ts) — a
@@ -30,7 +38,9 @@ export const maxDuration = 60
 export async function GET(request: NextRequest) {
   const auth = request.headers.get('authorization')
   const secret = request.nextUrl.searchParams.get('secret')
-  if (!process.env.CRON_SECRET || (auth !== `Bearer ${process.env.CRON_SECRET}` && secret !== process.env.CRON_SECRET)) {
+  const bearer = auth?.startsWith('Bearer ') ? auth.slice(7) : null
+  const cronOk = !!process.env.CRON_SECRET && (bearer === process.env.CRON_SECRET || secret === process.env.CRON_SECRET)
+  if (!cronOk && !(await syncTokenOk(bearer ?? secret))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const q = request.nextUrl.searchParams

@@ -222,7 +222,10 @@ jobs:
           if [ "$APPLY" = "1" ]; then URL="$URL&apply=1"; fi
           curl --fail-with-body -sS --max-time 90 -w "\nHTTP %{http_code}\n" "$URL"
 
+  # The 15-minute billing-inbox + job-email-feed passes run from Supabase pg_cron now
+  # (supabase/migrations/billing_sync_pg_cron.sql) — GitHub's schedule fired only every 5-7 hours. Manual runs only here.
   billing-inbox-sync:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
