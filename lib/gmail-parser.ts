@@ -49,7 +49,7 @@ export function extractUnitCandidates(subject: string): string[] {
   //  "Trl.859", "Trl 074", "Trailer 386", "trailer #642" → T859, T074 …
   for (const m of normalized.matchAll(/\b(?:trl|trlr|trailer)\.?\s*#?\s*(\d{3})\b/gi)) push('T' + m[1])
   //  "Bob cat 3", "Bobcat #2", "skid steer 2" → BC3, BC2 …
-  for (const m of normalized.matchAll(/\b(?:bob\s*cat|skid\s*steer)\s*#?\s*(\d{1,2})\b/gi)) push('BC' + m[1])
+  for (const m of normalized.matchAll(/\b(?:bob\s*cat|skid\s*steer)\s*(?:#|no\.?|number)?\s*(\d{1,2})\b/gi)) push('BC' + m[1])
   //  "Concrete saw 4", "saw #5" → CS4, CS5
   for (const m of normalized.matchAll(/\b(?:concrete\s+)?saw\s*#?\s*(\d)\b/gi)) push('CS' + m[1])
   //  a bare 3-digit number leading the subject is a trailer ("642- right turn lamp", "862 State Inspection")
@@ -400,7 +400,7 @@ export function nonTicketReason(subject: string): 'attendance' | 'due-list' | 'a
   const s = (subject ?? '').replace(/^\s*(?:(?:re|fwd?|fw)\s*:\s*)+/i, '')
   const hasDate = /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/.test(s)
   if (
-    /\b(?:leaving|running\s+(?:a\s+)?(?:little\s+)?(?:bit\s+)?late|late\s+(?:today|this\s+morning)|out\s+today|off\s+today|day\s+off|need\s+off|vacation|dentist|PTO|TPD|sick|appointment\s+today)\b/i.test(s) ||
+    /\b(?:leaving\s+(?:@\s*\d+|at\b|early|\d+)|running\s+(?:a\s+)?(?:little\s+)?(?:bit\s+)?(?:late|behind)|late\s+(?:today|this\s+morning)|out\s+today|off\s+today|day\s+off|need\s+off|vacation|dentist|PTO|TPD|sick|appointment\s+today)\b/i.test(s) ||
     /\b(?:be|being|coming|come|in)\s+(?:in\s+)?(?:a\s+)?(?:little\s+)?(?:bit\s+)?late\b/i.test(s) ||
     /\b(?:won[’']?t|can[’']?t|cant)\s+make\s+it\b|\b(?:need|have)\s+to\s+leave\b|\bleave\s+early\b|\b(?:family|medical)\s+emergency\b|\bdoctor'?s?\b|\bdr\.?\s+appointment|\bmin(?:ute)?s?\s+late\b/i.test(s) ||
     (hasDate && /\b(?:off|not\s+taking\s+off|appointment|late)\b/i.test(s)) ||
