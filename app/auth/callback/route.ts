@@ -3,7 +3,6 @@ import { createServerClient } from '@supabase/ssr'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase/keys'
 import { VALID_LANDING_PAGES, DEFAULT_LANDING_PAGE } from '@/lib/landing-pages'
-import { DEFAULT_NEW_USER_ROLE, SURVEY_ONLY_HOME } from '@/lib/field-surveys'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -73,6 +72,7 @@ export async function GET(request: NextRequest) {
   // Where this user lands after login — NULL/unset falls back to /dashboard.
   // Filled in below once we know which profile row (existing or newly linked) applies.
   let landingPage: string | null = null
+  let denied = false
 
   // Ensure a profile row exists for this user (first-login setup)
   try {
@@ -108,34 +108,11 @@ export async function GET(request: NextRequest) {
       } else if (emailProfile) {
         landingPage = emailProfile.default_landing_page
       } else {
-        // Genuinely new user — create their profile
-        const { data: company } = await admin
-          .from('companies')
-          .select('id')
-          .eq('slug', 'rps')
-          .single()
-
-        const meta = data.user.user_metadata ?? {}
-        const fullName =
-          (meta.full_name as string | undefined) ??
-          (meta.name as string | undefined) ??
-          data.user.email?.split('@')[0] ??
-          'Unknown'
-
-        // Always the locked Field Survey Only role, never owner/viewer. The old "first user becomes
-        // owner" shortcut is gone on purpose: access above this only comes from an owner or manager
-        // changing the role in Settings > Users.
-        await admin.from('profiles').insert({
-          id: data.user.id,
-          company_id: company?.id ?? null,
-          full_name: fullName,
-          email: data.user.email!,
-          role: DEFAULT_NEW_USER_ROLE,
-          default_landing_page: SURVEY_ONLY_HOME,
-        })
-        landingPage = SURVEY_ONLY_HOME
-
-        console.log('[callback] profile created, role:', DEFAULT_NEW_USER_ROLE)
+        // Not on the employee list: nobody set up a profile for this email in Settings → Users.
+        // Sign-ins only work for people an owner or manager added, so drop the account Google just created.
+        await admin.auth.admin.deleteUser(data.user.id)
+        console.log('[callback] sign-in refused, no profile for', userEmail)
+        denied = true
       }
     }
   } catch (profileErr) {
@@ -146,6 +123,9 @@ export async function GET(request: NextRequest) {
   // redirectToDashboard already carries the session cookies (set via the
   // cookies.setAll closure above) — just repoint its Location if this user
   // has a non-default landing page configured in Settings > Users.
+  // A fresh response, so none of the session cookies set above reach the browser.
+  if (denied) return NextResponse.redirect(`${origin}/login?denied=1`)
+
   const finalPath = landingPage && (VALID_LANDING_PAGES as readonly string[]).includes(landingPage)
     ? landingPage
     : DEFAULT_LANDING_PAGE
