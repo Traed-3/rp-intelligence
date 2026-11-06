@@ -102,7 +102,7 @@ export async function updateUserRole(userId: string, newRole: string) {
   if (!profile || !['owner', 'manager'].includes(profile.role)) return
   if (userId === profile.id) return  // can't change own role
 
-  const validRoles = ['owner', 'manager', 'shop_manager', 'shop_employee', 'mechanic', 'service_tech', 'construction_tech', 'construction_manager', 'estimator', 'office_staff', 'viewer', 'field_surveyor']
+  const validRoles = ['owner', 'manager', 'shop_manager', 'shop_employee', 'mechanic', 'service_tech', 'construction_tech', 'construction_manager', 'construction_admin', 'parts_manager', 'estimator', 'office_staff', 'viewer', 'field_surveyor']
   if (!validRoles.includes(newRole)) return
   if (!canAssignRole(profile.role, newRole)) return   // only an owner can hand out owner
 
@@ -192,7 +192,7 @@ export async function createEmployee(
 
   if (!fullName || !email) return { error: 'Name and email are required.' }
 
-  const validRoles = ['owner', 'manager', 'shop_manager', 'shop_employee', 'mechanic', 'service_tech', 'construction_tech', 'construction_manager', 'estimator', 'office_staff', 'viewer', 'field_surveyor']
+  const validRoles = ['owner', 'manager', 'shop_manager', 'shop_employee', 'mechanic', 'service_tech', 'construction_tech', 'construction_manager', 'construction_admin', 'parts_manager', 'estimator', 'office_staff', 'viewer', 'field_surveyor']
   if (!validRoles.includes(role)) return { error: 'Invalid role.' }
   if (!canAssignRole(profile.role, role)) return { error: 'Only an owner can add another owner.' }
 

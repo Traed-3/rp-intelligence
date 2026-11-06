@@ -14,13 +14,13 @@
 //
 // To roll the module out to the team later, replace the body of the two
 // helpers below with a role check using these lists:
-//   read roles:  ['owner', 'manager', 'construction_manager', 'estimator', 'viewer']
-//   write roles: ['owner', 'manager', 'construction_manager', 'estimator']
+//   read roles:  ['owner', 'manager', 'construction_manager', 'construction_admin', 'estimator', 'viewer']
+//   write roles: ['owner', 'manager', 'construction_manager', 'construction_admin', 'estimator']
 // Who may see and change construction data. Mirrors the database policies con_can_read() / con_can_write() exactly,
 // so Settings → role is the one place access is decided (Trae 10/1/26, retiring the user-id lock that only let his
 // two logins in). Trim CON_READ_ROLES / CON_WRITE_ROLES here if a role should wait.
-export const CON_READ_ROLES: readonly string[] = ['owner', 'manager', 'construction_manager', 'estimator', 'viewer']
-export const CON_WRITE_ROLES: readonly string[] = ['owner', 'manager', 'construction_manager', 'estimator']
+export const CON_READ_ROLES: readonly string[] = ['owner', 'manager', 'construction_manager', 'construction_admin', 'estimator', 'viewer']
+export const CON_WRITE_ROLES: readonly string[] = ['owner', 'manager', 'construction_manager', 'construction_admin', 'estimator']
 
 type ConGateProfile = { id?: string | null; role?: string | null } | null | undefined
 

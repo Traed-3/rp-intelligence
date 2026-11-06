@@ -10,13 +10,14 @@ const inputClass =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
 
 const ROLES = [
-  { value: 'shop_employee', label: 'Shop Employee' },
+  { value: 'shop_employee', label: 'Shop Technician' },
   { value: 'shop_manager',  label: 'Shop Manager' },
   { value: 'service_tech',  label: 'Service Tech' },
   { value: 'office_staff',  label: 'Office Staff' },
+  { value: 'construction_admin', label: 'Construction Administrator' },
+  { value: 'parts_manager', label: 'Parts Manager' },
   { value: 'viewer',        label: 'Viewer (read-only)' },
   { value: 'manager',       label: 'Manager' },
-  { value: 'field_surveyor', label: 'Field Survey Only (locked)' },
 ]
 
 export function AddEmployeeForm() {

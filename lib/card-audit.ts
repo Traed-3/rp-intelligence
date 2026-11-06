@@ -8,7 +8,7 @@
 // receipt (billing_inbox_documents.extracted: total, vendor, reference, document_date), which
 // lets us cross-check the subject against the paper.
 
-export const CARD_AUDIT_ROLES: readonly string[] = ['owner', 'manager', 'office', 'accounting']
+export const CARD_AUDIT_ROLES: readonly string[] = ['owner', 'manager', 'office_staff']
 export const canAuditCards = (role: string | null | undefined) => CARD_AUDIT_ROLES.includes(role ?? '')
 
 export type CardDoc = {

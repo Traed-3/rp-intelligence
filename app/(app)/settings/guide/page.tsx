@@ -70,7 +70,7 @@ export default async function GuidePage() {
             <p>Tell everyone to visit the app URL and sign in with their company Gmail.</p>
             <p>Then go to <strong>Settings → User Management</strong> and change their role.</p>
             <p className="text-xs text-gray-500 mt-1">
-              Shop employees who clock in need the <strong>Shop Employee</strong> role.
+              Shop technicians who clock in need the <strong>Shop Technician</strong> role.
               Your shop foreman should be <strong>Shop Manager</strong>.
             </p>
           </Step>
@@ -118,7 +118,7 @@ export default async function GuidePage() {
 
       {/* ── Shop Employees ─────────────────────────────────────────────── */}
       <div id="employee">
-        <Section title="🔧 Shop Employee Guide">
+        <Section title="🔧 Shop Technician Guide">
           <Tip>
             Shop employees mainly use the <strong>/mobile</strong> screen on their phone.
             Add it to your home screen so it opens like an app — see iPhone Setup below.

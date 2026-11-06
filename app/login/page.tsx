@@ -5,9 +5,9 @@ import { PasswordLoginForm } from './password-form'
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ disabled?: string }>
+  searchParams: Promise<{ disabled?: string; denied?: string }>
 }) {
-  const { disabled } = await searchParams
+  const { disabled, denied } = await searchParams
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -28,6 +28,12 @@ export default async function LoginPage({
         {disabled === '1' && (
           <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             Your account has been disabled. Contact your manager if this is unexpected.
+          </div>
+        )}
+
+        {denied === '1' && (
+          <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            That account isn&apos;t set up in RP Intelligence. Sign in with your company Gmail, or ask the office to add you.
           </div>
         )}
 

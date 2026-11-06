@@ -5,8 +5,8 @@
  * hr_compliance_settings, hr_notice_log (supabase/migrations/hr_compliance_module.sql).
  */
 
-export const COMPLIANCE_READ_ROLES = ['owner', 'manager', 'construction_manager']
-export const COMPLIANCE_WRITE_ROLES = ['owner', 'manager', 'construction_manager']
+export const COMPLIANCE_READ_ROLES = ['owner', 'manager', 'construction_manager', 'construction_admin']
+export const COMPLIANCE_WRITE_ROLES = ['owner', 'manager', 'construction_manager', 'construction_admin']
 
 type GateProfile = { id?: string | null; role?: string | null } | null | undefined
 /** `granted` = the person is on the DQF settings "Who else can use DQF & Certs" list (full access, any role). */
