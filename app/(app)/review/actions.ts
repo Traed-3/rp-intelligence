@@ -24,12 +24,12 @@ async function buildTicketNumber(admin: Admin, companyId: string, date: Date, un
   const m = date.getMonth() + 1
   const d = date.getDate()
   const y = date.getFullYear().toString().slice(-2)
-  const base = `${m}${d}${y}${unit}`
+  // All of that day's numbers — generateTicketNumber adds a dash for units like "Shop Work"
   const { data } = await admin
     .from('repair_tickets')
     .select('ticket_number')
     .eq('company_id', companyId)
-    .like('ticket_number', `${base}%`)
+    .like('ticket_number', `${m}${d}${y}%`)
   const existing = (data ?? []).map((t: any) => t.ticket_number)
   return generateTicketNumber(date, unit, existing)
 }
