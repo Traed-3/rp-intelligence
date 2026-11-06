@@ -4,7 +4,7 @@ import { departmentLabel, fmtDate, noticeDaysFor, noticeStage, stageLabel, today
 import { loadFiles, type EmployeeFile, type Row } from '@/lib/compliance-data'
 import { auditAll } from '@/lib/compliance-audit'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://rps-maintenance.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://rpintelligence.app'
 
 export type Notice = { file: EmployeeFile; row: Row; stage: string }
 export type OutgoingEmail = { to: string; subject: string; html: string; kind: 'employee' | 'management' | 'digest'; notices: Notice[] }

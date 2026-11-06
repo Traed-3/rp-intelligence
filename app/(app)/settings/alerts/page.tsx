@@ -220,7 +220,7 @@ export default async function AlertsPage() {
             <div className="mt-2 bg-gray-900 text-green-400 text-xs font-mono rounded-lg p-3 space-y-1">
               <p>RESEND_API_KEY=re_xxxxxxxxxxxx</p>
               <p>RESEND_FROM_EMAIL=RP Intelligence &lt;alerts@yourdomain.com&gt;</p>
-              <p>NEXT_PUBLIC_APP_URL=https://your-app.vercel.app</p>
+              <p>NEXT_PUBLIC_APP_URL=https://rpintelligence.app</p>
             </div>
             <p className="mt-2 text-gray-500">You can send from <code>@resend.dev</code> for testing without domain setup.</p>
           </div>

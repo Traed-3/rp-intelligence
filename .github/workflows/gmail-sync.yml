@@ -80,7 +80,7 @@ jobs:
         run: |
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/gmail/sync?secret=$CRON_SECRET&max=30"
+            "https://rpintelligence.app/api/gmail/sync?secret=$CRON_SECRET&max=30"
 
 
   # The 15-minute service sync runs from Supabase pg_cron now (supabase/migrations/svc_sync_pg_cron.sql) —
@@ -96,7 +96,7 @@ jobs:
         run: |
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=dispatcher"
+            "https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=dispatcher"
       - name: Sync rpinvoicing (completion status + ticket attachments)
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -104,7 +104,7 @@ jobs:
           UNTIL_DAYS: ${{ github.event.inputs.until_days || '' }}
           MAX_MSGS: ${{ github.event.inputs.max || '50' }}
         run: |
-          URL="https://rps-maintenance.vercel.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=invoicing&sinceDays=$SINCE_DAYS&max=$MAX_MSGS"
+          URL="https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=invoicing&sinceDays=$SINCE_DAYS&max=$MAX_MSGS"
           if [ -n "$UNTIL_DAYS" ]; then URL="$URL&untilDays=$UNTIL_DAYS"; fi
           curl --fail-with-body -sS --max-time 90 -w "\nHTTP %{http_code}\n" "$URL"
       - name: Reconcile call statuses (invoice approvals, late completions, construction)
@@ -113,14 +113,14 @@ jobs:
         run: |
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=reconcile&apply=1"
+            "https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=reconcile&apply=1"
       - name: Draft transcripts for newly captured tickets
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=extract-docs&limit=5"
+            "https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=extract-docs&limit=5"
 
   svc-lookup:
     if: ${{ github.event.inputs.lookup_q != '' }}
@@ -141,7 +141,7 @@ jobs:
             --data-urlencode "full=${LOOKUP_FULL}" \
             --data-urlencode "mailbox=$LOOKUP_MAILBOX" \
             -o resp.json -w "HTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/svc/gmail-sync" || { cat resp.json; exit 1; }
+            "https://rpintelligence.app/api/svc/gmail-sync" || { cat resp.json; exit 1; }
           echo "COUNT $(jq '.count' resp.json)"
           jq -r '.hits[] | "HIT " + tojson' resp.json | cut -c1-6000
 
@@ -155,7 +155,7 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           APPLY: ${{ github.event.inputs.reconcile }}
         run: |
-          URL="https://rps-maintenance.vercel.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=reconcile&archivedBy=09d76016-7ed8-427d-83c3-1f94c484c1ce"
+          URL="https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=reconcile&archivedBy=09d76016-7ed8-427d-83c3-1f94c484c1ce"
           if [ "$APPLY" = "apply" ]; then URL="$URL&apply=1"; fi
           curl -sS --fail-with-body --max-time 90 -o resp.json -w "HTTP %{http_code}\n" "$URL" || { cat resp.json; exit 1; }
           jq -c '.result | del(.changes)' resp.json
@@ -173,7 +173,7 @@ jobs:
           APPLY: ${{ github.event.inputs.archive_stale_apply }}
           ARCHIVED_BY: ${{ github.event.inputs.archive_stale_archived_by }}
         run: |
-          URL="https://rps-maintenance.vercel.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=archive-stale&days=$DAYS"
+          URL="https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=archive-stale&days=$DAYS"
           if [ "$APPLY" = "1" ]; then URL="$URL&apply=1"; fi
           if [ -n "$ARCHIVED_BY" ]; then URL="$URL&archivedBy=$ARCHIVED_BY"; fi
           curl --fail-with-body -sS --max-time 90 -w "\nHTTP %{http_code}\n" "$URL"
@@ -190,7 +190,7 @@ jobs:
           LIMIT: ${{ github.event.inputs.backfill_permits_limit }}
           APPLY: ${{ github.event.inputs.backfill_permits_apply }}
         run: |
-          URL="https://rps-maintenance.vercel.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=backfill-permits&offset=$OFFSET&limit=$LIMIT"
+          URL="https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=backfill-permits&offset=$OFFSET&limit=$LIMIT"
           if [ "$APPLY" = "1" ]; then URL="$URL&apply=1"; fi
           curl --fail-with-body -sS --max-time 90 -w "\nHTTP %{http_code}\n" "$URL"
 
@@ -208,7 +208,7 @@ jobs:
         run: |
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=sync&inbox=$INBOX&since=$SINCE_DAYS&max=$MAX_MSGS"
+            "https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=sync&inbox=$INBOX&since=$SINCE_DAYS&max=$MAX_MSGS"
 
   billing-field-ticket-backfill:
     if: ${{ github.event.inputs.backfill_ticket_job_id != '' }}
@@ -221,7 +221,7 @@ jobs:
           JOB_ID: ${{ github.event.inputs.backfill_ticket_job_id }}
           APPLY: ${{ github.event.inputs.backfill_ticket_apply }}
         run: |
-          URL="https://rps-maintenance.vercel.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=backfill-field-tickets&jobId=$JOB_ID"
+          URL="https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=backfill-field-tickets&jobId=$JOB_ID"
           if [ "$APPLY" = "1" ]; then URL="$URL&apply=1"; fi
           curl --fail-with-body -sS --max-time 90 -w "\nHTTP %{http_code}\n" "$URL"
 
@@ -238,14 +238,14 @@ jobs:
         run: |
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=sync&max=30"
+            "https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=sync&max=30"
       - name: Read pending documents
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=extract&limit=3"
+            "https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=extract&limit=3"
       - name: Tech updates, field tickets and invoice workups onto their jobs
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -255,11 +255,11 @@ jobs:
           sleep 65
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=updates&since=3"
+            "https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=updates&since=3"
       - name: Invoice workups and order mail onto their jobs and the plate
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=orders&since=3"
+            "https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=orders&since=3"

@@ -24,7 +24,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const env = Object.fromEntries(readFileSync(resolve(__dirname, '..', '.env.local'), 'utf-8').split('\n').map(l => l.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)).filter(Boolean).map(m => [m[1], m[2]]))
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 const COMPANY_ID = env.RPS_COMPANY_ID ?? 'f3d06874-2e21-40f3-a7d0-a1d86bad02e7'
-const BASE = process.env.SWEEP_BASE ?? 'https://rps-maintenance.vercel.app'
+const BASE = process.env.SWEEP_BASE ?? 'https://rpintelligence.app'
 
 const arg = (name, dflt) => { const i = process.argv.indexOf(name); return i > -1 ? process.argv[i + 1] : dflt }
 const OUT = arg('--out', '/tmp/wo-sweep.json')
