@@ -196,7 +196,7 @@ export function JobForm({
         </div>
         <label className="mt-4 flex items-start gap-2 text-sm text-gray-700">
           <input type="checkbox" name="master_sync_hold" defaultChecked={!!j?.master_sync_hold} className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-          <span>Keep the Master Schedule sync off this job <span className="text-gray-400">(it won't change the stage or close it — e.g. waiting on our closeout)</span></span>
+          <span>Keep the Master Schedule sync off this job <span className="text-gray-400">(it will not change the stage or close it, e.g. while our closeout is pending)</span></span>
         </label>
       </section>
 
