@@ -714,6 +714,11 @@ async function findTicketForFollowUp(
       }
       continue
     }
+    // "T20 OCD … Complete" after "T20 will be at the shop for service" is the same visit
+    if (oil && isOilChangeText(c.title ?? '') && msgDate.getTime() - new Date(c.created_at).getTime() < 14 * 86400_000) {
+      if (!best || best.score < 1.4) best = { id: c.id, score: 1.4 }
+      continue
+    }
     const cc = coreSubject(c.title ?? '', unitNumber)
     if (!core || !cc) continue
     let score = 0
