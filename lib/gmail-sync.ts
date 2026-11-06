@@ -57,21 +57,32 @@ const SHOP_ADDRESSES = ['maintenance.rps@gmail.com', 'eshoptasks@gmail.com']
 type Admin = ReturnType<typeof createAdminClient>
 
 /**
- * Who may change a job by email (close it, mark parts, move truck dates, file a
- * forward onto it): the shop mailbox, company addresses (first-initial+lastname.rp@…)
- * and anyone with an app login. Mail from anyone else is still filed as a note /
- * a new ticket, but never changes an existing job or a vehicle record.
+ * Who may change a job by email (close it, set parts flags, move truck dates,
+ * file a forward onto it):
+ *  - mail the shop mailbox itself sent (Gmail's SENT label — only the account can set it), or
+ *  - mail from an exact app-login address (profiles.email) that Gmail authenticated for
+ *    that address's domain (Authentication-Results: dkim=pass / dmarc=pass), so a forged
+ *    From line doesn't count.
+ * Mail from anyone else is still filed as a note / a new ticket, but never changes an
+ * existing job or a vehicle record. The cache lives for one sync run.
  */
-const COMPANY_SENDER = /^[a-z0-9._-]+\.rps?@(?:gmail\.com|proton\.me)$/i
-const trustedCache = new Map<string, boolean>()
-async function isTrustedSender(admin: Admin, email: string): Promise<boolean> {
-  const e = (email ?? '').trim().toLowerCase()
-  if (!e) return false
-  if (SHOP_ADDRESSES.includes(e) || COMPANY_SENDER.test(e)) return true
-  if (trustedCache.has(e)) return trustedCache.get(e)!
-  const ok = !!(await findReporter(admin, e))
-  trustedCache.set(e, ok)
-  return ok
+type TrustCache = Map<string, boolean>
+async function isTrustedMessage(admin: Admin, msg: any, cache: TrustCache): Promise<boolean> {
+  const headers: any[] = msg?.payload?.headers ?? []
+  const e = parseSender(getHeader(headers, 'From')).email.trim().toLowerCase()
+  if (!/^[^\s@]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(e)) return false
+  if (SHOP_ADDRESSES.includes(e)) return (msg?.labelIds ?? []).includes('SENT')
+
+  if (!cache.has(e)) {
+    const { data } = await admin.from('profiles').select('id')
+      .eq('company_id', COMPANY_ID).eq('email', e).limit(1).maybeSingle()
+    cache.set(e, !!data)
+  }
+  if (!cache.get(e)) return false
+
+  const domain = e.split('@')[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const auth = headers.filter(h => /^authentication-results$/i.test(h.name)).map(h => h.value).join(' ; ')
+  return new RegExp(`dkim=pass[^;]*header\\.(?:i=[^\\s;@]*@|d=)${domain}(?![\\w.-])|dmarc=pass[^;]*header\\.from=${domain}(?![\\w.-])`, 'i').test(auth)
 }
 
 /** Automated Google emails (security alerts, etc.) are never tickets. */
@@ -233,7 +244,8 @@ async function findReporter(
     .from('profiles')
     .select('id')
     .eq('company_id', COMPANY_ID)
-    .ilike('email', email)
+    .eq('email', (email ?? '').trim().toLowerCase())
+    .limit(1)
     .maybeSingle()
   return data?.id ?? null
 }
@@ -290,6 +302,7 @@ type ThreadCtx = {
   skipUnmatched: boolean
   markRead: boolean
   recheckPending?: boolean
+  trust: TrustCache
 }
 
 type ProcessOutcome = 'created' | 'updated' | 'attached' | 'skipped' | 'ignored' | 'review'
@@ -361,7 +374,7 @@ async function runSync(admin: Admin, options: SyncOptions): Promise<SyncResult> 
   const todo = threadOrder.filter(t => !parked.has(t))
   result.queued = todo.length
 
-  const ctx: ThreadCtx = { skipUnmatched: options.skipUnmatched ?? false, markRead: !backfill, recheckPending: !!options.recheckPending }
+  const ctx: ThreadCtx = { skipUnmatched: options.skipUnmatched ?? false, markRead: !backfill, recheckPending: !!options.recheckPending, trust: new Map() }
   for (const threadId of todo) {
     if (Date.now() - started > budget) { result.more = true; break }
     try {
@@ -534,6 +547,7 @@ async function fileMessagesOnTicket(
   subject: string,
   unitNumber: string,
   messages: any[],
+  trust: TrustCache,
   pendingMsgIds: Set<string> = new Set(),
 ): Promise<boolean> {
   const { data: cur } = await admin.from('repair_tickets').select('status').eq('id', ticketId).single()
@@ -550,7 +564,7 @@ async function fileMessagesOnTicket(
     const own     = ownText(body)
     const { email } = parseSender(getHeader(headers, 'From'))
     const when    = msgDateOf(msg)
-    const trusted = await isTrustedSender(admin, email)
+    const trusted = await isTrustedMessage(admin, msg, trust)
     const intent  = trusted ? replyIntent(body) : null
     const status  = trusted ? detectStatus(body) : detectStatus('')
     const updates: Record<string, unknown> = {}
@@ -726,7 +740,7 @@ async function processThread(
   if (converted?.converted_ticket_id) {
     const { data: tk } = await admin.from('repair_tickets').select('id, asset_id').eq('id', converted.converted_ticket_id).maybeSingle()
     if (!tk) return 'skipped'
-    const changed = await fileMessagesOnTicket(admin, tk.id, threadId, subject, unitNumber, messages)
+    const changed = await fileMessagesOnTicket(admin, tk.id, threadId, subject, unitNumber, messages, ctx.trust)
     return changed ? 'updated' : 'skipped'
   }
 
@@ -804,11 +818,11 @@ async function processThread(
 
   // ── A forward / follow-up of a job we already have → file it there ─────────
   // (staff only — anyone else's email opens its own ticket)
-  const followUpOf = await isTrustedSender(admin, senderEmail)
+  const followUpOf = await isTrustedMessage(admin, firstMsg, ctx.trust)
     ? await findTicketForFollowUp(admin, assetId, unitNumber, subject, body, msgDate)
     : null
   if (followUpOf) {
-    await fileMessagesOnTicket(admin, followUpOf, threadId, subject, unitNumber, messages, pendingMsgIds)
+    await fileMessagesOnTicket(admin, followUpOf, threadId, subject, unitNumber, messages, ctx.trust, pendingMsgIds)
     return 'attached'
   }
 
@@ -826,7 +840,7 @@ async function processThread(
   for (const msg of messages) {
     const b = extractBody(msg.payload)
     const { email: msgFrom } = parseSender(getHeader(msg.payload?.headers ?? [], 'From'))
-    if (!(await isTrustedSender(admin, msgFrom))) continue
+    if (!(await isTrustedMessage(admin, msg, ctx.trust))) continue
     const intent = replyIntent(b)
     if (intent === 'complete' || intent === 'duplicate') {
       finalStatus = 'completed'
