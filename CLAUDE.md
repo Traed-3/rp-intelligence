@@ -370,5 +370,6 @@ accounting (`CARD_AUDIT_ROLES` in lib/card-audit.ts).
   ticket), `isLikelyDuplicate` (same person + same cents AND same reference, or ≤1 day apart, or same wording ≤45 days),
   by-person totals. Month = receipt date (`extracted.document_date`), else emailed date.
 - Card codes come from Settings → Payment methods (TEC, HDP, LWS, CC, CASH, CHK).
-- Statement tick-off: `billing_inbox_documents.card_matched_at/_by` (migration `card_audit_matching.sql`, APPLIED
+- Statement tick-off: `billing_inbox_documents.card_matched_at/_by` (no FK on _by: a 2nd FK to profiles breaks the
+  `profiles(...)` embed on the receipt page; migration `card_audit_matching.sql`, APPLIED
   2026-11-06). Action app/(app)/expenses/cards/actions.ts. CSV: GET /api/expenses/card-audit-csv?card&month.
