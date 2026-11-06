@@ -151,7 +151,7 @@ export function fmtDate(d: string | null | undefined) {
 }
 
 /** Roles that may add/edit catalog parts and post inventory movements. */
-export const INVENTORY_WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'construction_manager', 'estimator', 'service_tech', 'construction_tech']
+export const INVENTORY_WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'parts_manager', 'construction_manager', 'estimator', 'service_tech', 'construction_tech']
 export function canWriteInventory(role: string | null | undefined) {
   return !!role && INVENTORY_WRITE_ROLES.includes(role)
 }
