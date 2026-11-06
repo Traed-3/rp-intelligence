@@ -146,13 +146,12 @@ async function unloggedIds(admin: ReturnType<typeof createAdminClient>, mailbox:
 
 /** Is there a logged rpdispatcher billing notice for this WO# of the given kind, newer than `after`? */
 async function laterBillingNotice(admin: ReturnType<typeof createAdminClient>, woNumber: string, kind: 'approved' | 'rejected', after: Date): Promise<boolean> {
-  // Only notices the live sync accepted ('ignored' = failed the forged-sender check) from the portal itself.
-  let q = admin.from('svc_gmail_imports').select('id').eq('mailbox', 'rpdispatcher')
-    .eq('parsed->>woNumber', woNumber).gt('received_at', after.toISOString())
-    .neq('status', 'ignored').ilike('sender', '%@service-now.com').limit(1)
-  q = kind === 'approved' ? q.ilike('subject', '%invoice approved%') : q.eq('parsed->>isInvoiceRejection', 'true')
+  // Only notices that passed the forged-sender check when they were read (parsed.trustedPortal).
+  let q = admin.from('svc_gmail_imports').select('sender, parsed').eq('mailbox', 'rpdispatcher')
+    .eq('parsed->>woNumber', woNumber).gt('received_at', after.toISOString()).neq('status', 'ignored').limit(20)
+  q = kind === 'approved' ? q.eq('parsed->>isInvoiceApproved', 'true') : q.eq('parsed->>isInvoiceRejection', 'true')
   const { data } = await q
-  return !!data?.length
+  return (data ?? []).some(r => (r.parsed as { trustedPortal?: boolean } | null)?.trustedPortal !== false && isTrustedPortalNotice(r.sender ?? ''))
 }
 
 /** A finished/closed call: clear its dispatch email (and the notice that closed it) out of rpdispatcher. Best-effort. */
@@ -217,8 +216,11 @@ export async function syncDispatcher(opts: SvcPassOptions = {}): Promise<SvcSync
       let importStatus = 'ignored'
 
       // Approval / redirect / termination notices close calls, so a forged one must never act.
-      const untrustedClosure = (parsed.isInvoiceApproved || parsed.isInvoiceRejection || parsed.isRedirected || parsed.isTerminated)
-        && !isTrustedPortalNotice(senderEmail, getHeader(headers, 'Authentication-Results'))
+      // The verdict is stored with the import (parsed.trustedPortal) so the replays in svc-reconcile.ts never
+      // act on a notice that failed this check, whatever its subject says.
+      const trustedPortal = isTrustedPortalNotice(senderEmail, getHeader(headers, 'Authentication-Results'))
+      const untrustedClosure = (parsed.isInvoiceApproved || parsed.isInvoiceRejection || parsed.isCancellation || parsed.isRedirected || parsed.isTerminated)
+        && !trustedPortal
 
       if (!parsed.woNumber) {
         importStatus = 'no_match'
@@ -401,7 +403,7 @@ export async function syncDispatcher(opts: SvcPassOptions = {}): Promise<SvcSync
         sender:             senderEmail,
         subject,
         received_at:        receivedAt.toISOString(),
-        parsed,
+        parsed:             { ...parsed, trustedPortal },
         status:             importStatus,
         matched_work_order_id: matchedWorkOrderId,
       })
