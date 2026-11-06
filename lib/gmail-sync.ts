@@ -84,22 +84,19 @@ async function isTrustedMessage(admin: Admin, msg: any, cache: TrustCache): Prom
   // mx.google.com on delivery. Copies further down could have been written by the sender.
   const top = headers.find(h => /^authentication-results$/i.test(h.name))
   if (!top) return false
-  // RFC 8601: drop (comments) first — they can hold sender-controlled text — then read
-  // each "method=result ptype.prop=value …" clause as exact tokens.
+  // RFC 8601: drop (comments) first — they can hold sender-controlled text — and fail
+  // closed if any bracket is left. Then match Gmail's exact clause shapes only.
   let raw = String(top.value)
   for (let k = 0; k < 3; k++) raw = raw.replace(/\([^()]*\)/g, ' ')
+  if (/[()"]/.test(raw)) return false
   const [authserv, ...clauses] = raw.split(';').map(x => x.trim().replace(/\s+/g, ' ').toLowerCase())
   if (authserv !== 'mx.google.com') return false
   const domain = e.split('@')[1]
   return clauses.some(c => {
-    const toks = c.split(' ')
-    const prop = (name: string) => toks.find(t => t.startsWith(`${name}=`))?.slice(name.length + 1)
-    if (toks[0] === 'dkim=pass') {
-      const i = prop('header.i'); const d = prop('header.d')
-      return i === `@${domain}` || i === e || d === domain
-    }
-    if (toks[0] === 'dmarc=pass') return prop('header.from') === domain
-    return false
+    const dkim = c.match(/^dkim=pass header\.i=(\S+) header\.s=\S+ header\.b=\S+$/)
+    if (dkim) return dkim[1] === `@${domain}` || dkim[1] === e
+    const dmarc = c.match(/^dmarc=pass header\.from=(\S+)$/)
+    return !!dmarc && dmarc[1] === domain
   })
 }
 
