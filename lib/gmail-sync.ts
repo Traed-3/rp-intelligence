@@ -66,6 +66,33 @@ type Admin = ReturnType<typeof createAdminClient>
  * Mail from anyone else is still filed as a note / a new ticket, but never changes an
  * existing job or a vehicle record. The cache lives for one sync run.
  */
+/** Remove RFC 5322 comments (nested) and quoted strings (→ "Q"); null if unbalanced. */
+function stripCommentsAndQuotes(v: string): string | null {
+  let out = ''
+  let depth = 0
+  let inQuote = false
+  for (let i = 0; i < v.length; i++) {
+    const ch = v[i]
+    if (inQuote) {
+      if (ch === '\\') { i++; continue }
+      if (ch === '"') { inQuote = false; out += 'Q' }
+      continue
+    }
+    if (depth > 0) {
+      if (ch === '\\') { i++; continue }
+      if (ch === '(') depth++
+      else if (ch === ')') depth--
+      if (depth > 5) return null
+      continue
+    }
+    if (ch === '"') { inQuote = true; continue }
+    if (ch === '(') { depth = 1; continue }
+    if (ch === ')') return null
+    out += ch
+  }
+  return inQuote || depth > 0 ? null : out
+}
+
 type TrustCache = Map<string, boolean>
 async function isTrustedMessage(admin: Admin, msg: any, cache: TrustCache): Promise<boolean> {
   const headers: any[] = msg?.payload?.headers ?? []
@@ -84,11 +111,12 @@ async function isTrustedMessage(admin: Admin, msg: any, cache: TrustCache): Prom
   // mx.google.com on delivery. Copies further down could have been written by the sender.
   const top = headers.find(h => /^authentication-results$/i.test(h.name))
   if (!top) return false
-  // RFC 8601: drop (comments) first — they can hold sender-controlled text — and fail
-  // closed if any bracket is left. Then match Gmail's exact clause shapes only.
-  let raw = String(top.value)
-  for (let k = 0; k < 3; k++) raw = raw.replace(/\([^()]*\)/g, ' ')
-  if (/[()"]/.test(raw)) return false
+  // RFC 8601 / 5322: drop (comments) and "quoted strings" — both can hold sender-controlled
+  // text (Gmail quotes smtp.mailfrom when mail comes through the eshoptasks forward) — with a
+  // real character walk, and fail closed on anything unbalanced. Then match Gmail's exact
+  // clause shapes only.
+  const raw = stripCommentsAndQuotes(String(top.value))
+  if (raw === null) return false
   const [authserv, ...clauses] = raw.split(';').map(x => x.trim().replace(/\s+/g, ' ').toLowerCase())
   if (authserv !== 'mx.google.com') return false
   const domain = e.split('@')[1]
