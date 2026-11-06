@@ -1,0 +1,94 @@
+name: Service calls catch-up
+
+# One-time, manual catch-up for Service Dispatch (audit 2026-11-05): reads rpdispatcher / rpinvoicing over a
+# date range in slices, creates the calls the old inbox-only sync never saw, logs their tickets and invoice
+# notices, then replays statuses. Read-only on Gmail: backfill=1 never archives or changes anything in either
+# mailbox. Safe to re-run — anything already logged is skipped.
+on:
+  workflow_dispatch:
+    inputs:
+      since_days:
+        description: 'Start, in days back from today (67 = Sept 1 when run on Nov 6)'
+        default: '67'
+      until_days:
+        description: 'End, in days back from today (0 = up to now)'
+        default: '0'
+      slice_days:
+        description: 'Days per slice'
+        default: '7'
+      passes:
+        description: 'Comma list: dispatcher, invoicing, reconcile'
+        default: 'dispatcher,invoicing,reconcile'
+      invoicing_until_days:
+        description: 'Optional — stop the invoicing pass this many days back (the 15-min sync handles the recent days with transcripts). Blank = same as until_days.'
+        default: ''
+      dispatcher_q:
+        description: 'Optional extra Gmail terms for the dispatcher pass, e.g. subject:(approved OR rejected OR redirected OR terminated). Blank = everything.'
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: svc-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - name: Catch up
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SINCE: ${{ github.event.inputs.since_days }}
+          UNTIL: ${{ github.event.inputs.until_days }}
+          SLICE: ${{ github.event.inputs.slice_days }}
+          PASSES: ${{ github.event.inputs.passes }}
+          INV_UNTIL: ${{ github.event.inputs.invoicing_until_days }}
+          DISP_Q: ${{ github.event.inputs.dispatcher_q }}
+        run: |
+          BASE="https://rps-maintenance.vercel.app/api/svc/gmail-sync"
+          # $1 = query string, $2 = optional extra Gmail terms. Retries a failed call twice.
+          call() {
+            for attempt in 1 2 3; do
+              if [ -n "${2:-}" ]; then
+                code=$(curl -sS -G --max-time 90 -o resp.json -w '%{http_code}' --data-urlencode "secret=$CRON_SECRET" --data-urlencode "q=$2" "$BASE?$1") || code=000
+              else
+                code=$(curl -sS -G --max-time 90 -o resp.json -w '%{http_code}' --data-urlencode "secret=$CRON_SECRET" "$BASE?$1") || code=000
+              fi
+              [ "$code" = "200" ] && return 0
+              echo "HTTP $code — retrying"; head -c 400 resp.json 2>/dev/null; echo; sleep 20
+            done
+            return 1
+          }
+          # $1 = pass, $2 = max per call, $3 = until days, $4 = extra Gmail terms
+          run_pass() {
+            local pass=$1 max=$2 until=$3 extraq=${4:-}
+            local s=$SINCE
+            while [ "$s" -gt "$until" ]; do
+              local u=$(( s - SLICE )); [ "$u" -lt "$until" ] && u=$until
+              for i in $(seq 1 120); do
+                params="pass=$pass&backfill=1&max=$max&sinceDays=$s"
+                [ "$u" -gt 0 ] && params="$params&untilDays=$u"
+                call "$params" "$extraq" || { echo "giving up on this slice"; break; }
+                echo "$pass days $s→$u run $i: $(jq -c ".$pass | {listed, processed, remaining, created, matched, errors: (.errors|length)}" resp.json)"
+                jq -r ".$pass.errors[]?" resp.json | head -5
+                jq -r ".$pass.unknownSenders[]? | \"UNKNOWN SENDER \" + ." resp.json
+                rem=$(jq ".$pass.remaining" resp.json); proc=$(jq ".$pass.processed" resp.json)
+                [ "$rem" = "0" ] && break
+                [ "$proc" = "0" ] && { echo "nothing processed — moving on"; break; }
+              done
+              s=$u
+            done
+          }
+          case ",$PASSES," in *,dispatcher,*) run_pass dispatcher 200 "$UNTIL" "$DISP_Q" ;; esac
+          case ",$PASSES," in *,invoicing,*) run_pass invoicing 80 "${INV_UNTIL:-$UNTIL}" ;; esac
+          case ",$PASSES," in *,reconcile,*)
+            for i in $(seq 1 40); do
+              call "pass=reconcile&apply=1&archive=0" || break
+              echo "reconcile run $i: $(jq -c '.result | del(.changes)' resp.json)"
+              jq -r '.result.changes[]? | "CHG " + tojson' resp.json
+              [ "$(jq '.result.budgetHit' resp.json)" = "false" ] && break
+            done ;;
+          esac

@@ -72,7 +72,7 @@ export async function listMessages(mailbox: SvcMailbox, query: string, maxResult
   let pageToken: string | undefined
 
   do {
-    const params: Record<string, string> = { q: query, maxResults: String(Math.min(maxResults - ids.length, 100)) }
+    const params: Record<string, string> = { q: query, maxResults: String(Math.min(maxResults - ids.length, 500)) }
     if (pageToken) params.pageToken = pageToken
 
     const data = await gmailFetch(mailbox, '/messages', params)
