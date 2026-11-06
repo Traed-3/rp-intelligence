@@ -150,16 +150,20 @@ async function replayStatuses(
     .from('svc_gmail_imports')
     .select('id, gmail_message_id, received_at, subject, sender, parsed')
     .eq('mailbox', 'rpdispatcher')
-    .neq('status', 'ignored')   // failed the live sync's forged-sender check
+    .neq('status', 'ignored')   // older rows: the live sync logged a notice that failed its DKIM/SPF check as 'ignored'
     .or('subject.ilike.%invoice approved%,subject.ilike.%has been redirected%,subject.ilike.%is terminated%')
   for (const n of notices ?? []) {
     const wo = (n.parsed as any)?.woNumber as string | undefined
     if (!wo || !byWo.has(wo)) continue
     if (!isTrustedPortalNotice(n.sender ?? '')) continue   // only the customer's ticketing system can close a call
+    const p = (n.parsed ?? {}) as { trustedPortal?: boolean; isInvoiceApproved?: boolean; isRedirected?: boolean; isTerminated?: boolean }
+    if (p.trustedPortal === false) continue                   // failed DKIM/SPF when the sync read it
     const subj = n.subject ?? ''
-    if (/invoice approved/i.test(subj)) push(wo, { at: n.received_at, kind: 'approved', source: 'invoice approved by customer', msgId: n.gmail_message_id, invoiceNumber: subj.match(INV_RE)?.[0] ?? null })
-    else if (/has been redirected/i.test(subj)) push(wo, { at: n.received_at, kind: 'closed', source: 'redirected to another service provider', msgId: n.gmail_message_id, closedAs: `Redirected to another service provider — "${subj.trim().slice(0, 140)}"` })
-    else if (/is terminated/i.test(subj)) push(wo, { at: n.received_at, kind: 'closed', source: 'terminated by the customer', msgId: n.gmail_message_id, closedAs: `Terminated by the customer — "${subj.trim().slice(0, 140)}"` })
+    // The parser's own verdict when the import carries it (same rules as the live sync); subject match for old rows.
+    if (!(p.isInvoiceApproved ?? true) && !(p.isRedirected ?? true) && !(p.isTerminated ?? true)) continue
+    if (p.isInvoiceApproved ?? /invoice approved/i.test(subj)) push(wo, { at: n.received_at, kind: 'approved', source: 'invoice approved by customer', msgId: n.gmail_message_id, invoiceNumber: subj.match(INV_RE)?.[0] ?? null })
+    else if (p.isRedirected ?? /has been redirected/i.test(subj)) push(wo, { at: n.received_at, kind: 'closed', source: 'redirected to another service provider', msgId: n.gmail_message_id, closedAs: `Redirected to another service provider — "${subj.trim().slice(0, 140)}"` })
+    else if (p.isTerminated ?? /\bis terminated\b/i.test(subj)) push(wo, { at: n.received_at, kind: 'closed', source: 'terminated by the customer', msgId: n.gmail_message_id, closedAs: `Terminated by the customer — "${subj.trim().slice(0, 140)}"` })
   }
 
   // 4. Construction.
@@ -246,7 +250,7 @@ async function billingNotices(admin: Admin, onlyWo?: string) {
       .from('svc_gmail_imports')
       .select('received_at, subject, sender, parsed')
       .eq('mailbox', 'rpdispatcher')
-      .neq('status', 'ignored')   // the live sync logs a notice that failed its DKIM/SPF check as 'ignored'
+      .neq('status', 'ignored')   // older rows: a notice that failed the DKIM/SPF check was logged 'ignored'
       .or('subject.ilike.%invoice approved%,parsed->>isInvoiceRejection.eq.true')
       .order('received_at', { ascending: true })
       .range(from, from + 999)
@@ -271,7 +275,8 @@ async function replayBilling(admin: Admin, onlyWo: string | undefined, dryRun: b
     const p = n.parsed ?? {}
     const wo = p.woNumber as string | undefined
     if (!wo || !isTrustedPortalNotice(n.sender ?? '')) continue
-    const approved = /invoice approved/i.test(n.subject ?? '')
+    if (p.trustedPortal === false) continue   // failed DKIM/SPF when the sync read it
+    const approved = (p.isInvoiceApproved as boolean | undefined) ?? /invoice approved/i.test(n.subject ?? '')
     const invoiceNumber = (p.invoiceNumber as string | undefined) ?? (n.subject ?? '').match(INV_RE)?.[0] ?? null
     if (approved) approvedEver.set(wo, invoiceNumber ?? approvedEver.get(wo) ?? null)
     latest.set(wo, approved
