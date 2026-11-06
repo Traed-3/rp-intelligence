@@ -67,7 +67,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The 15-minute shop-mail sync runs from Supabase pg_cron now (supabase/migrations/maintenance_sync_schedule.sql) —
+  # GitHub's schedule fired only every ~1-5 hours. This job stays for manual runs.
   sync:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

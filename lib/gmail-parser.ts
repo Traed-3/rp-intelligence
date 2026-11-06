@@ -45,6 +45,16 @@ export function extractUnitCandidates(subject: string): string[] {
   const normalized = subject.replace(/[/,]+/g, ' ')
   for (const m of normalized.matchAll(UNIT_TOKEN)) push(m[0])
   for (const m of normalized.matchAll(PV_TOKEN))   push(m[0])
+  // Shop shorthand (validated against real assets by the caller):
+  //  "Trl.859", "Trl 074", "Trailer 386", "trailer #642" → T859, T074 …
+  for (const m of normalized.matchAll(/\b(?:trl|trlr|trailer)\.?\s*#?\s*(\d{3})\b/gi)) push('T' + m[1])
+  //  "Bob cat 3", "Bobcat #2", "skid steer 2" → BC3, BC2 …
+  for (const m of normalized.matchAll(/\b(?:bob\s*cat|skid\s*steer)\s*(?:#|no\.?|number)?\s*(\d{1,2})\b/gi)) push('BC' + m[1])
+  //  "Concrete saw 4", "saw #5" → CS4, CS5
+  for (const m of normalized.matchAll(/\b(?:concrete\s+)?saw\s*#?\s*(\d)\b/gi)) push('CS' + m[1])
+  //  a bare 3-digit number leading the subject is a trailer ("642- right turn lamp", "862 State Inspection")
+  const lead = normalized.match(/^\s*(?:(?:re|fwd?|fw)\s*:\s*)*(?:notification:\s*)?(\d{3})(?!\d)/i)
+  if (lead) push('T' + lead[1])
   // Collapse runs of single chars typed with spaces ("I I 9" → "II9", "T 20" → "T20")
   // so a unit broken up by spaces still resolves. Validated against real assets,
   // so the occasional bogus join (e.g. "a b c") simply matches nothing.
@@ -243,6 +253,11 @@ export function detectStatus(text: string): DetectedStatus {
     }
   }
 
+  // Read only the writer's own words — quoted earlier messages ("parts ordered",
+  // "replaced …") describe old state and must not drive the ticket.
+  const raw = text
+  text = ownText(text) || text
+
   const partsReceived = PARTS_RECEIVED_PATTERNS.some(r => r.test(text))
 
   // "Received" takes precedence — if parts are in, we're no longer waiting.
@@ -255,8 +270,10 @@ export function detectStatus(text: string): DetectedStatus {
   const partsNeeded = !partsReceived &&
     (partsOrdered || PARTS_NEEDED_PATTERNS.some(r => r.test(text)))
 
-  const isComplete =
-    /\bcomplete\b|\bcompleted\b|job\s+complete|work\s+complete|repair\s+complete|\bdone\b|\bfinished\b|\binstalled\b|\breplaced\b/i.test(text)
+  // Shop convention: a note is a completion only when it STARTS with
+  // "Complete"/"Completed" (or "Done"/"Finished"). "Update replaced …" is progress.
+  const intent = replyIntent(raw)
+  const isComplete = intent === 'complete' || intent === 'duplicate'
 
   const scheduledMatch = text.match(
     /(?:alignment|inspection|repair|service|appointment)?\s*scheduled(?:\s+for)?\s+([^\n.]+)|needs?\s+scheduled/i
@@ -315,4 +332,96 @@ export function generateTicketNumber(date: Date, unitNumber: string, existing: s
     if (!existing.includes(candidate)) return candidate
   }
   return `${base}Z`
+}
+
+// ── Shop reply conventions (verified against maintenance.rps mail, Nov 2026) ──
+//
+// The shop writes every status note as a reply (or a forward) whose FIRST line
+// starts with a keyword: "Complete …" / "Completed …" when the job is done,
+// "Update …" for progress, "Complete duplicate" when it was a repeat email.
+// Everything below the first line is free text — and quoted earlier messages
+// often contain words like "replaced" or "installed" that do NOT mean done.
+// So status is read only from the writer's own text, and only from its start.
+
+/** The writer's own words: everything above the quoted / forwarded part. */
+export function ownText(body: string): string {
+  if (!body) return ''
+  const cut = body.split(
+    /\n\s*On [^\n]{5,200}?wrote:|\n-{2,}\s*Forwarded message|\n\s*Begin forwarded message|\nFrom:\s[^\n]*\n(?:Sent|Date):|\n>|Sent from my (?:iPhone|iPad|Android|Galaxy)/i,
+  )[0]
+  return (cut ?? '').trim()
+}
+
+export type ReplyIntent = 'complete' | 'duplicate' | 'update' | null
+
+/** What the first line of the writer's own text says: complete, duplicate, update, or nothing. */
+export function replyIntent(body: string): ReplyIntent {
+  const own = ownText(body)
+  const first = (own.split('\n').find(l => l.trim()) ?? '').trim()
+  if (!first) return null
+  if (/^complete[d]?\b[\s.,:;!-]*duplicate\b/i.test(first)) return 'duplicate'
+  if (/^(?:complete[d]?|job\s+complete[d]?|all\s+done|done|finished)\b/i.test(first)) return 'complete'
+  if (/^update\b/i.test(first)) return 'update'
+  return null
+}
+
+/** Odometer reading written after "Complete" ("Complete 334,286", "Completed- 471281"). */
+export function parseServiceMileage(text: string): number | null {
+  const t = text ?? ''
+  // "Complete 334,286 …" — the number right after Complete
+  let m = t.match(/\bcomplete[d]?\b\s*[-:.,]?\s*(\d{1,3}(?:[,.]\d{3})+|\d{4,7})(?![\d,.]*\s*(?:qt|quart|hr|hour|gal))/i)
+  // "Complete 13qt t6 257319" — otherwise the first odometer-sized number on the first line
+  if (!m) m = (t.split('\n')[0] ?? '').match(/(?<![\d.])(\d{2,3},\d{3}|\d{5,6})(?![\d,.]*\s*(?:qt|quart|hr|hour|gal|lb))/i)
+  if (!m) return null
+  const n = parseInt(m[1].replace(/[,.]/g, ''), 10)
+  return Number.isFinite(n) && n >= 100 && n < 2_000_000 ? n : null
+}
+
+/** Ticket is an oil change / service visit ("T20 OCD", "S19 Service Due", "W23 for service"). */
+export function isOilChangeText(text: string): boolean {
+  return /\bOCD\b|\boil\s+change|\bservice\s+(?:due|needed)|\bfor\s+service\b|\bservice\/oil\b|^oil change\b/i.test(text ?? '')
+}
+
+const MONTHS = 'january|february|march|april|may|june|july|august|september|october|november|december'
+
+/** Ticket is a state inspection for ONE vehicle (not a monthly inspection list). */
+export function isStateInspectionText(text: string): boolean {
+  const t = text ?? ''
+  if (new RegExp(`^\\s*(?:(?:re|fwd?|fw)\\s*:\\s*)*(?:${MONTHS})\\s+inspections?\\b`, 'i').test(t)) return false
+  if (/\bprep(?:are|aring|aration)?\s+for\b/i.test(t)) return false     // "service prep for VA inspection" ≠ inspected
+  return /\b(?:state|va|virginia)\s+inspection|\binspection\s+due|\bneeds?\s+(?:to\s+be\s+)?inspect|\bfailed\s+inspection/i.test(t)
+}
+
+/**
+ * Emails to the shop inbox that are not repair jobs. Returns a short reason
+ * (stored on the import) or null when it should be treated as a job.
+ */
+export function nonTicketReason(subject: string): 'attendance' | 'due-list' | 'automated' | null {
+  const s = (subject ?? '').replace(/^\s*(?:(?:re|fwd?|fw)\s*:\s*)+/i, '')
+  const hasDate = /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/.test(s)
+  if (
+    /\b(?:leaving\s+(?:@\s*\d+|at\b|early|\d+)|running\s+(?:a\s+)?(?:little\s+)?(?:bit\s+)?(?:late|behind)|late\s+(?:today|this\s+morning)|out\s+today|off\s+today|day\s+off|need\s+off|vacation|dentist|PTO|TPD|sick|appointment\s+today)\b/i.test(s) ||
+    /\b(?:be|being|coming|come|in)\s+(?:in\s+)?(?:a\s+)?(?:little\s+)?(?:bit\s+)?late\b/i.test(s) ||
+    /\b(?:won[’']?t|can[’']?t|cant)\s+make\s+it\b|\b(?:need|have)\s+to\s+leave\b|\bleave\s+early\b|\b(?:family|medical)\s+emergency\b|\bdoctor'?s?\b|\bdr\.?\s+appointment|\bmin(?:ute)?s?\s+late\b/i.test(s) ||
+    (hasDate && /\b(?:off|not\s+taking\s+off|appointment|late)\b/i.test(s)) ||
+    /^\d{1,2}\/\d{1,2}\/\d{2,4}\s*[A-Z]{2,3}$/i.test(s.trim())          // "5/20/26AR" — a time-off note
+  ) {
+    return 'attendance'
+  }
+  if (new RegExp(`^(?:${MONTHS})\\s+inspections?\\b`, 'i').test(s)) return 'due-list'
+  if (/^(?:bearing\s+mileage|mileage\s+for\b|weekly\s+mileage)/i.test(s)) return 'due-list'
+  // "Service due Q17, SS19" — a service list naming 2+ vehicles
+  if (/\bservice\s+due\b|\binspections?\s+due\b/i.test(s) && (s.match(UNIT_TOKEN) ?? []).length >= 2) return 'due-list'
+  // Vendor promos and account notices that land in the shop inbox
+  if (/^(?:security\s+alert|updates\s+to\s+our|your\s+resource\s+for|introducing\b|happy\s+\w+\s+of\s+july|is\s+\w+\s+right\s+for\s+you|shop,\s+review\s+your\s+google)/i.test(s)) return 'automated'
+  return null
+}
+
+/** Comparable core of a subject: no Re/Fwd, no unit, no Update/Complete words, no punctuation. */
+export function coreSubject(subject: string, unit?: string): string {
+  let s = (subject ?? '').toLowerCase()
+  s = s.replace(/^\s*(?:(?:re|fwd?|fw)\s*:\s*)+/i, '')
+  if (unit) s = s.replace(new RegExp(`\\b${unit.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g'), ' ')
+  s = s.replace(/\b(?:tag\s+out|update[d]?|complete[d]?|duplicate)\b/g, ' ')
+  return s.replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
 }

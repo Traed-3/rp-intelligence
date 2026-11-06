@@ -1,17 +1,26 @@
 /**
- * Gmail → Ticket sync engine.
+ * Gmail → Ticket sync engine (maintenance.rps@gmail.com, fed by eshoptasks@).
  *
- * Flow:
- * 1. Fetch all threads matching query (inbox + historical from 2024)
- * 2. For each thread:
- *    a. First message → create ticket (if not already imported)
- *    b. Reply messages → update ticket status based on keywords
- * 3. Archived threads → mark ticket as completed/closed
+ * Shop rules this follows (checked against the mailbox, Nov 2026):
+ *  - A new email thread = a new job. Replies are notes on that job.
+ *  - A note is a completion only when it STARTS with "Complete"/"Completed".
+ *    "Update …" is progress. "Complete duplicate" closes a repeat email.
+ *  - The shop often FORWARDS the original with "Update …"/"Complete …" on top.
+ *    Gmail makes that a new thread, so it is attached to the job it belongs to
+ *    instead of opening a second ticket.
+ *  - A thread stays in the Inbox until the job is done; archived = done.
+ *  - "T20 OCD … Complete 334,286" and "truck inspected" also move the truck's
+ *    oil-change / inspection dates (lib/fleet-service.ts).
+ *
+ * Regular runs read the Inbox AND everything received in the last few days
+ * (archived or not), and only open threads that have mail we haven't logged.
+ * Backfill runs (after/before) walk a date window the same way, oldest first,
+ * and stop when their time budget is used so the caller can call again.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  listMessages,
+  listMessageRefs,
   getThread,
   getAttachment,
   listThreadIds,
@@ -28,12 +37,69 @@ import {
   isPersonalVehicle,
   personalVehicleInitials,
   generateTicketNumber,
+  ownText,
+  replyIntent,
+  nonTicketReason,
+  coreSubject,
+  isOilChangeText,
+  isStateInspectionText,
 } from '@/lib/gmail-parser'
+import { applyCompletedWork } from '@/lib/fleet-service'
 
 const COMPANY_ID = 'f3d06874-2e21-40f3-a7d0-a1d86bad02e7'
 // Employee Vehicle asset type ID
 const EMPLOYEE_VEHICLE_TYPE_ID = '289b1400-4a45-46f2-829b-9748b70c66b6'
 const TERMINAL_STATUSES = ['closed', 'completed', 'deferred']
+const OPEN_STATUSES_EARLY = ['new', 'open', 'assigned']
+/** The shop mailbox itself and the address that forwards into it. */
+const SHOP_ADDRESSES = ['maintenance.rps@gmail.com', 'eshoptasks@gmail.com']
+
+type Admin = ReturnType<typeof createAdminClient>
+
+/**
+ * Who may change a job by email (close it, set parts flags, move truck dates,
+ * file a forward onto it):
+ *  - mail the shop mailbox itself sent (Gmail's SENT label — only the account can set it), or
+ *  - mail from an exact app-login address (profiles.email) that Gmail authenticated for
+ *    that address's domain (Authentication-Results: dkim=pass / dmarc=pass), so a forged
+ *    From line doesn't count.
+ * Mail from anyone else is still filed as a note / a new ticket, but never changes an
+ * existing job or a vehicle record. The cache lives for one sync run.
+ */
+type TrustCache = Map<string, boolean>
+async function isTrustedMessage(admin: Admin, msg: any, cache: TrustCache): Promise<boolean> {
+  const headers: any[] = msg?.payload?.headers ?? []
+  const e = parseSender(getHeader(headers, 'From')).email.trim().toLowerCase()
+  if (!/^[^\s@]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(e)) return false
+  if (SHOP_ADDRESSES.includes(e)) return (msg?.labelIds ?? []).includes('SENT')
+
+  if (!cache.has(e)) {
+    const { data } = await admin.from('profiles').select('id')
+      .eq('company_id', COMPANY_ID).eq('email', e).limit(1).maybeSingle()
+    cache.set(e, !!data)
+  }
+  if (!cache.get(e)) return false
+
+  // Only Gmail's own verdict counts: the TOPMOST Authentication-Results header, added by
+  // mx.google.com on delivery. Copies further down could have been written by the sender.
+  const top = headers.find(h => /^authentication-results$/i.test(h.name))
+  if (!top) return false
+  // RFC 8601: drop (comments) first — they can hold sender-controlled text — and fail
+  // closed if any bracket is left. Then match Gmail's exact clause shapes only.
+  let raw = String(top.value)
+  for (let k = 0; k < 3; k++) raw = raw.replace(/\([^()]*\)/g, ' ')
+  if (/[()"]/.test(raw)) return false
+  const [authserv, ...clauses] = raw.split(';').map(x => x.trim().replace(/\s+/g, ' ').toLowerCase())
+  if (authserv !== 'mx.google.com') return false
+  const domain = e.split('@')[1]
+  return clauses.some(c => {
+    const dkim = c.match(/^dkim=pass header\.i=(\S+) header\.s=\S+ header\.b=\S+$/)
+    if (dkim) return dkim[1] === `@${domain}` || dkim[1] === e
+    const dmarc = c.match(/^dmarc=pass header\.from=(\S+)$/)
+    return !!dmarc && dmarc[1] === domain
+  })
+}
+
 
 /** Automated Google emails (security alerts, etc.) are never tickets. */
 function isGoogleSender(email: string): boolean {
@@ -194,7 +260,8 @@ async function findReporter(
     .from('profiles')
     .select('id')
     .eq('company_id', COMPANY_ID)
-    .ilike('email', email)
+    .eq('email', (email ?? '').trim().toLowerCase())
+    .limit(1)
     .maybeSingle()
   return data?.id ?? null
 }
@@ -227,95 +294,151 @@ export interface SyncResult {
   processed:     number
   created:       number
   updated:       number
+  attached:      number   // forwards / follow-ups filed onto an existing ticket
   skipped:       number
+  ignored:       number   // attendance notes, due-lists, outbound mail — logged, no ticket
   review:        number   // unmatched assets parked in the review queue
+  queued:        number   // threads with unlogged mail found this run
+  more:          boolean  // time budget ran out — call again to continue
   errors:        string[]
 }
 
-export async function syncGmailToTickets(options: {
-  historical?: boolean   // true = include 2024+ emails, false = just recent
-  maxThreads?: number
-  after?: string         // Gmail date YYYY/MM/DD — custom historical window (e.g. 2022/01/01)
-  before?: string        // Gmail date YYYY/MM/DD — exclusive upper bound
-  skipUnmatched?: boolean // backfill mode: don't review-queue unmatched emails, just skip them
-}): Promise<SyncResult> {
-  const admin = createAdminClient()
-  const result: SyncResult = { processed: 0, created: 0, updated: 0, skipped: 0, review: 0, errors: [] }
+export interface SyncOptions {
+  historical?: boolean    // true = include 2024+ emails (legacy flag; same as after=2024/01/01)
+  maxThreads?: number     // cap on messages listed per query
+  after?: string          // Gmail date YYYY/MM/DD — backfill window start
+  before?: string         // Gmail date YYYY/MM/DD — backfill window end (exclusive)
+  skipUnmatched?: boolean // backfill mode: don't review-queue unmatched emails, just log them
+  recentDays?: number     // regular mode: also read mail received this many days back, archived or not (default 3)
+  budgetMs?: number       // stop starting new threads after this long (default 40s)
+  recheckPending?: boolean // backfill: re-try review-queue emails (after new vehicles / name variations were added)
+}
 
-  let queries: { q: string; isInbox: boolean }[]
-  if (options.after || options.before) {
-    // Custom date-range backfill (e.g. 2022–2023). Old archived mail → completed tickets.
+type ThreadCtx = {
+  skipUnmatched: boolean
+  markRead: boolean
+  recheckPending?: boolean
+  trust: TrustCache
+}
+
+type ProcessOutcome = 'created' | 'updated' | 'attached' | 'skipped' | 'ignored' | 'review'
+
+export async function syncGmailToTickets(options: SyncOptions): Promise<SyncResult> {
+  const admin = createAdminClient()
+  // One run at a time — pg_cron, GitHub Actions, the daily summary and the Settings
+  // button can all fire close together, and two runs could file the same email twice.
+  const { data: gotLock } = await admin.rpc('try_sync_lock', { p_name: 'gmail_maintenance', p_seconds: 120 })
+  if (gotLock === false) {
+    return { processed: 0, created: 0, updated: 0, attached: 0, skipped: 0, ignored: 0, review: 0,
+      queued: 0, more: true, errors: ['skipped: another sync is running'] }
+  }
+  try {
+    return await runSync(admin, options)
+  } finally {
+    await admin.rpc('release_sync_lock', { p_name: 'gmail_maintenance' }).then(() => {}, () => {})
+  }
+}
+
+async function runSync(admin: Admin, options: SyncOptions): Promise<SyncResult> {
+  const started = Date.now()
+  const budget  = options.budgetMs ?? 40_000
+  const result: SyncResult = {
+    processed: 0, created: 0, updated: 0, attached: 0, skipped: 0, ignored: 0, review: 0,
+    queued: 0, more: false, errors: [],
+  }
+
+  const backfill = !!(options.after || options.before || options.historical)
+  const max = options.maxThreads ?? (backfill ? 2000 : 500)
+  let queries: string[]
+  if (backfill) {
     const df = [
-      options.after  && `after:${options.after}`,
+      `after:${options.after ?? '2024/01/01'}`,
       options.before && `before:${options.before}`,
     ].filter(Boolean).join(' ')
-    queries = [{ q: `in:all -in:spam -in:trash ${df}`.trim(), isInbox: false }]
+    queries = [`in:all -in:spam -in:trash -in:drafts -in:chats ${df}`]
   } else {
-    // Query: inbox (open) + historical (archived/completed from 2024)
-    const afterDate = options.historical ? '2024/01/01' : ''
-    const inboxQuery  = afterDate ? `in:inbox after:${afterDate}` : 'in:inbox'
-    const archiveQuery = afterDate ? `in:all -in:inbox -in:spam -in:trash after:${afterDate}` : ''
-    queries = archiveQuery
-      ? [{ q: inboxQuery, isInbox: true }, { q: archiveQuery, isInbox: false }]
-      : [{ q: inboxQuery, isInbox: true }]
+    // The Inbox (open jobs) + everything from the last few days, archived or not —
+    // a job emailed and archived between two runs is no longer missed.
+    queries = ['in:inbox', `newer_than:${options.recentDays ?? 3}d -in:spam -in:trash -in:drafts -in:chats`]
   }
 
-  const seenThreadIds = new Set<string>()
-
-  for (const { q, isInbox } of queries) {
-    let msgIds: string[]
+  // 1) Gather message refs, newest first, deduped
+  const refs: { id: string; threadId: string }[] = []
+  const seenMsg = new Set<string>()
+  for (const q of queries) {
     try {
-      msgIds = await listMessages(q, options.maxThreads ?? 500)
+      for (const r of await listMessageRefs(q, max)) {
+        if (!seenMsg.has(r.id)) { seenMsg.add(r.id); refs.push(r) }
+      }
     } catch (e: any) {
       result.errors.push(`List failed (${q}): ${e.message}`)
-      continue
-    }
-
-    for (const msgId of msgIds) {
-      try {
-        // Get the thread this message belongs to
-        const msg = await admin
-          .from('gmail_imports')
-          .select('id, gmail_thread_id')
-          .eq('gmail_message_id', msgId)
-          .maybeSingle()
-
-        // Get thread id from Gmail if we don't have it yet
-        let threadId: string
-        if (msg.data?.gmail_thread_id) {
-          threadId = msg.data.gmail_thread_id
-        } else {
-          // Fetch message to get threadId
-          const { getMessage } = await import('@/lib/gmail-client')
-          const m = await getMessage(msgId)
-          threadId = m.threadId
-        }
-
-        if (seenThreadIds.has(threadId)) continue
-        seenThreadIds.add(threadId)
-
-        result.processed++
-        const r = await processThread(admin, threadId, isInbox, options.skipUnmatched ?? false)
-        if (r === 'created') result.created++
-        else if (r === 'updated') result.updated++
-        else if (r === 'review') result.review++
-        else result.skipped++
-
-      } catch (e: any) {
-        result.errors.push(`Thread for msg ${msgId}: ${e.message}`)
-      }
     }
   }
 
-  // Reconcile archived threads: close finished tickets + catch missed "complete" replies
-  try {
-    const inboxThreadIds = new Set(await listThreadIds('in:inbox'))
-    await refreshArchivedOpenTickets(admin, inboxThreadIds, result)
-  } catch (e: any) {
-    result.errors.push(`Archived refresh failed: ${e.message}`)
+  // 2) Drop messages already logged; keep threads that have something new
+  const known = await loggedMessageIds(admin, refs.map(r => r.id))
+  const threadOrder: string[] = []
+  const pendingThreads = new Set<string>()
+  for (const r of [...refs].reverse()) {            // oldest first, so originals land before their forwards
+    if (known.has(r.id) || pendingThreads.has(r.threadId)) continue
+    pendingThreads.add(r.threadId)
+    threadOrder.push(r.threadId)
+  }
+
+  // Threads parked in review / dismissed: nothing to do until someone assigns them
+  const parked = await parkedThreadIds(admin, threadOrder, !!options.recheckPending)
+  const todo = threadOrder.filter(t => !parked.has(t))
+  result.queued = todo.length
+
+  const ctx: ThreadCtx = { skipUnmatched: options.skipUnmatched ?? false, markRead: !backfill, recheckPending: !!options.recheckPending, trust: new Map() }
+  for (const threadId of todo) {
+    if (Date.now() - started > budget) { result.more = true; break }
+    try {
+      result.processed++
+      const r = await processThread(admin, threadId, ctx)
+      result[r === 'created' ? 'created' : r === 'updated' ? 'updated' : r === 'attached' ? 'attached'
+        : r === 'review' ? 'review' : r === 'ignored' ? 'ignored' : 'skipped']++
+    } catch (e: any) {
+      result.errors.push(`Thread ${threadId}: ${e.message}`)
+    }
+  }
+
+  // 3) Reconcile archived threads: close finished tickets + catch missed "complete" replies
+  if (!backfill && Date.now() - started < budget + 5_000) {
+    try {
+      const inboxThreadIds = new Set(await listThreadIds('in:inbox'))
+      await refreshArchivedOpenTickets(admin, inboxThreadIds, result, ctx)
+    } catch (e: any) {
+      result.errors.push(`Archived refresh failed: ${e.message}`)
+    }
   }
 
   return result
+}
+
+/** Which of these Gmail message ids are already logged in gmail_imports. */
+async function loggedMessageIds(admin: Admin, ids: string[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  for (let i = 0; i < ids.length; i += 150) {
+    const { data } = await admin.from('gmail_imports').select('gmail_message_id')
+      .in('gmail_message_id', ids.slice(i, i + 150))
+    for (const r of data ?? []) out.add(r.gmail_message_id as string)
+  }
+  return out
+}
+
+/** Threads whose only rows are in the review queue or dismissed (no ticket yet). */
+async function parkedThreadIds(admin: Admin, threadIds: string[], includePendingAsActive = false): Promise<Set<string>> {
+  const conv = new Set<string>(); const other = new Set<string>()
+  for (let i = 0; i < threadIds.length; i += 150) {
+    const { data } = await admin.from('gmail_imports').select('gmail_thread_id, status, converted_ticket_id')
+      .eq('company_id', COMPANY_ID).in('gmail_thread_id', threadIds.slice(i, i + 150))
+    for (const r of data ?? []) {
+      if (r.converted_ticket_id || (includePendingAsActive && r.status === 'pending')) conv.add(r.gmail_thread_id as string)
+      else other.add(r.gmail_thread_id as string)
+    }
+  }
+  return new Set([...other].filter(t => !conv.has(t)))
 }
 
 // ── Backfill: attach existing email tickets' photos/files ─────────────────────
@@ -350,17 +473,17 @@ export async function backfillAttachments(opts: { max?: number; offset?: number 
 
 // ── Archived-thread reconciliation ────────────────────────────────────────────
 //
-// The regular sync only reads `in:inbox`, so if a "Complete" reply arrives and
-// the thread is then archived, the inbox sync never sees it. This pass walks
-// every open Gmail-sourced ticket whose thread is NOT in the inbox and:
-//   1) processes any unseen replies (a "complete" reply → close + notes), then
-//   2) if it's still open, treats "archived" as "done" and marks it completed.
-// (We never archive anything ourselves — archiving is the owner's job.)
+// Walks every open Gmail-sourced ticket. A ticket counts as "still in the Inbox"
+// if ANY thread filed on it (the original or a forward) is in the Inbox. If none
+// is, its replies are picked up first (a "Complete" note closes it with notes),
+// and if it is still open it is treated as done: archived = finished.
+// (We never archive anything ourselves — archiving is the shop's job.)
 
 async function refreshArchivedOpenTickets(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: Admin,
   inboxThreadIds: Set<string>,
-  result: SyncResult
+  result: SyncResult,
+  ctx: ThreadCtx,
 ) {
   const { data: openTickets } = await admin
     .from('repair_tickets')
@@ -369,73 +492,331 @@ async function refreshArchivedOpenTickets(
     .eq('source', 'gmail')
     .not('gmail_thread_id', 'is', null)
     .not('status', 'in', '(closed,completed,deferred)')
+  if (!openTickets?.length) return
 
-  for (const t of openTickets ?? []) {
-    const threadId = t.gmail_thread_id as string
-    if (inboxThreadIds.has(threadId)) continue   // inbox threads handled by the main loop
+  // Every thread filed on each open ticket (original + forwards/follow-ups)
+  const threadsByTicket = new Map<string, Set<string>>()
+  for (const t of openTickets) threadsByTicket.set(t.id, new Set([t.gmail_thread_id as string]))
+  const ids = openTickets.map(t => t.id)
+  for (let i = 0; i < ids.length; i += 150) {
+    const { data } = await admin.from('gmail_imports').select('converted_ticket_id, gmail_thread_id')
+      .in('converted_ticket_id', ids.slice(i, i + 150))
+    for (const r of data ?? []) {
+      if (r.gmail_thread_id) threadsByTicket.get(r.converted_ticket_id as string)?.add(r.gmail_thread_id as string)
+    }
+  }
+
+  for (const t of openTickets) {
+    const threads = [...(threadsByTicket.get(t.id) ?? [])]
+    if (threads.some(th => inboxThreadIds.has(th))) continue   // still open in the Inbox
 
     try {
-      // 1) Pick up any replies the inbox-only sync missed (e.g. a "complete" reply)
-      await processThread(admin, threadId, false)
+      // 1) Pick up any notes not seen yet (a "Complete" note closes it properly)
+      for (const th of threads) await processThread(admin, th, { ...ctx, markRead: false })
 
-      // 2) Still open + archived ⇒ it's finished
+      // 2) Still open + every thread archived ⇒ finished
       const { data: tk } = await admin.from('repair_tickets').select('status').eq('id', t.id).single()
       if (tk && !TERMINAL_STATUSES.includes(tk.status)) {
-        const thread = await getThread(threadId)
-        const msgs: any[] = thread.messages ?? []
-        const last = msgs[msgs.length - 1]
-        const note = last ? extractBody(last.payload).trim().slice(0, 1000) : ''
-        const dateStr = last
-          ? new Date(getHeader(last.payload?.headers ?? [], 'Date') || Date.now()).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0]
+        let lastMsg: any = null; let lastTs = 0
+        for (const th of threads) {
+          const thread = await getThread(th)
+          for (const m of thread.messages ?? []) {
+            const ts = Number(m.internalDate ?? 0)
+            if (ts >= lastTs) { lastTs = ts; lastMsg = m }
+          }
+        }
+        const note = lastMsg ? ownText(extractBody(lastMsg.payload)).slice(0, 1000) : ''
+        const dateStr = new Date(lastTs || Date.now()).toISOString().split('T')[0]
         await admin.from('repair_tickets').update({
           status:           'completed',
           date_completed:   dateStr,
-          completion_notes: note || 'Email archived by staff — marked complete.',
+          waiting_on_parts: false,
+          completion_notes: note || 'Email archived by the shop — marked complete.',
         }).eq('id', t.id)
+        await applyCompletedWork(admin, t.id, { date: dateStr, text: note })
         result.updated++
       }
     } catch (e: any) {
-      result.errors.push(`Refresh ${threadId}: ${e.message}`)
+      result.errors.push(`Refresh ${t.gmail_thread_id}: ${e.message}`)
     }
   }
+}
+
+// ── Message → ticket status ───────────────────────────────────────────────────
+
+function msgDateOf(msg: any): Date {
+  const hdr = getHeader(msg.payload?.headers ?? [], 'Date')
+  const d = hdr ? new Date(hdr) : new Date(Number(msg.internalDate ?? Date.now()))
+  return isNaN(d.getTime()) ? new Date(Number(msg.internalDate ?? Date.now())) : d
+}
+const ymd = (d: Date) => d.toISOString().split('T')[0]
+
+/**
+ * File one or more email messages onto an existing ticket as notes, applying
+ * the shop's status words. Skips messages already logged. Returns true if the
+ * ticket's status or flags changed.
+ */
+async function fileMessagesOnTicket(
+  admin: Admin,
+  ticketId: string,
+  threadId: string,
+  subject: string,
+  unitNumber: string,
+  messages: any[],
+  trust: TrustCache,
+  pendingMsgIds: Set<string> = new Set(),
+): Promise<boolean> {
+  const { data: cur } = await admin.from('repair_tickets').select('status').eq('id', ticketId).single()
+  let curStatus: string = cur?.status ?? 'open'
+  let changed = false
+
+  for (const msg of messages) {
+    const { data: alreadyLogged } = await admin.from('gmail_imports').select('id')
+      .eq('gmail_message_id', msg.id).maybeSingle()
+    if (alreadyLogged && !pendingMsgIds.has(msg.id)) continue
+
+    const headers = msg.payload?.headers ?? []
+    const body    = extractBody(msg.payload)
+    const own     = ownText(body)
+    const { email } = parseSender(getHeader(headers, 'From'))
+    const when    = msgDateOf(msg)
+    const trusted = await isTrustedMessage(admin, msg, trust)
+    const intent  = trusted ? replyIntent(body) : null
+    const status  = trusted ? detectStatus(body) : detectStatus('')
+    const updates: Record<string, unknown> = {}
+
+    if (intent === 'duplicate') {
+      if (!TERMINAL_STATUSES.includes(curStatus)) {
+        updates.status = 'closed'
+        updates.date_completed = ymd(when)
+        updates.completion_notes = 'Duplicate email (per the shop).'
+        updates.waiting_on_parts = false
+      }
+    } else if (intent === 'complete') {
+      if (!TERMINAL_STATUSES.includes(curStatus)) {
+        updates.status = 'completed'
+        updates.date_completed = ymd(when)
+        updates.waiting_on_parts = false
+        if (own) updates.completion_notes = own.slice(0, 1000)
+        const by = await findReporter(admin, email)
+        if (by) updates.completed_by = by
+      }
+    } else if (status.partsReceived) {
+      updates.parts_needed = false
+      updates.parts_ordered = true
+      updates.waiting_on_parts = false
+      if (curStatus === 'waiting_parts') updates.status = 'in_progress'
+    } else if (status.partsOrdered) {
+      updates.parts_needed = false
+      updates.parts_ordered = true
+      updates.waiting_on_parts = true
+      if (OPEN_STATUSES_EARLY.includes(curStatus)) updates.status = 'waiting_parts'
+    } else if (status.partsNeeded) {
+      updates.parts_needed = true
+      updates.waiting_on_parts = true
+      if (OPEN_STATUSES_EARLY.includes(curStatus)) updates.status = 'waiting_parts'
+    } else if (trusted && own && OPEN_STATUSES_EARLY.includes(curStatus)) {
+      updates.status = 'in_progress'   // any staff note means work has started
+    }
+
+    if (Object.keys(updates).length) {
+      await admin.from('repair_tickets').update(updates).eq('id', ticketId)
+      if (typeof updates.status === 'string') curStatus = updates.status
+      changed = true
+      if (updates.status === 'completed') {
+        await applyCompletedWork(admin, ticketId, { date: ymd(when), text: own })
+      }
+    }
+
+    const authorId = await findReporter(admin, email)
+    if (body.trim()) {
+      await admin.from('repair_ticket_comments').insert({
+        ticket_id:   ticketId,
+        author_id:   authorId,
+        comment:     `[Via Email] ${(own || body).trim().slice(0, 2000)}`,
+        is_internal: false,
+        created_at:  when.toISOString(),
+      })
+    }
+
+    if (pendingMsgIds.has(msg.id)) {
+      await admin.from('gmail_imports').update({ status: 'converted', converted_ticket_id: ticketId, detected_asset: unitNumber })
+        .eq('gmail_message_id', msg.id)
+    } else {
+      await admin.from('gmail_imports').insert({
+        company_id:          COMPANY_ID,
+        gmail_message_id:    msg.id,
+        gmail_thread_id:     threadId,
+        subject:             getHeader(headers, 'Subject') || `RE: ${subject}`,
+        sender:              email,
+        received_at:         when.toISOString(),
+        body_preview:        body.slice(0, 500),
+        status:              'converted',
+        converted_ticket_id: ticketId,
+        detected_asset:      unitNumber,
+      })
+    }
+
+    await syncMessageAttachments(admin, msg.id, msg.payload, ticketId)
+  }
+  return changed
+}
+
+// ── Forwards / follow-ups → the ticket they belong to ─────────────────────────
+
+function tokenSim(a: string, b: string): number {
+  const A = new Set(a.split(' ').filter(w => w.length > 1)); const B = new Set(b.split(' ').filter(w => w.length > 1))
+  if (!A.size || !B.size) return 0
+  let inter = 0
+  for (const w of A) if (B.has(w)) inter++
+  return inter / Math.min(A.size, B.size)
+}
+
+/**
+ * A new thread that is really a follow-up on an existing job: the shop forwarded
+ * the original with "Update …"/"Complete …" on top, or re-sent the same subject.
+ * Returns the ticket to file it on, or null to create a new ticket.
+ */
+async function findTicketForFollowUp(
+  admin: Admin,
+  assetId: string,
+  unitNumber: string,
+  subject: string,
+  firstBody: string,
+  msgDate: Date,
+): Promise<string | null> {
+  const isForward = /^\s*(?:(?:re|fwd?|fw)\s*:\s*)*(?:fwd?|fw)\s*:/i.test(subject) || /^\s*(?:re\s*:\s*)/i.test(subject)
+  const intent = replyIntent(firstBody)
+  const followUpish = isForward || intent === 'update' || intent === 'complete' || intent === 'duplicate'
+
+  const since = new Date(msgDate.getTime() - 60 * 86400_000).toISOString()
+  const until = new Date(msgDate.getTime() + 3600_000).toISOString()
+  const { data: cands } = await admin.from('repair_tickets')
+    .select('id, title, status, created_at, source')
+    .eq('company_id', COMPANY_ID).eq('asset_id', assetId)
+    .gte('created_at', since).lte('created_at', until)
+    .order('created_at', { ascending: false })
+  if (!cands?.length) return null
+
+  const core = coreSubject(subject, unitNumber)
+  const oil = isOilChangeText(subject); const insp = isStateInspectionText(subject)
+  let best: { id: string; score: number } | null = null
+  for (const c of cands) {
+    const open = !TERMINAL_STATUSES.includes(c.status)
+    // A finished job only takes forwards/updates (a fresh report with the same subject is a new job)
+    if (!open && !followUpish) continue
+    // Auto-tickets ("Oil Change — T20") are closed by the shop's OCD / inspection emails
+    if (c.source === 'preventive') {
+      if (open && ((oil && /oil change/i.test(c.title)) || (insp && /inspection/i.test(c.title)))) {
+        best = { id: c.id, score: 2 }; break
+      }
+      continue
+    }
+    const cc = coreSubject(c.title ?? '', unitNumber)
+    if (!core || !cc) continue
+    let score = 0
+    if (core === cc) score = 1.5
+    else if (core.length >= 8 && cc.length >= 8 && (core.includes(cc) || cc.includes(core))) score = 1.2
+    else score = tokenSim(core, cc)
+    if (score >= 0.75 && (!best || score > best.score)) best = { id: c.id, score }
+  }
+  return best?.id ?? null
 }
 
 // ── Per-thread processing ─────────────────────────────────────────────────────
 
 async function processThread(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: Admin,
   threadId: string,
-  isInbox: boolean,
-  skipUnmatched = false,
-): Promise<'created' | 'updated' | 'skipped' | 'review'> {
+  ctx: ThreadCtx,
+): Promise<ProcessOutcome> {
 
-  // Check if thread already has a converted ticket
-  const { data: existing } = await admin
+  const { data: rows } = await admin
     .from('gmail_imports')
-    .select('id, converted_ticket_id, status')
+    .select('id, converted_ticket_id, status, created_at')
     .eq('gmail_thread_id', threadId)
     .eq('company_id', COMPANY_ID)
     .order('created_at')
-    .limit(1)
-    .maybeSingle()
+  const converted = (rows ?? []).find(r => r.converted_ticket_id)
 
-  // Fetch full thread from Gmail
   const thread = await getThread(threadId)
   const messages: any[] = thread.messages ?? []
   if (!messages.length) return 'skipped'
+  const isInbox = messages.some(m => (m.labelIds ?? []).includes('INBOX'))
 
   const firstMsg  = messages[0]
   const headers   = firstMsg.payload?.headers ?? []
   const subject   = getHeader(headers, 'Subject')
   const fromRaw   = getHeader(headers, 'From')
-  const dateStr   = getHeader(headers, 'Date')
-  const msgDate   = dateStr ? new Date(dateStr) : new Date()
-
-  let { unitNumber, title } = parseSubject(subject)
+  const msgDate   = msgDateOf(firstMsg)
   const { email: senderEmail } = parseSender(fromRaw)
+  let { unitNumber, title } = parseSubject(subject)
+
+  // ── Thread already filed on a ticket — new messages are notes on it ────────
+  if (converted?.converted_ticket_id) {
+    const { data: tk } = await admin.from('repair_tickets').select('id, asset_id').eq('id', converted.converted_ticket_id).maybeSingle()
+    if (!tk) return 'skipped'
+    const changed = await fileMessagesOnTicket(admin, tk.id, threadId, subject, unitNumber, messages, ctx.trust)
+    return changed ? 'updated' : 'skipped'
+  }
+
+  // Already in the review queue or dismissed — leave it alone (unless re-checking the queue)
+  const pendingRows = (rows ?? []).filter(r => r.status === 'pending')
+  const recheck = !!ctx.recheckPending && !!rows?.length && pendingRows.length === rows.length
+  if (rows?.length && !recheck) return 'skipped'
+  const pendingMsgIds = new Set<string>()
+  if (recheck) {
+    const { data: pm } = await admin.from('gmail_imports').select('gmail_message_id')
+      .eq('gmail_thread_id', threadId).eq('status', 'pending')
+    for (const r of pm ?? []) pendingMsgIds.add(r.gmail_message_id as string)
+  }
+
+  const body = extractBody(firstMsg.payload)
+  const logOnly = async (status: 'rejected' | 'pending', reason: string | null, detected = unitNumber) => {
+    if (recheck) {
+      // Already queued: only a dismissal changes anything
+      if (status === 'rejected') {
+        await admin.from('gmail_imports').update({
+          status, raw_payload: { title: title || subject, body: body.trim().slice(0, 3000), ...(reason ? { reason } : {}) },
+        }).eq('gmail_thread_id', threadId).eq('status', 'pending')
+      }
+      return
+    }
+    await admin.from('gmail_imports').insert({
+      company_id:       COMPANY_ID,
+      gmail_message_id: firstMsg.id,
+      gmail_thread_id:  threadId,
+      subject,
+      sender:           senderEmail,
+      received_at:      msgDate.toISOString(),
+      body_preview:     body.slice(0, 500),
+      status,
+      detected_asset:   detected,
+      raw_payload:      { title: title || subject, body: body.trim().slice(0, 3000), ...(reason ? { reason } : {}) },
+    })
+  }
+
+  // ── Not a job: automated Google mail, the shop's own outgoing mail, attendance notes, due-lists ─
+  if (isGoogleSender(senderEmail)) { await logOnly('rejected', 'automated'); return 'ignored' }
+  if (SHOP_ADDRESSES.includes(senderEmail)) {
+    const to = `${getHeader(headers, 'To')} ${getHeader(headers, 'Cc')}`.toLowerCase()
+    if (!SHOP_ADDRESSES.some(a => to.includes(a))) { await logOnly('rejected', 'outbound'); return 'ignored' }
+  }
+  const notJob = nonTicketReason(subject)
+  if (notJob) { await logOnly('rejected', notJob); return 'ignored' }
 
   let assetId = await findOrCreateAsset(admin, unitNumber)
+
+  // A person already told us which vehicle a queued email belongs to (raw_payload.assign_asset_id)
+  if (recheck) {
+    const { data: hint } = await admin.from('gmail_imports').select('raw_payload')
+      .eq('gmail_thread_id', threadId).eq('status', 'pending').not('raw_payload->>assign_asset_id', 'is', null).limit(1).maybeSingle()
+    const hinted = (hint?.raw_payload as any)?.assign_asset_id as string | undefined
+    if (hinted) {
+      const { data: a } = await admin.from('assets').select('id, unit_number').eq('id', hinted).eq('company_id', COMPANY_ID).maybeSingle()
+      if (a) { assetId = a.id; unitNumber = a.unit_number; title = subject.replace(/^\s*(?:(?:re|fwd?|fw)\s*:\s*)+/i, '').trim() }
+    }
+  }
 
   // If the first word wasn't a real asset, look for the unit elsewhere in the
   // subject ("Breaks sound bad on t20"). Auto-link only on a single confident
@@ -451,215 +832,97 @@ async function processThread(
       title      = found[0].viaAlias ? subject.trim() : titleWithoutUnit(subject, found[0].matchText)
     }
   }
-
-  const reporterId = await findReporter(admin, senderEmail)
-  const body       = extractBody(firstMsg.payload)
-
-  // ── Thread already imported — process replies only ─────────────────────────
-  if (existing?.converted_ticket_id) {
-    const ticketId = existing.converted_ticket_id
-    let updated = false
-
-    // Track current status so a follow-up email can "start" the work
-    const { data: curTicket } = await admin.from('repair_tickets').select('status').eq('id', ticketId).single()
-    let curStatus: string = curTicket?.status ?? 'open'
-
-    for (const reply of messages.slice(1)) {
-      const replyHeaders = reply.payload?.headers ?? []
-      const replyMsgId   = reply.id
-      const replyBody    = extractBody(reply.payload)
-      const replyFrom    = getHeader(replyHeaders, 'From')
-      const { email: replyEmail } = parseSender(replyFrom)
-
-      // Skip if already logged
-      const { data: alreadyLogged } = await admin
-        .from('gmail_imports')
-        .select('id')
-        .eq('gmail_message_id', replyMsgId)
-        .maybeSingle()
-      if (alreadyLogged) continue
-
-      const status = detectStatus(replyBody)
-      const updates: Record<string, unknown> = {}
-
-      if (status.isComplete) {
-        updates.status          = 'completed'
-        updates.date_completed   = new Date(getHeader(replyHeaders, 'Date') || Date.now()).toISOString().split('T')[0]
-        if (replyBody.trim()) updates.completion_notes = replyBody.trim().slice(0, 1000)
-        const completedById = await findReporter(admin, replyEmail)
-        if (completedById) updates.completed_by = completedById
-      } else if (status.partsReceived) {
-        updates.parts_needed      = false
-        updates.parts_ordered     = true
-        updates.waiting_on_parts  = false
-      } else if (status.partsOrdered) {
-        updates.parts_needed     = false
-        updates.parts_ordered    = true
-        updates.waiting_on_parts = true
-        if (['new', 'open', 'assigned'].includes(curStatus)) updates.status = 'waiting_parts'
-      } else if (status.partsNeeded) {
-        // Parts mentioned but no explicit "ordered" — still belongs on the Waiting on
-        // Parts list. Don't touch parts_ordered (we don't know if they've been ordered yet).
-        updates.parts_needed     = true
-        updates.waiting_on_parts = true
-        if (['new', 'open', 'assigned'].includes(curStatus)) updates.status = 'waiting_parts'
-      } else if (replyBody.trim() && ['new', 'open', 'assigned'].includes(curStatus)) {
-        // A follow-up email / update / notes means work has started
-        updates.status = 'in_progress'
-      }
-
-      if (Object.keys(updates).length) {
-        await admin.from('repair_tickets').update(updates).eq('id', ticketId)
-        if (typeof updates.status === 'string') curStatus = updates.status
-        updated = true
-      }
-
-      // Add reply as comment
-      const authorId = await findReporter(admin, replyEmail)
-      if (replyBody.trim()) {
-        await admin.from('repair_ticket_comments').insert({
-          ticket_id:   ticketId,
-          author_id:   authorId,
-          comment:     `[Via Email] ${replyBody.trim().slice(0, 2000)}`,
-          is_internal: false,
-        })
-      }
-
-      // Log this reply message
-      await admin.from('gmail_imports').insert({
-        company_id:          COMPANY_ID,
-        gmail_message_id:    replyMsgId,
-        gmail_thread_id:     threadId,
-        subject:             `RE: ${subject}`,
-        sender:              replyEmail,
-        received_at:         new Date(getHeader(replyHeaders, 'Date') || Date.now()).toISOString(),
-        body_preview:        replyBody.slice(0, 500),
-        status:              'converted',
-        converted_ticket_id: ticketId,
-        detected_asset:      unitNumber,
-      })
-
-      // Attach any photos / files from this reply to the ticket
-      await syncMessageAttachments(admin, replyMsgId, reply.payload, ticketId)
-    }
-
-    return updated ? 'updated' : 'skipped'
-  }
-
-  // Thread already parked in the review queue (pending) or rejected — leave it alone
-  if (existing) return 'skipped'
-
-  // ── Ignore automated Google emails (security alerts, etc.) entirely ─────────
-  if (isGoogleSender(senderEmail)) {
-    await admin.from('gmail_imports').insert({
-      company_id:       COMPANY_ID,
-      gmail_message_id: firstMsg.id,
-      gmail_thread_id:  threadId,
-      subject,
-      sender:           senderEmail,
-      received_at:      msgDate.toISOString(),
-      body_preview:     '',
-      status:           'rejected',
-      detected_asset:   unitNumber,
-    })
-    return 'skipped'
-  }
+  title = (title || subject).replace(/^\s*(?:(?:re|fwd?|fw)\s*:\s*)+/i, '').trim() || subject
 
   // ── Unmatched asset → park in review queue (do NOT create an orphan ticket) ─
   // In backfill mode (skipUnmatched), record it as 'rejected' so it's deduped but
   // stays OUT of the review queue — old history shouldn't flood the queue.
   if (!assetId && !isPersonalVehicle(unitNumber)) {
-    await admin.from('gmail_imports').insert({
-      company_id:       COMPANY_ID,
-      gmail_message_id: firstMsg.id,
-      gmail_thread_id:  threadId,
-      subject,
-      sender:           senderEmail,
-      received_at:      msgDate.toISOString(),
-      body_preview:     body.slice(0, 500),
-      status:           skipUnmatched ? 'rejected' : 'pending',
-      detected_asset:   unitNumber,
-      raw_payload:      { title: title || subject, body: body.trim().slice(0, 3000) },
-    })
-    return skipUnmatched ? 'skipped' : 'review'
+    await logOnly(ctx.skipUnmatched ? 'rejected' : 'pending', ctx.skipUnmatched ? 'unmatched (backfill)' : null)
+    return ctx.skipUnmatched ? 'skipped' : 'review'
+  }
+  if (!assetId) return 'skipped'
+
+  // ── A forward / follow-up of a job we already have → file it there ─────────
+  // (staff only — anyone else's email opens its own ticket)
+  const followUpOf = await isTrustedMessage(admin, firstMsg, ctx.trust)
+    ? await findTicketForFollowUp(admin, assetId, unitNumber, subject, body, msgDate)
+    : null
+  if (followUpOf) {
+    await fileMessagesOnTicket(admin, followUpOf, threadId, subject, unitNumber, messages, ctx.trust, pendingMsgIds)
+    return 'attached'
   }
 
-  // ── New thread — create ticket ─────────────────────────────────────────────
+  // ── New job — create the ticket ────────────────────────────────────────────
+  const reporterId = await findReporter(admin, senderEmail)
 
-  // Determine initial status from ALL messages.
-  // Archived threads (not in the inbox) are treated as done → 'completed'.
+  // Status from the shop's words. Archived threads are done.
   let finalStatus: string = isInbox ? 'open' : 'completed'
-  let partsNeeded   = false
-  let partsOrdered  = false
-  let partsReceived = false
+  let partsNeeded = false, partsOrdered = false, partsReceived = false
   let dateCompleted: string | null = null
-  let completedBy:   string | null = null
+  let completedBy: string | null = null
+  let completionNote: string | null = null
+  let duplicate = false
 
   for (const msg of messages) {
-    const s = detectStatus(extractBody(msg.payload))
-    if (s.isComplete) {
-      finalStatus  = 'completed'
-      dateCompleted = new Date(getHeader(msg.payload?.headers ?? [], 'Date') || Date.now())
-        .toISOString().split('T')[0]
-      // Resolve who sent the completion message → completed_by
-      const fromHdr = getHeader(msg.payload?.headers ?? [], 'From')
-      const { email: completerEmail } = parseSender(fromHdr)
-      const completerId = await findReporter(admin, completerEmail)
-      if (completerId) completedBy = completerId
+    const b = extractBody(msg.payload)
+    const { email: msgFrom } = parseSender(getHeader(msg.payload?.headers ?? [], 'From'))
+    if (!(await isTrustedMessage(admin, msg, ctx.trust))) continue
+    const intent = replyIntent(b)
+    if (intent === 'complete' || intent === 'duplicate') {
+      finalStatus = 'completed'
+      duplicate = intent === 'duplicate'
+      dateCompleted = ymd(msgDateOf(msg))
+      completionNote = ownText(b).slice(0, 1000) || null
+      completedBy = (await findReporter(admin, msgFrom)) ?? completedBy
+    } else if (intent === 'update' && finalStatus === 'completed' && isInbox) {
+      finalStatus = 'in_progress'   // an update after a "complete" re-opens the work
+      dateCompleted = null
     }
+    const s = detectStatus(b)
     if (s.partsNeeded)   partsNeeded   = true
     if (s.partsOrdered)  partsOrdered  = true
-    if (s.partsReceived) partsReceived = true
+    if (s.partsReceived) { partsReceived = true; partsNeeded = false; partsOrdered = partsOrdered }
   }
 
-  // Anything parts-related that hasn't been received yet = pending → Waiting on Parts list
   const partsPending = (partsNeeded || partsOrdered) && !partsReceived
+  if (finalStatus !== 'completed' && partsPending) finalStatus = 'waiting_parts'
+  else if (finalStatus !== 'completed' && messages.length > 1) finalStatus = 'in_progress'
+  if (duplicate) finalStatus = 'closed'
 
-  // Status: parts-pending wins over "in_progress" assumption; otherwise a thread with
-  // follow-up emails that isn't complete means work has started.
-  if (finalStatus !== 'completed' && partsPending) {
-    finalStatus = 'waiting_parts'
-  } else if (finalStatus !== 'completed' && messages.length > 1) {
-    finalStatus = 'in_progress'
+  // Archived with no "Complete" note: done as of the last message
+  if (['completed', 'closed'].includes(finalStatus) && !dateCompleted) {
+    dateCompleted = ymd(msgDateOf(messages[messages.length - 1]))
   }
 
-  // Archived/done threads with no explicit "Complete" keyword still need a completion
-  // date so they show up in dashboard counts. Fall back to the last message date.
-  if (finalStatus === 'completed' && !dateCompleted) {
-    const last = messages[messages.length - 1]
-    const lastDateStr = last ? getHeader(last.payload?.headers ?? [], 'Date') : null
-    dateCompleted = new Date(lastDateStr || Date.now()).toISOString().split('T')[0]
-  }
-
-  // Build ticket number using email date
   const ticketNumber = await buildTicketNumber(admin, msgDate, unitNumber)
-
-  // Insert the ticket
   const { data: ticket } = await admin.from('repair_tickets').insert({
     company_id:          COMPANY_ID,
     asset_id:            assetId,
     created_by:          reporterId,
     ticket_number:       ticketNumber,
-    title:               title || subject,
+    title:               title,
     description:         body.trim().slice(0, 3000) || null,
     source:              'gmail',
     priority:            'normal',
     status:              finalStatus,
-    parts_needed:        partsPending && !partsOrdered,        // identified but not yet ordered
-    parts_ordered:       partsOrdered || partsReceived,         // we have placed an order
-    waiting_on_parts:    partsPending,                          // anything not received
+    parts_needed:        partsPending && !partsOrdered,
+    parts_ordered:       partsOrdered || partsReceived,
+    waiting_on_parts:    finalStatus === 'completed' || finalStatus === 'closed' ? false : partsPending,
     gmail_message_id:    firstMsg.id,
     gmail_thread_id:     threadId,
     date_completed:      dateCompleted,
     completed_by:        completedBy,
-    // Backdate creation to email date
-    created_at:          msgDate.toISOString(),
+    completion_notes:    duplicate ? 'Duplicate email (per the shop).' : completionNote,
+    created_at:          msgDate.toISOString(),   // backdate to the email
   }).select('id').single()
-
   if (!ticket) return 'skipped'
 
-  // Log the first message
-  await admin.from('gmail_imports').insert({
+  if (pendingMsgIds.size) {
+    await admin.from('gmail_imports').update({ status: 'converted', converted_ticket_id: ticket.id, detected_asset: unitNumber })
+      .eq('gmail_thread_id', threadId).eq('status', 'pending')
+  }
+  if (!pendingMsgIds.has(firstMsg.id)) await admin.from('gmail_imports').insert({
     company_id:          COMPANY_ID,
     gmail_message_id:    firstMsg.id,
     gmail_thread_id:     threadId,
@@ -672,18 +935,17 @@ async function processThread(
     detected_asset:      unitNumber,
   })
 
-  // Log reply messages
+  // Replies → notes on the ticket (logged so they aren't re-read)
   for (const reply of messages.slice(1)) {
     const rHeaders  = reply.payload?.headers ?? []
-    const replyDate = new Date(getHeader(rHeaders, 'Date') || Date.now())
+    const replyDate = msgDateOf(reply)
     const replyFrom = parseSender(getHeader(rHeaders, 'From'))
     const replyBody = extractBody(reply.payload)
-
-    await admin.from('gmail_imports').insert({
+    if (!pendingMsgIds.has(reply.id)) await admin.from('gmail_imports').insert({
       company_id:          COMPANY_ID,
       gmail_message_id:    reply.id,
       gmail_thread_id:     threadId,
-      subject:             `RE: ${subject}`,
+      subject:             getHeader(rHeaders, 'Subject') || `RE: ${subject}`,
       sender:              replyFrom.email,
       received_at:         replyDate.toISOString(),
       body_preview:        replyBody.slice(0, 500),
@@ -691,27 +953,28 @@ async function processThread(
       converted_ticket_id: ticket.id,
       detected_asset:      unitNumber,
     })
-
-    // Add reply as comment
     if (replyBody.trim()) {
       const authorId = await findReporter(admin, replyFrom.email)
       await admin.from('repair_ticket_comments').insert({
         ticket_id:   ticket.id,
         author_id:   authorId,
-        comment:     `[Via Email] ${replyBody.trim().slice(0, 2000)}`,
+        comment:     `[Via Email] ${(ownText(replyBody) || replyBody).trim().slice(0, 2000)}`,
         is_internal: false,
         created_at:  replyDate.toISOString(),
       })
     }
   }
 
-  // Attach any photos / files from every message in the thread to the ticket
   for (const msg of messages) {
     await syncMessageAttachments(admin, msg.id, msg.payload, ticket.id)
   }
 
-  // Mark original message as read
-  try { await markAsRead(firstMsg.id) } catch {}
+  if (finalStatus === 'completed') {
+    await applyCompletedWork(admin, ticket.id, { date: dateCompleted, text: completionNote })
+  }
+
+  // Regular runs mark the new job's first email read (existing behaviour); backfills never touch the mailbox
+  if (ctx.markRead && isInbox) { try { await markAsRead(firstMsg.id) } catch {} }
 
   return 'created'
 }
