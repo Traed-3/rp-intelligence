@@ -402,7 +402,7 @@ export function nonTicketReason(subject: string): 'attendance' | 'due-list' | 'a
   if (
     /\b(?:leaving\s+(?:@\s*\d+|at\b|early|\d+)|running\s+(?:a\s+)?(?:little\s+)?(?:bit\s+)?(?:late|behind)|late\s+(?:today|this\s+morning)|out\s+today|off\s+today|day\s+off|need\s+off|vacation|dentist|PTO|TPD|sick|appointment\s+today)\b/i.test(s) ||
     /\b(?:be|being|coming|come|in)\s+(?:in\s+)?(?:a\s+)?(?:little\s+)?(?:bit\s+)?late\b/i.test(s) ||
-    /\b(?:won[’']?t|can[’']?t|cant)\s+make\s+it\b|\b(?:need|have)\s+to\s+leave\b|\bleave\s+early\b|\b(?:family|medical)\s+emergency\b|\bdoctor'?s?\b|\bdr\.?\s+appointment|\bmin(?:ute)?s?\s+late\b/i.test(s) ||
+    /\b(?:won[’']?t|can[’']?t|cant)\s+make\s+it\b|\b(?:need|have|had)\s+to\s+leave\b|\bleaving\s+earl(?:y|ier)\b|\bdr\.?\s+ap(?:po)?i?n?t?m?e?n?t?s?\b|\bbe\s+there\s+(?:soon|in\s+\d+)|\bleave\s+early\b|\b(?:family|medical)\s+emergency\b|\bdoctor'?s?\b|\bdr\.?\s+appointment|\bmin(?:ute)?s?\s+late\b/i.test(s) ||
     (hasDate && /\b(?:off|not\s+taking\s+off|appointment|late)\b/i.test(s)) ||
     /^\d{1,2}\/\d{1,2}\/\d{2,4}\s*[A-Z]{2,3}$/i.test(s.trim())          // "5/20/26AR" — a time-off note
   ) {
