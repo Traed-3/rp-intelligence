@@ -79,8 +79,8 @@ export default async function ServiceDispatchPage({
   // someone adds them (audit 2026-11-05: Donald Sutphin's calls sat unassigned).
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const [{ data: recentSenders }, { data: rosterEmails }] = await Promise.all([
-    admin.from('svc_gmail_imports').select('sender').eq('mailbox', 'rpinvoicing').gte('received_at', thirtyDaysAgo).limit(5000),
-    admin.from('svc_technicians').select('personal_email'),
+    admin.from('svc_gmail_imports').select('sender').eq('company_id', companyId).eq('mailbox', 'rpinvoicing').gte('received_at', thirtyDaysAgo).limit(5000),
+    admin.from('svc_technicians').select('personal_email').eq('company_id', companyId),
   ])
   const roster = new Set((rosterEmails ?? []).map(t => (t.personal_email ?? '').toLowerCase()).filter(Boolean))
   const unknownSenderCounts = new Map<string, number>()
@@ -92,7 +92,8 @@ export default async function ServiceDispatchPage({
   // Construction crews, managers and office mailboxes send tickets too — only flag addresses the company directory
   // lists as service staff (Sutphin's case) or doesn't know at all.
   const { data: directory } = unknownSenderCounts.size
-    ? await admin.from('con_contacts').select('email, title').in('email', Array.from(unknownSenderCounts.keys()))
+    ? await admin.from('con_contacts').select('email, title').eq('company_id', companyId)
+        .or(Array.from(unknownSenderCounts.keys()).map(e => `email.ilike.${e}`).join(','))
     : { data: [] as { email: string | null; title: string | null }[] }
   const nonService = new Set((directory ?? []).filter(c => !/service/i.test(c.title ?? '')).map(c => (c.email ?? '').toLowerCase()))
   const unknownSenders = Array.from(unknownSenderCounts.entries()).filter(([e]) => !nonService.has(e)).sort((a, b) => b[1] - a[1])
