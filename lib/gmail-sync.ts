@@ -84,16 +84,21 @@ async function isTrustedMessage(admin: Admin, msg: any, cache: TrustCache): Prom
   // mx.google.com on delivery. Copies further down could have been written by the sender.
   const top = headers.find(h => /^authentication-results$/i.test(h.name))
   if (!top) return false
-  const [authserv, ...clauses] = String(top.value).split(';').map(x => x.trim().replace(/\s+/g, ' ').toLowerCase())
+  // RFC 8601: drop (comments) first — they can hold sender-controlled text — then read
+  // each "method=result ptype.prop=value …" clause as exact tokens.
+  let raw = String(top.value)
+  for (let k = 0; k < 3; k++) raw = raw.replace(/\([^()]*\)/g, ' ')
+  const [authserv, ...clauses] = raw.split(';').map(x => x.trim().replace(/\s+/g, ' ').toLowerCase())
   if (authserv !== 'mx.google.com') return false
   const domain = e.split('@')[1]
   return clauses.some(c => {
-    if (c.startsWith('dkim=pass')) {
-      const i = c.match(/header\.i=(\S+)/)?.[1]
-      const d = c.match(/header\.d=(\S+)/)?.[1]
+    const toks = c.split(' ')
+    const prop = (name: string) => toks.find(t => t.startsWith(`${name}=`))?.slice(name.length + 1)
+    if (toks[0] === 'dkim=pass') {
+      const i = prop('header.i'); const d = prop('header.d')
       return i === `@${domain}` || i === e || d === domain
     }
-    if (c.startsWith('dmarc=pass')) return c.match(/header\.from=(\S+)/)?.[1] === domain
+    if (toks[0] === 'dmarc=pass') return prop('header.from') === domain
     return false
   })
 }
@@ -804,6 +809,17 @@ async function processThread(
   if (notJob) { await logOnly('rejected', notJob); return 'ignored' }
 
   let assetId = await findOrCreateAsset(admin, unitNumber)
+
+  // A person already told us which vehicle a queued email belongs to (raw_payload.assign_asset_id)
+  if (recheck) {
+    const { data: hint } = await admin.from('gmail_imports').select('raw_payload')
+      .eq('gmail_thread_id', threadId).eq('status', 'pending').not('raw_payload->>assign_asset_id', 'is', null).limit(1).maybeSingle()
+    const hinted = (hint?.raw_payload as any)?.assign_asset_id as string | undefined
+    if (hinted) {
+      const { data: a } = await admin.from('assets').select('id, unit_number').eq('id', hinted).eq('company_id', COMPANY_ID).maybeSingle()
+      if (a) { assetId = a.id; unitNumber = a.unit_number; title = subject.replace(/^\s*(?:(?:re|fwd?|fw)\s*:\s*)+/i, '').trim() }
+    }
+  }
 
   // If the first word wasn't a real asset, look for the unit elsewhere in the
   // subject ("Breaks sound bad on t20"). Auto-link only on a single confident

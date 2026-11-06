@@ -396,15 +396,24 @@ export function isStateInspectionText(text: string): boolean {
  * Emails to the shop inbox that are not repair jobs. Returns a short reason
  * (stored on the import) or null when it should be treated as a job.
  */
-export function nonTicketReason(subject: string): 'attendance' | 'due-list' | null {
+export function nonTicketReason(subject: string): 'attendance' | 'due-list' | 'automated' | null {
   const s = (subject ?? '').replace(/^\s*(?:(?:re|fwd?|fw)\s*:\s*)+/i, '')
-  if (/\b(?:leaving|running\s+(?:a\s+)?(?:little\s+)?late|late\s+today|out\s+today|off\s+today|day\s+off|need\s+off|vacation|doctor|dentist|PTO|TPD|sick|appointment\s+today)\b/i.test(s)) {
+  const hasDate = /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/.test(s)
+  if (
+    /\b(?:leaving|running\s+(?:a\s+)?(?:little\s+)?(?:bit\s+)?late|late\s+(?:today|this\s+morning)|out\s+today|off\s+today|day\s+off|need\s+off|vacation|dentist|PTO|TPD|sick|appointment\s+today)\b/i.test(s) ||
+    /\b(?:be|being|coming|come|in)\s+(?:in\s+)?(?:a\s+)?(?:little\s+)?(?:bit\s+)?late\b/i.test(s) ||
+    /\b(?:won[’']?t|can[’']?t|cant)\s+make\s+it\b|\b(?:need|have)\s+to\s+leave\b|\bleave\s+early\b|\b(?:family|medical)\s+emergency\b|\bdoctor'?s?\b|\bdr\.?\s+appointment|\bmin(?:ute)?s?\s+late\b/i.test(s) ||
+    (hasDate && /\b(?:off|not\s+taking\s+off|appointment|late)\b/i.test(s)) ||
+    /^\d{1,2}\/\d{1,2}\/\d{2,4}\s*[A-Z]{2,3}$/i.test(s.trim())          // "5/20/26AR" — a time-off note
+  ) {
     return 'attendance'
   }
   if (new RegExp(`^(?:${MONTHS})\\s+inspections?\\b`, 'i').test(s)) return 'due-list'
   if (/^(?:bearing\s+mileage|mileage\s+for\b|weekly\s+mileage)/i.test(s)) return 'due-list'
-  // "Service due Q17, SS19, F6" — a service list naming 3+ vehicles
-  if (/\bservice\s+due\b|\binspections?\s+due\b/i.test(s) && (s.match(UNIT_TOKEN) ?? []).length >= 3) return 'due-list'
+  // "Service due Q17, SS19" — a service list naming 2+ vehicles
+  if (/\bservice\s+due\b|\binspections?\s+due\b/i.test(s) && (s.match(UNIT_TOKEN) ?? []).length >= 2) return 'due-list'
+  // Vendor promos and account notices that land in the shop inbox
+  if (/^(?:security\s+alert|updates\s+to\s+our|your\s+resource\s+for|introducing\b|happy\s+\w+\s+of\s+july|is\s+\w+\s+right\s+for\s+you|shop,\s+review\s+your\s+google)/i.test(s)) return 'automated'
   return null
 }
 
