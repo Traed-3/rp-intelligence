@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { WorkOrderArchiveTable } from '@/components/svc/work-order-archive-table'
 import { WorkOrderBoard } from '@/components/svc/work-order-board'
 import { loadConstructionLinks } from '@/lib/svc-construction-link'
+import { isTicketSender } from '@/lib/svc-work-order-parser'
 
 // 'new' / 'accepted' / 'en_route' are retired (everything is auto-accepted under
 // contract); 'new' stays in the query only so a straggler row is still counted.
@@ -74,6 +75,22 @@ export default async function ServiceDispatchPage({
     admin.from('svc_work_orders').select('id, last_update_at').eq('company_id', companyId).eq('archived', false).in('status', OPEN_STATUSES).not('last_update_at', 'is', null),
     admin.from('svc_work_order_documents').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'needs_review'),
   ])
+  // Tickets from an RPS address that is not on the service roster can't credit a tech — show who, so
+  // someone adds them (audit 2026-11-05: Donald Sutphin's calls sat unassigned).
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const [{ data: recentSenders }, { data: rosterEmails }] = await Promise.all([
+    admin.from('svc_gmail_imports').select('sender').eq('mailbox', 'rpinvoicing').gte('received_at', thirtyDaysAgo).limit(5000),
+    admin.from('svc_technicians').select('personal_email'),
+  ])
+  const roster = new Set((rosterEmails ?? []).map(t => (t.personal_email ?? '').toLowerCase()).filter(Boolean))
+  const unknownSenderCounts = new Map<string, number>()
+  for (const r of recentSenders ?? []) {
+    const e = (r.sender ?? '').toLowerCase()
+    if (!e || roster.has(e) || !isTicketSender(e) || !/\.rp@gmail\.com$/.test(e)) continue
+    unknownSenderCounts.set(e, (unknownSenderCounts.get(e) ?? 0) + 1)
+  }
+  const unknownSenders = Array.from(unknownSenderCounts.entries()).sort((a, b) => b[1] - a[1])
+
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   const staleCount = (staleCandidates ?? []).filter(w => new Date(w.last_update_at as string).getTime() < sevenDaysAgo).length
 
@@ -221,6 +238,14 @@ export default async function ServiceDispatchPage({
           </div>
         )}
       </div>
+
+      {unknownSenders.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+          <span className="font-semibold">Tickets from people not on the service roster (last 30 days):</span>{' '}
+          {unknownSenders.map(([e, n]) => `${e} (${n})`).join(', ')}.{' '}
+          Their calls can&apos;t be credited to a tech until they&apos;re added to the technician list.
+        </div>
+      )}
 
       {/* Search — across every call (open, completed, archived): WO #, incident, site #, store name, address, tech, construction job. */}
       <form action="/service" method="get" className="mb-4 flex items-center gap-2">

@@ -80,7 +80,10 @@ jobs:
             "https://rps-maintenance.vercel.app/api/gmail/sync?secret=$CRON_SECRET&max=30"
 
 
+  # The 15-minute service sync runs from Supabase pg_cron now (supabase/migrations/svc_sync_pg_cron.sql) —
+  # GitHub's schedule fired only every 5-7 hours. This job stays for manual runs (e.g. a since_days catch-up).
   svc-sync:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { syncDispatcher, syncInvoicing, archiveStaleWorkOrders } from '@/lib/svc-gmail-sync'
 import { reconcileWorkOrders } from '@/lib/svc-reconcile'
 import { extractPendingWorkOrderDocuments } from '@/lib/svc-work-order-docs-extract'
+import { createAdminClient } from '@/lib/supabase/admin'
+
+/**
+ * The Supabase scheduler (pg_cron, migration svc_sync_pg_cron.sql) calls this route with a token that lives
+ * only in Supabase Vault (`rps_sync_token`); `sync_token_ok()` checks it without the token leaving the database.
+ */
+async function syncTokenOk(token: string | null): Promise<boolean> {
+  if (!token) return false
+  const { data, error } = await createAdminClient().rpc('sync_token_ok', { t: token })
+  return !error && data === true
+}
 
 // Allow enough time for a full pass through one mailbox.
 export const maxDuration = 60
@@ -9,7 +20,12 @@ export const maxDuration = 60
 /**
  * GET /api/svc/gmail-sync?pass=dispatcher|invoicing|extract-docs[&max=N|&limit=N|&sinceDays=N]
  *
- * `sinceDays` (invoicing only, default 14) — the rolling window is normally
+ * Both mailbox passes list ALL mail in their window (dispatcher default 7 days, invoicing 14), skip what is
+ * already logged, and read up to `max` messages oldest-first inside a 45 s budget. `remaining` in the reply
+ * says how many unlogged messages are left for the next run. `q` adds Gmail search terms to the window;
+ * `backfill=1` (or `archive=0`) is the read-only catch-up mode — nothing in either mailbox is archived.
+ *
+ * `sinceDays` (default 14 for invoicing, 7 for dispatcher) — the rolling window is normally
  * fine since the 15-min cron never lets it lapse, but if the sync was ever
  * down for a stretch, or a completion note simply sat further back than 14
  * days before ever being fetched once, it falls outside the window forever.
@@ -40,27 +56,31 @@ export async function GET(request: NextRequest) {
   const querySecret = request.nextUrl.searchParams.get('secret')
   const cronSecret  = process.env.CRON_SECRET
 
+  const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
   const isAuthed =
-    authHeader === `Bearer ${cronSecret}` ||
-    querySecret === cronSecret
+    (!!cronSecret && (bearer === cronSecret || querySecret === cronSecret)) ||
+    await syncTokenOk(bearer ?? querySecret)
 
   if (!isAuthed) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const pass = request.nextUrl.searchParams.get('pass')
-  const maxResults = parseInt(request.nextUrl.searchParams.get('max') ?? '50', 10)
+  const sp = request.nextUrl.searchParams
+  const pass = sp.get('pass')
+  const maxResults = parseInt(sp.get('max') ?? '50', 10)
+  const num = (k: string) => { const v = sp.get(k); return v != null && v !== '' ? parseInt(v, 10) : undefined }
+  // backfill=1 / archive=0: the one-time catch-up — reads only, never archives anything in either mailbox.
+  const backfill = sp.get('backfill') === '1'
+  const archive = sp.get('archive') !== '0' && !backfill
+  const passOpts = { max: maxResults, sinceDays: num('sinceDays'), untilDays: num('untilDays'), query: sp.get('q') ?? undefined, archive, backfill }
 
   try {
     if (pass === 'dispatcher') {
-      const dispatcher = await syncDispatcher(maxResults)
+      const dispatcher = await syncDispatcher(passOpts)
       return NextResponse.json({ ok: true, timestamp: new Date().toISOString(), dispatcher })
     }
     if (pass === 'invoicing') {
-      const sinceDays = parseInt(request.nextUrl.searchParams.get('sinceDays') ?? '14', 10)
-      const untilParam = request.nextUrl.searchParams.get('untilDays')
-      const untilDays = untilParam != null ? parseInt(untilParam, 10) : undefined
-      const invoicing = await syncInvoicing(maxResults, sinceDays, untilDays)
+      const invoicing = await syncInvoicing(passOpts)
       return NextResponse.json({ ok: true, timestamp: new Date().toISOString(), invoicing })
     }
     if (pass === 'extract-docs') {
@@ -121,7 +141,7 @@ export async function GET(request: NextRequest) {
       // call existed), customer invoice approvals, redirects/terminations, and the construction job the
       // call was handed to — and fixes any call whose status disagrees. Dry run unless apply=1.
       const dryRun = request.nextUrl.searchParams.get('apply') !== '1'
-      const result = await reconcileWorkOrders({ dryRun, archivedBy: request.nextUrl.searchParams.get('archivedBy') })
+      const result = await reconcileWorkOrders({ dryRun, archive, archivedBy: request.nextUrl.searchParams.get('archivedBy') })
       return NextResponse.json({ ok: true, timestamp: new Date().toISOString(), result })
     }
     if (pass === 'archive-stale') {
@@ -135,8 +155,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: true, timestamp: new Date().toISOString(), result })
     }
 
-    const dispatcher = await syncDispatcher(maxResults)
-    const invoicing = await syncInvoicing(maxResults)
+    const dispatcher = await syncDispatcher({ max: maxResults })
+    const invoicing = await syncInvoicing({ max: maxResults })
     return NextResponse.json({ ok: true, timestamp: new Date().toISOString(), dispatcher, invoicing })
   } catch (e: any) {
     console.error('[Service Dispatch Sync Error]', e)

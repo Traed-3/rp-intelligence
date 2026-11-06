@@ -48,6 +48,7 @@ async function captureWorkOrderDocument(
   from: { name: string; email: string },
   receivedAt: Date,
   workOrderId: string | null,
+  backfill = false,
 ): Promise<void> {
   const atts = listAttachments(msg).filter(a => a.size <= MAX_ATTACHMENT_BYTES).slice(0, MAX_ATTACHMENTS)
   if (!atts.length) return
@@ -61,7 +62,9 @@ async function captureWorkOrderDocument(
     stored.push({ name: a.filename, mime: a.mimeType, path, size: bytes.length })
   }
   const primary = stored.find(s => /pdf/i.test(s.mime)) ?? stored.find(s => /^image\//i.test(s.mime)) ?? stored[0]
-  const extractable = stored.some(s => /pdf|^image\/(jpeg|jpg|png|gif|webp)$/i.test(s.mime) || /\.(pdf|jpe?g|png|gif|webp)$/i.test(s.name))
+  const readable = stored.some(s => /pdf|^image\/(jpeg|jpg|png|gif|webp)$/i.test(s.mime) || /\.(pdf|jpe?g|png|gif|webp)$/i.test(s.name))
+  // The one-time catch-up files old tickets on their calls but does not queue hundreds of automatic transcripts.
+  const extractable = readable && !backfill
 
   const { error: insertErr } = await admin.from('svc_work_order_documents').insert({
     company_id: COMPANY_ID, work_order_id: workOrderId,
@@ -69,7 +72,9 @@ async function captureWorkOrderDocument(
     sender: from.name || from.email, sender_email: from.email, subject, received_at: receivedAt.toISOString(),
     attachments: stored, primary_path: primary?.path ?? null,
     extract_status: extractable ? 'pending' : 'skipped',
-    extract_error: extractable ? null : 'Attachment type not readable automatically — type up the ticket by hand.',
+    extract_error: extractable ? null
+      : readable ? 'Filed by the Nov 2026 catch-up import — not transcribed automatically. Open the attachment to read it.'
+      : 'Attachment type not readable automatically — type up the ticket by hand.',
     // svc_work_order_documents.status is the document-review state (new / needs_review / ready /
     // linked / dismissed), not the work-order status. 'dispatched' violated its CHECK constraint and
     // every insert since 9/22 failed silently, so check the error instead of discarding it.
@@ -84,9 +89,28 @@ async function captureWorkOrderDocument(
 const COMPANY_ID = 'f3d06874-2e21-40f3-a7d0-a1d86bad02e7'
 
 export interface SvcSyncResult {
-  dispatcher: { processed: number; created: number; updated: number; skipped: number; errors: string[] }
-  invoicing:  { processed: number; matched: number; noMatch: number; skipped: number; errors: string[] }
+  dispatcher: { processed: number; created: number; updated: number; skipped: number; listed: number; remaining: number; errors: string[] }
+  invoicing:  { processed: number; matched: number; noMatch: number; skipped: number; listed: number; remaining: number; unknownSenders: string[]; errors: string[] }
 }
+
+export interface SvcPassOptions {
+  /** Most messages to read (fetch + process) in this run. */
+  max?: number
+  /** Window to list, in days counted back from now. */
+  sinceDays?: number
+  untilDays?: number
+  /** Extra Gmail search terms ANDed onto the window (e.g. a catch-up slice that only wants closure notices). */
+  query?: string
+  /** false = leave the mailboxes exactly as they are (no archiving). The one-time catch-up runs this way. */
+  archive?: boolean
+  /** One-time catch-up: file ticket attachments on the call without queueing an automatic transcript. */
+  backfill?: boolean
+}
+
+/** Never list more than this many ids per run — a week of rpdispatcher or two of rpinvoicing is well under it. */
+const LIST_CAP = 4000
+/** Vercel gives the route 60 s; stop starting new messages at 45 s and let the next run carry on. */
+const RUN_BUDGET_MS = 45_000
 
 /** Short-lived link to a work order document's attachment in the private bucket. */
 export async function signedWorkOrderDocUrl(path: string, seconds = 600): Promise<string | null> {
@@ -103,6 +127,30 @@ async function alreadyLogged(admin: ReturnType<typeof createAdminClient>, mailbo
     .eq('gmail_message_id', messageId)
     .maybeSingle()
   return !!data
+}
+
+/** The ids svc_gmail_imports has not logged yet for this mailbox (one query per 200 ids). */
+async function unloggedIds(admin: ReturnType<typeof createAdminClient>, mailbox: string, ids: string[]): Promise<string[]> {
+  const seen = new Set<string>()
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await admin
+      .from('svc_gmail_imports')
+      .select('gmail_message_id')
+      .eq('mailbox', mailbox)
+      .in('gmail_message_id', ids.slice(i, i + 200))
+    if (error) throw new Error(`svc_gmail_imports lookup: ${error.message}`)
+    for (const r of data ?? []) seen.add(r.gmail_message_id)
+  }
+  return ids.filter(id => !seen.has(id))
+}
+
+/** Is there a logged rpdispatcher billing notice for this WO# of the given kind, newer than `after`? */
+async function laterBillingNotice(admin: ReturnType<typeof createAdminClient>, woNumber: string, kind: 'approved' | 'rejected', after: Date): Promise<boolean> {
+  let q = admin.from('svc_gmail_imports').select('id').eq('mailbox', 'rpdispatcher')
+    .eq('parsed->>woNumber', woNumber).gt('received_at', after.toISOString()).limit(1)
+  q = kind === 'approved' ? q.ilike('subject', '%invoice approved%') : q.eq('parsed->>isInvoiceRejection', 'true')
+  const { data } = await q
+  return !!data?.length
 }
 
 /** A finished/closed call: clear its dispatch email (and the notice that closed it) out of rpdispatcher. Best-effort. */
@@ -122,24 +170,34 @@ async function archiveDispatchEmails(
 
 // ── Pass 1: rpdispatcher → create/update work orders ───────────────────────
 
-export async function syncDispatcher(maxResults = 50): Promise<SvcSyncResult['dispatcher']> {
+export async function syncDispatcher(opts: SvcPassOptions = {}): Promise<SvcSyncResult['dispatcher']> {
   const admin = createAdminClient()
-  const result = { processed: 0, created: 0, updated: 0, skipped: 0, errors: [] as string[] }
+  const result = { processed: 0, created: 0, updated: 0, skipped: 0, listed: 0, remaining: 0, errors: [] as string[] }
+  const max = opts.max ?? 50
+  const archive = opts.archive !== false
 
+  // ALL mail in the window, not just the Inbox. Nearly every 7-Eleven dispatch is filed under the FM label —
+  // and so are the Invoice Approved / redirected / Terminated notices — before a run comes round, so reading
+  // `in:inbox` (newest 50) missed about a third of the calls (audit 2026-11-05). List the whole window, drop
+  // what is already logged, and work oldest first.
   let msgIds: string[]
   try {
-    msgIds = await listMessages('dispatcher', 'in:inbox', maxResults)
+    const listed = await listMessages('dispatcher', recentWindowQuery(opts.sinceDays ?? 7, opts.untilDays, `-in:sent -in:drafts ${opts.query ?? ''}`), LIST_CAP)
+    result.listed = listed.length
+    // Gmail lists newest first. Replaying that order let a later "Messages"/reply create the call
+    // before its real dispatch was read, and let a later notice be overwritten by an earlier one.
+    msgIds = (await unloggedIds(admin, 'rpdispatcher', listed)).reverse()
   } catch (e: any) {
     result.errors.push(`List failed: ${e.message}`)
     return result
   }
-  // Gmail lists newest first. Replaying that order let a later "Messages"/reply create the call
-  // before its real dispatch was read, and let a later notice be overwritten by an earlier one.
-  msgIds.reverse()
+  result.remaining = msgIds.length
+  const deadline = Date.now() + RUN_BUDGET_MS
 
   for (const msgId of msgIds) {
+    if (result.processed >= max || Date.now() > deadline) break
     try {
-      if (await alreadyLogged(admin, 'rpdispatcher', msgId)) continue
+      if (await alreadyLogged(admin, 'rpdispatcher', msgId)) { result.remaining--; continue }
       result.processed++
 
       const msg = await getMessage('dispatcher', msgId)
@@ -179,15 +237,26 @@ export async function syncDispatcher(maxResults = 50): Promise<SvcSyncResult['di
             last_update_at: [wo.last_update_at, receivedAt.toISOString()].filter(Boolean).sort().pop(),
           }
           if (parsed.invoiceNumber) patch.invoice_number = parsed.invoiceNumber
-          const wasOpen = wo.status !== 'completed'
+          // An approval clears an earlier rejection (re-billed and accepted), but not one that came after it.
+          if (!(await laterBillingNotice(admin, parsed.woNumber, 'rejected', receivedAt))) {
+            patch.invoice_rejected = false
+            patch.invoice_rejection_reason = null
+          }
+          // A call still waiting on a return trip stays on Return Trip: the customer paying the first visit does
+          // not prove the return happened. The office (or the tech's next ticket) closes it.
+          const waitingOnReturn = wo.status === 'rtn_needed'
+          const wasOpen = wo.status !== 'completed' && !waitingOnReturn
+          const stamp = `[auto ${receivedAt.toISOString().slice(0, 10)}]`
           if (wasOpen) {
             patch.status = 'completed'
             patch.completed_at = wo.completed_at ?? receivedAt.toISOString()
             patch.return_trip_needed = false
-            patch.notes = [wo.notes, `[auto ${receivedAt.toISOString().slice(0, 10)}] Completed — invoice ${parsed.invoiceNumber ?? ''} approved by the customer.`].filter(Boolean).join('\n')
+            patch.notes = [wo.notes, `${stamp} Completed — invoice ${parsed.invoiceNumber ?? ''} approved by the customer.`].filter(Boolean).join('\n')
+          } else if (waitingOnReturn) {
+            patch.notes = [wo.notes, `${stamp} Invoice ${parsed.invoiceNumber ?? ''} approved by the customer while a return trip is still marked needed — left on Return Trip for the office to confirm.`].filter(Boolean).join('\n')
           }
           await admin.from('svc_work_orders').update(patch).eq('id', wo.id)
-          if (wasOpen) await archiveDispatchEmails(wo, msgId, result)
+          if (wasOpen && archive) await archiveDispatchEmails(wo, msgId, result)
           matchedWorkOrderId = wo.id
           importStatus = 'updated_wo'
           result.updated++
@@ -202,7 +271,9 @@ export async function syncDispatcher(maxResults = 50): Promise<SvcSyncResult['di
           .order('dispatched_at', { ascending: false })
         const wo = woRows?.[0] ?? null
         if (wo) {
-          await admin.from('svc_work_orders').update({
+          // An older rejection read late (catch-up) must not override an approval that came after it.
+          const superseded = await laterBillingNotice(admin, parsed.woNumber, 'approved', receivedAt)
+          await admin.from('svc_work_orders').update(superseded ? { last_update_at: receivedAt.toISOString() } : {
             invoice_rejected: true,
             invoice_rejection_reason: parsed.invoiceRejectionReason,
             last_update_at: receivedAt.toISOString(),
@@ -247,7 +318,7 @@ export async function syncDispatcher(maxResults = 50): Promise<SvcSyncResult['di
               archived_reason: `${closedAs} — "${subject.trim().slice(0, 180)}" (${receivedAt.toISOString().slice(0, 10)}).`,
               last_update_at: receivedAt.toISOString(),
             }).eq('id', existing.id).eq('archived', false)
-            if (full) await archiveDispatchEmails(full, msgId, result)
+            if (full && archive) await archiveDispatchEmails(full, msgId, result)
             matchedWorkOrderId = existing.id
             result.updated++
           } else {
@@ -332,6 +403,7 @@ export async function syncDispatcher(maxResults = 50): Promise<SvcSyncResult['di
         status:             importStatus,
         matched_work_order_id: matchedWorkOrderId,
       })
+      result.remaining--
 
     } catch (e: any) {
       result.errors.push(`Message ${msgId}: ${e.message}`)
@@ -355,9 +427,10 @@ function ymd(d: Date): string {
 /** `untilDays` (also counted back from now) lets a manual catch-up run walk
  * a big historical range in dated slices instead of one huge query — the
  * whole point being to stay well inside the 60s function budget. */
-function recentWindowQuery(sinceDays: number, untilDays?: number): string {
+function recentWindowQuery(sinceDays: number, untilDays?: number, extra = ''): string {
   const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000)
   let q = `-in:spam -in:trash after:${ymd(since)}`
+  if (extra.trim()) q += ` ${extra.trim()}`
   if (untilDays != null) {
     const until = new Date(Date.now() - untilDays * 24 * 60 * 60 * 1000)
     q += ` before:${ymd(until)}`
@@ -365,30 +438,36 @@ function recentWindowQuery(sinceDays: number, untilDays?: number): string {
   return q
 }
 
-export async function syncInvoicing(maxResults = 50, sinceDays = 14, untilDays?: number): Promise<SvcSyncResult['invoicing']> {
+export async function syncInvoicing(opts: SvcPassOptions = {}): Promise<SvcSyncResult['invoicing']> {
   const admin = createAdminClient()
-  const result = { processed: 0, matched: 0, noMatch: 0, skipped: 0, errors: [] as string[] }
+  const result = { processed: 0, matched: 0, noMatch: 0, skipped: 0, listed: 0, remaining: 0, unknownSenders: [] as string[], errors: [] as string[] }
+  const max = opts.max ?? 50
+  const archive = opts.archive !== false && !opts.backfill
 
+  // The whole window, minus what is already logged — listing only the newest 50 dropped tickets on busy days
+  // (audit 2026-11-05: 20 calls had tickets the app never read).
   let msgIds: string[]
   try {
-    msgIds = await listMessages('invoicing', recentWindowQuery(sinceDays, untilDays), maxResults)
+    const listed = await listMessages('invoicing', recentWindowQuery(opts.sinceDays ?? 14, opts.untilDays, opts.query ?? ''), LIST_CAP)
+    result.listed = listed.length
+    // Oldest first, so a later "Complete" is applied after an earlier "RTN" (newest-first order let the
+    // older note win and re-open a finished call).
+    msgIds = (await unloggedIds(admin, 'rpinvoicing', listed)).reverse()
   } catch (e: any) {
     result.errors.push(`List failed: ${e.message}`)
     return result
   }
-  // Oldest first, so a later "Complete" is applied after an earlier "RTN" (newest-first order let the
-  // older note win and re-open a finished call).
-  msgIds.reverse()
+  result.remaining = msgIds.length
 
-  // Vercel gives the route 60 s. Stop starting new messages at 45 s and let the next
-  // cron tick pick up the rest (unlogged messages are re-listed), instead of timing
-  // out with a 504 and failing the whole svc-sync job.
-  const deadline = Date.now() + 45_000
+  // Stop starting new messages at 45 s and let the next run pick up the rest (unlogged messages are
+  // re-listed), instead of timing out with a 504 and failing the whole svc-sync job.
+  const deadline = Date.now() + RUN_BUDGET_MS
+  const unknown = new Set<string>()
 
   for (const msgId of msgIds) {
-    if (Date.now() > deadline) break
+    if (result.processed >= max || Date.now() > deadline) break
     try {
-      if (await alreadyLogged(admin, 'rpinvoicing', msgId)) continue
+      if (await alreadyLogged(admin, 'rpinvoicing', msgId)) { result.remaining--; continue }
       result.processed++
 
       const msg = await getMessage('invoicing', msgId)
@@ -438,6 +517,8 @@ export async function syncInvoicing(maxResults = 50, sinceDays = 14, untilDays?:
           // The tech who sent the ticket is the call's technician; a manager forwarding someone else's ticket
           // must not take it over (they only fill an empty slot).
           if (tech && (tech.role === 'service_tech' || !wo.assigned_technician_id)) updates.assigned_technician_id = tech.id
+          // An RPS address sending tickets that is not on the service roster: say so instead of quietly leaving the call unassigned.
+          if (!tech && isTicketSender(techEmail)) unknown.add(techEmail.toLowerCase())
 
           // Standing rule (Trae, 2026-10-12): a ticket for the call that does not say RTN / return trip needed
           // means the call is COMPLETE — "Incomplete", a blank forward and a bare "Sent from my iPhone" included.
@@ -469,7 +550,8 @@ export async function syncInvoicing(maxResults = 50, sinceDays = 14, untilDays?:
             // never let a Gmail hiccup (expired token, already gone) block the
             // completion status itself from being recorded.
             try {
-              if (wo.dispatch_gmail_thread_id) {
+              if (!archive) { /* catch-up run: leave the mailbox alone */ }
+              else if (wo.dispatch_gmail_thread_id) {
                 await archiveThread('dispatcher', wo.dispatch_gmail_thread_id)
               } else if (wo.dispatch_gmail_message_id) {
                 await archiveMessage('dispatcher', wo.dispatch_gmail_message_id)
@@ -496,7 +578,7 @@ export async function syncInvoicing(maxResults = 50, sinceDays = 14, untilDays?:
       }
 
       try {
-        await captureWorkOrderDocument(admin, msg, msgId, subject, { name: techName, email: techEmail }, receivedAt, matchedWorkOrderId)
+        await captureWorkOrderDocument(admin, msg, msgId, subject, { name: techName, email: techEmail }, receivedAt, matchedWorkOrderId, !!opts.backfill)
       } catch (docErr: any) {
         result.errors.push(`Document capture for ${msgId}: ${docErr.message}`)
       }
@@ -512,12 +594,14 @@ export async function syncInvoicing(maxResults = 50, sinceDays = 14, untilDays?:
         status:             importStatus,
         matched_work_order_id: matchedWorkOrderId,
       })
+      result.remaining--
 
     } catch (e: any) {
       result.errors.push(`Message ${msgId}: ${e.message}`)
     }
   }
 
+  result.unknownSenders = Array.from(unknown)
   return result
 }
 
