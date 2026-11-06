@@ -85,12 +85,14 @@ export interface ParsedDispatch {
 /**
  * Closure notices (invoice approved / rejected, cancelled / redirected / terminated) change a call, so they only
  * count when they genuinely come from the customer's ticketing system: a service-now.com sender (7-Eleven, Wawa)
- * or energytransfer.com (Sunoco's invoice portal), and — when
+ * or svc_servicenow@energytransfer.com (Sunoco's invoice portal — that exact address only), and — when
  * Gmail recorded an Authentication-Results line — SPF or DKIM actually passed. A display name or subject
  * line alone is trivially forged by anyone who can email the inbox.
  */
 export function isTrustedPortalNotice(senderEmail: string, authenticationResults?: string | null): boolean {
-  if (!/@(?:service-now|energytransfer)\.com$/i.test(senderEmail.trim())) return false
+  const sender = senderEmail.trim().toLowerCase()
+  // 7-Eleven / Wawa ServiceNow, or Sunoco's own ServiceNow mailer (the only energytransfer.com address allowed).
+  if (!/@service-now\.com$/.test(sender) && sender !== 'svc_servicenow@energytransfer.com') return false
   if (authenticationResults && !/\b(?:dkim|spf)=pass\b/i.test(authenticationResults)) return false
   return true
 }
