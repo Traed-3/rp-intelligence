@@ -80,10 +80,24 @@ async function isTrustedMessage(admin: Admin, msg: any, cache: TrustCache): Prom
   }
   if (!cache.get(e)) return false
 
-  const domain = e.split('@')[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const auth = headers.filter(h => /^authentication-results$/i.test(h.name)).map(h => h.value).join(' ; ')
-  return new RegExp(`dkim=pass[^;]*header\\.(?:i=[^\\s;@]*@|d=)${domain}(?![\\w.-])|dmarc=pass[^;]*header\\.from=${domain}(?![\\w.-])`, 'i').test(auth)
+  // Only Gmail's own verdict counts: the TOPMOST Authentication-Results header, added by
+  // mx.google.com on delivery. Copies further down could have been written by the sender.
+  const top = headers.find(h => /^authentication-results$/i.test(h.name))
+  if (!top) return false
+  const [authserv, ...clauses] = String(top.value).split(';').map(x => x.trim().replace(/\s+/g, ' ').toLowerCase())
+  if (authserv !== 'mx.google.com') return false
+  const domain = e.split('@')[1]
+  return clauses.some(c => {
+    if (c.startsWith('dkim=pass')) {
+      const i = c.match(/header\.i=(\S+)/)?.[1]
+      const d = c.match(/header\.d=(\S+)/)?.[1]
+      return i === `@${domain}` || i === e || d === domain
+    }
+    if (c.startsWith('dmarc=pass')) return c.match(/header\.from=(\S+)/)?.[1] === domain
+    return false
+  })
 }
+
 
 /** Automated Google emails (security alerts, etc.) are never tickets. */
 function isGoogleSender(email: string): boolean {

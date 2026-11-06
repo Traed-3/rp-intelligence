@@ -45,6 +45,16 @@ export function extractUnitCandidates(subject: string): string[] {
   const normalized = subject.replace(/[/,]+/g, ' ')
   for (const m of normalized.matchAll(UNIT_TOKEN)) push(m[0])
   for (const m of normalized.matchAll(PV_TOKEN))   push(m[0])
+  // Shop shorthand (validated against real assets by the caller):
+  //  "Trl.859", "Trl 074", "Trailer 386", "trailer #642" → T859, T074 …
+  for (const m of normalized.matchAll(/\b(?:trl|trlr|trailer)\.?\s*#?\s*(\d{3})\b/gi)) push('T' + m[1])
+  //  "Bob cat 3", "Bobcat #2", "skid steer 2" → BC3, BC2 …
+  for (const m of normalized.matchAll(/\b(?:bob\s*cat|skid\s*steer)\s*#?\s*(\d{1,2})\b/gi)) push('BC' + m[1])
+  //  "Concrete saw 4", "saw #5" → CS4, CS5
+  for (const m of normalized.matchAll(/\b(?:concrete\s+)?saw\s*#?\s*(\d)\b/gi)) push('CS' + m[1])
+  //  a bare 3-digit number leading the subject is a trailer ("642- right turn lamp", "862 State Inspection")
+  const lead = normalized.match(/^\s*(?:(?:re|fwd?|fw)\s*:\s*)*(?:notification:\s*)?(\d{3})(?!\d)/i)
+  if (lead) push('T' + lead[1])
   // Collapse runs of single chars typed with spaces ("I I 9" → "II9", "T 20" → "T20")
   // so a unit broken up by spaces still resolves. Validated against real assets,
   // so the occasional bogus join (e.g. "a b c") simply matches nothing.
