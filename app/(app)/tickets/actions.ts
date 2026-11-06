@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { findSimilarOpenTicket } from '@/lib/ticket-dedup'
 import { detectStatus } from '@/lib/gmail-parser'
+import { applyCompletedWork } from '@/lib/fleet-service'
 
 type ActionState = { error: string } | null
 
@@ -164,6 +165,12 @@ export async function changeTicketStatus(id: string, nextStatus: string) {
     .eq('id', id)
     .eq('company_id', profile.company_id)
 
+  // Finished oil change / state inspection → move the vehicle's dates forward
+  if (nextStatus === 'completed') {
+    await applyCompletedWork(admin, id, { performedBy: profile.id }).catch(() => {})
+    revalidatePath('/maintenance'); revalidatePath('/assets')
+  }
+
   revalidatePath(`/tickets/${id}`)
   revalidatePath('/tickets')
 }
@@ -311,6 +318,9 @@ export async function addComment(_state: ActionState, formData: FormData): Promi
       }
       await admin.from('repair_tickets').update(updates)
         .eq('id', ticketId).eq('company_id', profile.company_id)
+      if (detected.isComplete && ticketId) {
+        await applyCompletedWork(admin, ticketId, { text: comment, performedBy: profile.id }).catch(() => {})
+      }
       revalidatePath('/tickets')
       revalidatePath('/dashboard'); revalidatePath('/maintenance')
     }

@@ -33,7 +33,7 @@ export function GmailSyncPanel() {
         </div>
         <div>
           <p className="font-semibold text-gray-900">Gmail Sync</p>
-          <p className="text-sm text-gray-500">maintenance.rps@gmail.com — auto-syncs every 3 minutes</p>
+          <p className="text-sm text-gray-500">maintenance.rps@gmail.com — auto-syncs every 15 minutes (Inbox + the last 3 days of archived mail)</p>
         </div>
       </div>
 

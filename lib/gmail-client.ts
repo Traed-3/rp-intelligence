@@ -74,6 +74,20 @@ export async function listMessages(query: string, maxResults = 500): Promise<str
   return ids
 }
 
+/** List message ids WITH their thread ids (Gmail returns both — no extra fetch needed). Newest first. */
+export async function listMessageRefs(query: string, maxResults = 500): Promise<{ id: string; threadId: string }[]> {
+  const refs: { id: string; threadId: string }[] = []
+  let pageToken: string | undefined
+  do {
+    const params: Record<string, string> = { q: query, maxResults: String(Math.min(maxResults - refs.length, 500)) }
+    if (pageToken) params.pageToken = pageToken
+    const data = await gmailFetch('/messages', params)
+    for (const m of data.messages ?? []) refs.push({ id: m.id, threadId: m.threadId })
+    pageToken = data.nextPageToken
+  } while (pageToken && refs.length < maxResults)
+  return refs
+}
+
 /** Get a full message (with body) */
 export async function getMessage(id: string): Promise<any> {
   return gmailFetch(`/messages/${id}`, { format: 'full' })
