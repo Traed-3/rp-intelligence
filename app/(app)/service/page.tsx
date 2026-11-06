@@ -89,7 +89,13 @@ export default async function ServiceDispatchPage({
     if (!e || roster.has(e) || !isTicketSender(e) || !/\.rp@gmail\.com$/.test(e)) continue
     unknownSenderCounts.set(e, (unknownSenderCounts.get(e) ?? 0) + 1)
   }
-  const unknownSenders = Array.from(unknownSenderCounts.entries()).sort((a, b) => b[1] - a[1])
+  // Construction crews, managers and office mailboxes send tickets too — only flag addresses the company directory
+  // lists as service staff (Sutphin's case) or doesn't know at all.
+  const { data: directory } = unknownSenderCounts.size
+    ? await admin.from('con_contacts').select('email, title').in('email', Array.from(unknownSenderCounts.keys()))
+    : { data: [] as { email: string | null; title: string | null }[] }
+  const nonService = new Set((directory ?? []).filter(c => !/service/i.test(c.title ?? '')).map(c => (c.email ?? '').toLowerCase()))
+  const unknownSenders = Array.from(unknownSenderCounts.entries()).filter(([e]) => !nonService.has(e)).sort((a, b) => b[1] - a[1])
 
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   const staleCount = (staleCandidates ?? []).filter(w => new Date(w.last_update_at as string).getTime() < sevenDaysAgo).length
