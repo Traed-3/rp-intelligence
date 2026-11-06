@@ -95,6 +95,9 @@ async function isTrustedMessage(admin: Admin, msg: any, cache: TrustCache): Prom
 }
 
 
+/** Vendor newsletters that land in the shop inbox (JME specials, eBay, Autel …). */
+const VENDOR_SENDER = /@(?:[a-z0-9.-]*\.)?(?:jmesales\.com|ebay\.com|autel\.com|autelrobotics\.com|shindustries\.com)$/i
+
 /** Automated Google emails (security alerts, etc.) are never tickets. */
 function isGoogleSender(email: string): boolean {
   return /@(?:[a-z0-9.-]*\.)?google(?:mail)?\.com$/i.test(email)
@@ -377,6 +380,20 @@ async function runSync(admin: Admin, options: SyncOptions): Promise<SyncResult> 
     if (known.has(r.id) || pendingThreads.has(r.threadId)) continue
     pendingThreads.add(r.threadId)
     threadOrder.push(r.threadId)
+  }
+
+  // Re-checking the review queue: every queued email in the window gets another look, even
+  // one-message threads whose only message is already logged
+  if (options.recheckPending) {
+    let q = admin.from('gmail_imports').select('gmail_thread_id, received_at')
+      .eq('company_id', COMPANY_ID).eq('status', 'pending').order('received_at')
+    if (options.after)  q = q.gte('received_at', new Date(options.after.replace(/\//g, '-') + 'T00:00:00-05:00').toISOString())
+    if (options.before) q = q.lt('received_at', new Date(options.before.replace(/\//g, '-') + 'T00:00:00-05:00').toISOString())
+    const { data: pend } = await q
+    for (const r of pend ?? []) {
+      const t = r.gmail_thread_id as string
+      if (t && !pendingThreads.has(t)) { pendingThreads.add(t); threadOrder.push(t) }
+    }
   }
 
   // Threads parked in review / dismissed: nothing to do until someone assigns them
@@ -799,7 +816,7 @@ async function processThread(
   }
 
   // ── Not a job: automated Google mail, the shop's own outgoing mail, attendance notes, due-lists ─
-  if (isGoogleSender(senderEmail)) { await logOnly('rejected', 'automated'); return 'ignored' }
+  if (isGoogleSender(senderEmail) || VENDOR_SENDER.test(senderEmail)) { await logOnly('rejected', 'automated'); return 'ignored' }
   if (SHOP_ADDRESSES.includes(senderEmail)) {
     const to = `${getHeader(headers, 'To')} ${getHeader(headers, 'Cc')}`.toLowerCase()
     if (!SHOP_ADDRESSES.some(a => to.includes(a))) { await logOnly('rejected', 'outbound'); return 'ignored' }
