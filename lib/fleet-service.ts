@@ -54,8 +54,12 @@ export async function applyOilChange(admin: Admin, opts: {
 
   const lastDate = (asset.last_oil_change_date as string | null) ?? null
   if (lastDate && lastDate >= opts.date) return false
-  // A mileage lower than what's already on file is a typo or a different vehicle — keep the date, drop the miles
-  const miles = opts.mileage != null && (asset.last_oil_change_mileage == null || opts.mileage >= asset.last_oil_change_mileage)
+  // A mileage lower than what's on file, or a jump of more than 40,000 miles past the
+  // highest known reading, is a typo or a different vehicle — keep the date, drop the miles
+  const known = Math.max(asset.last_oil_change_mileage ?? 0, asset.current_mileage ?? 0)
+  const miles = opts.mileage != null
+    && (asset.last_oil_change_mileage == null || opts.mileage >= asset.last_oil_change_mileage)
+    && (known === 0 || opts.mileage <= known + 40_000)
     ? opts.mileage : null
 
   const { data: rec } = await admin.from('oil_change_records').insert({
@@ -141,11 +145,15 @@ export async function applyCompletedWork(admin: Admin, ticketId: string, opts: {
   date?: string | null
   text?: string | null
   performedBy?: string | null
+  companyId?: string | null   // when given, the ticket must belong to this company
 } = {}): Promise<AppliedWork> {
   const out: AppliedWork = { oilChange: false, inspection: false }
-  const { data: t } = await admin.from('repair_tickets')
-    .select('id, company_id, asset_id, title, description, completion_notes, date_completed, completed_by')
-    .eq('id', ticketId).maybeSingle()
+  let q = admin.from('repair_tickets')
+    .select('id, company_id, asset_id, title, description, completion_notes, date_completed, completed_by, status')
+    .eq('id', ticketId)
+  if (opts.companyId) q = q.eq('company_id', opts.companyId)
+  const { data: t } = await q.maybeSingle()
+  if (t && t.status !== 'completed') return out
   if (!t?.asset_id) return out
 
   const date = opts.date ?? t.date_completed ?? new Date().toISOString().slice(0, 10)

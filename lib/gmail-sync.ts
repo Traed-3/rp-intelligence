@@ -56,6 +56,24 @@ const SHOP_ADDRESSES = ['maintenance.rps@gmail.com', 'eshoptasks@gmail.com']
 
 type Admin = ReturnType<typeof createAdminClient>
 
+/**
+ * Who may change a job by email (close it, mark parts, move truck dates, file a
+ * forward onto it): the shop mailbox, company addresses (first-initial+lastname.rp@…)
+ * and anyone with an app login. Mail from anyone else is still filed as a note /
+ * a new ticket, but never changes an existing job or a vehicle record.
+ */
+const COMPANY_SENDER = /^[a-z0-9._-]+\.rps?@(?:gmail\.com|proton\.me)$/i
+const trustedCache = new Map<string, boolean>()
+async function isTrustedSender(admin: Admin, email: string): Promise<boolean> {
+  const e = (email ?? '').trim().toLowerCase()
+  if (!e) return false
+  if (SHOP_ADDRESSES.includes(e) || COMPANY_SENDER.test(e)) return true
+  if (trustedCache.has(e)) return trustedCache.get(e)!
+  const ok = !!(await findReporter(admin, e))
+  trustedCache.set(e, ok)
+  return ok
+}
+
 /** Automated Google emails (security alerts, etc.) are never tickets. */
 function isGoogleSender(email: string): boolean {
   return /@(?:[a-z0-9.-]*\.)?google(?:mail)?\.com$/i.test(email)
@@ -532,8 +550,9 @@ async function fileMessagesOnTicket(
     const own     = ownText(body)
     const { email } = parseSender(getHeader(headers, 'From'))
     const when    = msgDateOf(msg)
-    const intent  = replyIntent(body)
-    const status  = detectStatus(body)
+    const trusted = await isTrustedSender(admin, email)
+    const intent  = trusted ? replyIntent(body) : null
+    const status  = trusted ? detectStatus(body) : detectStatus('')
     const updates: Record<string, unknown> = {}
 
     if (intent === 'duplicate') {
@@ -566,8 +585,8 @@ async function fileMessagesOnTicket(
       updates.parts_needed = true
       updates.waiting_on_parts = true
       if (OPEN_STATUSES_EARLY.includes(curStatus)) updates.status = 'waiting_parts'
-    } else if (own && OPEN_STATUSES_EARLY.includes(curStatus)) {
-      updates.status = 'in_progress'   // any note means work has started
+    } else if (trusted && own && OPEN_STATUSES_EARLY.includes(curStatus)) {
+      updates.status = 'in_progress'   // any staff note means work has started
     }
 
     if (Object.keys(updates).length) {
@@ -784,7 +803,10 @@ async function processThread(
   if (!assetId) return 'skipped'
 
   // ── A forward / follow-up of a job we already have → file it there ─────────
-  const followUpOf = await findTicketForFollowUp(admin, assetId, unitNumber, subject, body, msgDate)
+  // (staff only — anyone else's email opens its own ticket)
+  const followUpOf = await isTrustedSender(admin, senderEmail)
+    ? await findTicketForFollowUp(admin, assetId, unitNumber, subject, body, msgDate)
+    : null
   if (followUpOf) {
     await fileMessagesOnTicket(admin, followUpOf, threadId, subject, unitNumber, messages, pendingMsgIds)
     return 'attached'
@@ -803,14 +825,15 @@ async function processThread(
 
   for (const msg of messages) {
     const b = extractBody(msg.payload)
+    const { email: msgFrom } = parseSender(getHeader(msg.payload?.headers ?? [], 'From'))
+    if (!(await isTrustedSender(admin, msgFrom))) continue
     const intent = replyIntent(b)
     if (intent === 'complete' || intent === 'duplicate') {
       finalStatus = 'completed'
       duplicate = intent === 'duplicate'
       dateCompleted = ymd(msgDateOf(msg))
       completionNote = ownText(b).slice(0, 1000) || null
-      const { email } = parseSender(getHeader(msg.payload?.headers ?? [], 'From'))
-      completedBy = (await findReporter(admin, email)) ?? completedBy
+      completedBy = (await findReporter(admin, msgFrom)) ?? completedBy
     } else if (intent === 'update' && finalStatus === 'completed' && isInbox) {
       finalStatus = 'in_progress'   // an update after a "complete" re-opens the work
       dateCompleted = null
