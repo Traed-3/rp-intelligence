@@ -703,8 +703,10 @@ async function findTicketForFollowUp(
   let best: { id: string; score: number } | null = null
   for (const c of cands) {
     const open = !TERMINAL_STATUSES.includes(c.status)
-    // A finished job only takes forwards/updates (a fresh report with the same subject is a new job)
-    if (!open && !followUpish) continue
+    // Two people often report the same thing a day or two apart — same subject within 3 days is one job
+    const sameReport = msgDate.getTime() - new Date(c.created_at).getTime() < 3 * 86400_000
+    // A finished job only takes forwards/updates (a fresh report with the same subject weeks later is a new job)
+    if (!open && !followUpish && !sameReport) continue
     // Auto-tickets ("Oil Change — T20") are closed by the shop's OCD / inspection emails
     if (c.source === 'preventive') {
       if (open && ((oil && /oil change/i.test(c.title)) || (insp && /inspection/i.test(c.title)))) {
@@ -718,7 +720,8 @@ async function findTicketForFollowUp(
     if (core === cc) score = 1.5
     else if (core.length >= 8 && cc.length >= 8 && (core.includes(cc) || cc.includes(core))) score = 1.2
     else score = tokenSim(core, cc)
-    if (score >= 0.75 && (!best || score > best.score)) best = { id: c.id, score }
+    const needed = !open && !followUpish ? 1.2 : 0.75   // re-reports of a closed job must match closely
+    if (score >= needed && (!best || score > best.score)) best = { id: c.id, score }
   }
   return best?.id ?? null
 }
