@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 import {
   LayoutDashboard,
   Truck,
@@ -19,7 +20,7 @@ import {
   CalendarDays,
   Fuel,
   Package,
-  type LucideIcon, ListChecks, ClipboardCheck, ShieldCheck,
+  type LucideIcon, ListChecks, ClipboardCheck, ShieldCheck, Menu, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -88,8 +89,13 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
     { href: '/shop',      label: 'Shop',      icon: Users },
     ...(canSeeConstruction ? [{ href: '/construction', label: 'Build', icon: HardHat }] : []),
     ...(needsSurveysLink ? [{ href: '/construction/surveys', label: 'Surveys', icon: ClipboardCheck }] : []),
-    ...(isAdmin ? [{ href: '/settings', label: 'Settings', icon: Settings }] : []),
   ]
+  // Everything else the sidebar shows (DQF & Certs, Quotes & Invoices, Inventory, Expenses…)
+  // lives behind a "More" tab so the phone bar stays readable.
+  const moreItems = surveyOnly ? [] : visibleNavItems.filter(i => !mobileItems.some(m => m.href === i.href))
+    .filter(i => i.href !== '/settings' || isAdmin)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreActive = moreItems.some(i => (i.match ?? [i.href]).some(m => pathname === m || pathname.startsWith(m + '/')))
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -167,7 +173,39 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
             </Link>
           )
         })}
+        {moreItems.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setMoreOpen(o => !o)}
+            className={cn('flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors', moreOpen || moreActive ? 'text-blue-600' : 'text-gray-500')}
+            aria-expanded={moreOpen}
+          >
+            {moreOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            More
+          </button>
+        )}
       </nav>
+
+      {/* Mobile "More" sheet */}
+      {moreOpen && (
+        <div className="md:hidden print:hidden fixed inset-0 z-40" onClick={() => setMoreOpen(false)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute bottom-14 left-0 right-0 bg-white rounded-t-2xl shadow-xl p-3 pb-4 max-h-[70vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="grid grid-cols-3 gap-2">
+              {moreItems.map(item => (
+                <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)}
+                  className="flex flex-col items-center gap-1 rounded-xl border border-gray-200 px-2 py-3 text-xs font-medium text-gray-700 active:bg-gray-100 text-center">
+                  <item.icon className="w-5 h-5 text-[#2d4e7a]" />
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+            <button onClick={handleSignOut} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600">
+              <LogOut className="w-4 h-4" />Sign out
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
