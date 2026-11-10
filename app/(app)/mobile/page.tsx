@@ -142,6 +142,12 @@ export default async function MobilePage() {
             <span className="text-2xl opacity-80">→</span>
           </Link>
         )}
+        {surveyFirst && (
+          <Link href="/construction/surveys/tests" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg shadow-sm">
+            <span>💧 Sump / Spill Bucket Test</span>
+            <span className="text-2xl opacity-80">→</span>
+          </Link>
+        )}
 
         {/* Field service ticket — sign on the phone, invoice from the office */}
         <Link
@@ -199,6 +205,12 @@ export default async function MobilePage() {
             <Link href="/construction/surveys" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
               <span className="text-3xl">📸</span>
               <span className="text-sm font-semibold text-gray-800">Field Survey</span>
+            </Link>
+          )}
+          {canSurvey && !surveyFirst && (
+            <Link href="/construction/surveys/tests" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+              <span className="text-3xl">💧</span>
+              <span className="text-sm font-semibold text-gray-800">Sump / Spill Test</span>
             </Link>
           )}
 

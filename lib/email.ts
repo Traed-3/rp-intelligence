@@ -50,3 +50,28 @@ export async function sendAlertEmail({
     `,
   }).catch(() => {})
 }
+
+/**
+ * A finished document (test report, etc.) emailed with the PDF attached. Returns an error string instead of throwing so
+ * the caller can still mark the work complete and show "email didn't go — PDF is on the job" when Resend is down.
+ */
+export async function sendDocumentEmail({ to, subject, body, attachment, replyTo }: {
+  to: string[]; subject: string; body: string; attachment: { filename: string; content: Buffer }; replyTo?: string | null
+}): Promise<{ ok: true; id: string | null } | { ok: false; error: string }> {
+  if (!process.env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY is not set' }
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const from = process.env.RESEND_FROM_EMAIL ?? 'RP Intelligence <alerts@rpintelligence.app>'
+  const reply = replyTo || process.env.RESEND_REPLY_TO || undefined
+  try {
+    const { data, error } = await resend.emails.send({
+      from, to, subject, replyTo: reply,
+      text: body,
+      html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1a1a1a;font-size:15px;line-height:1.6">${escapeHtml(body).replace(/\n/g, '<br/>')}</div>`,
+      attachments: [{ filename: attachment.filename, content: attachment.content }],
+    })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, id: data?.id ?? null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}

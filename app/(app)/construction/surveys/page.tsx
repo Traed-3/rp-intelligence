@@ -30,7 +30,10 @@ export default async function SurveysPage() {
           <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Field Surveys</h1>
           <p className="text-sm text-gray-500 mt-0.5">ICON sump survey worksheets, filled on the phone, photos through the camera, PDF built here.</p>
         </div>
-        {profile.fullAccess && <Link href="/construction" className="text-sm text-gray-500 hover:text-gray-700">← Construction</Link>}
+        <div className="flex items-center gap-3">
+          <Link href="/construction/surveys/tests" className="rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm font-semibold hover:bg-emerald-700">💧 Sump / UDC / Spill Bucket Tests →</Link>
+          {profile.fullAccess && <Link href="/construction" className="text-sm text-gray-500 hover:text-gray-700">← Construction</Link>}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

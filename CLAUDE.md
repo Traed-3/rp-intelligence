@@ -373,3 +373,29 @@ email in (`billing_inbox_documents`), NOT the `expenses` table (which barely get
 - Statement tick-off: `billing_inbox_documents.card_matched_at/_by` (no FK on _by: a 2nd FK to profiles breaks the
   `profiles(...)` embed on the receipt page; migration `card_audit_matching.sql`, APPLIED
   2026-11-06). Action app/(app)/expenses/cards/actions.ts. CSV: GET /api/expenses/card-audit-csv?card&month.
+
+---
+
+## SUMP / UDC / SPILL BUCKET TESTS (added 2026-11-10)
+
+Fillable onsite integrity-test report; the site's state picks the agency form the PDF prints on.
+- Route `/construction/surveys/tests` (+ `/[id]`), under the Field Surveys prefix so construction techs and the
+  field_surveyor role can use it (same `requireFieldSurveys` guard; field_surveyor sees only its own tests).
+  Entry points: Field Surveys header button, Construction hub tile, mobile home.
+- Migration `supabase/migrations/con_containment_tests.sql` (APPLIED 2026-11-10 via Supabase MCP): `con_containment_tests`
+  (header: state MD|VA|WV, facility/owner/tester, cert #, method/equipment/reason, VA `sump_test_kind` full|low_level,
+  signature PNG data URL, next_due, status draft|complete|sent, pdf_path, pdf_document_id, sent_to/at) and
+  `con_containment_test_items` (one per bucket/sump: kind spill_bucket|stage1_bucket|udc|stp|tank_top|transition|vent_riser|other,
+  readings as text so units ride along, VA visual/debris/riser/drain/interstice, WV sensor_restored, VA low-level sensor rows).
+- State: `detectState()` in lib/containment-test.ts (con_sites.state → address text → ZIP prefix); override on the form.
+- PDF: lib/containment-test-pdf.tsx re-creates each official form's rows/labels/column counts:
+  MD = MDE "Maryland Catchment Basin and Containment Sump Test Report" (Mar 2017; 3 items/page; MDIC cert block);
+  VA = DEQ "Triennial UST Spill Bucket Integrity Testing" (5/page) + "Triennial UST Containment Sump / UDC Integrity
+  Testing" (6/page, full-height or low-liquid-level page) (3/2023); WV = WVDEP "Spill and Overfill Testing Report Form"
+  §C (rev 8/5/2019, 7/page) + "Miscellaneous Testing Report Form" §C sumps/UDC (7/page). Official blanks:
+  iCloud RP - Rappahannock Petroleum/Operations/RPS Project Quote Docs/ (Hydro Test Form DEQ-VA / DEP-WV) and the agency sites.
+- Finish (`finishTest`): required-field check per state → render → upload `construction-docs/<company>/containment-tests/<id>/`
+  → con_documents (closeout / testing_form) when a job is linked → status complete → Resend email with the PDF
+  (`sendDocumentEmail` in lib/email.ts) to the addresses in the finish box (default econstruction.rp@gmail.com — test
+  reports carry no pricing) → status sent. Reopen + re-finish replaces the filed PDF. GET
+  /api/construction/surveys/tests/[id]/pdf renders live; `?saved=1` serves the filed copy.
