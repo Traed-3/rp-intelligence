@@ -39,7 +39,7 @@ async function assertDraft(admin: ReturnType<typeof createAdminClient>, id: stri
 /** New test: pick the job (or type the site). The site's state picks the form; facility ID + owner carry over from the last test at that site. */
 export async function createTest(formData: FormData): Promise<void> {
   const { admin, p } = await me()
-  const jobId = str(formData.get('job_id'))
+  let jobId = str(formData.get('job_id'))
   let siteNumber = str(formData.get('site_number')), facilityName = str(formData.get('facility_name')), address = str(formData.get('address'))
   let city: string | null = null, zip: string | null = null, siteState: string | null = null, siteId: string | null = null
   if (jobId) {
@@ -50,7 +50,7 @@ export async function createTest(formData: FormData): Promise<void> {
       siteNumber = siteNumber ?? j.site_number; facilityName = facilityName ?? site?.store_brand ?? j.gas_brand ?? null
       address = address ?? site?.address ?? j.facility_address ?? null
       city = site?.city ?? null; zip = site?.zip ?? null; siteState = site?.state ?? null
-    }
+    } else jobId = null   // not this company's job
   } else if (siteNumber) {
     const { data: site } = await admin.from('con_sites').select('id, address, city, state, zip, store_brand').eq('company_id', p.company_id).ilike('site_number', siteNumber).maybeSingle()
     if (site) { siteId = site.id; address = address ?? site.address; city = site.city; zip = site.zip; siteState = site.state; facilityName = facilityName ?? site.store_brand }
@@ -62,7 +62,9 @@ export async function createTest(formData: FormData): Promise<void> {
   // Carry the facility ID, owner and contact from the last test at this site.
   let prior: Partial<TestRow> = {}
   if (siteNumber) {
-    const { data } = await admin.from('con_containment_tests').select('facility_id, county, owner_name, owner_address, owner_city, owner_state, owner_zip, owner_phone, facility_contact, contact_phone').eq('company_id', p.company_id).eq('site_number', siteNumber).order('test_date', { ascending: false }).limit(1).maybeSingle()
+    let q = admin.from('con_containment_tests').select('facility_id, county, owner_name, owner_address, owner_city, owner_state, owner_zip, owner_phone, facility_contact, contact_phone').eq('company_id', p.company_id).eq('site_number', siteNumber)
+    if (surveyOwnOnly(p.role)) q = q.eq('created_by', p.id)   // the locked-down role only sees its own tests
+    const { data } = await q.order('test_date', { ascending: false }).limit(1).maybeSingle()
     if (data) prior = data as Partial<TestRow>
   }
   const { data: lastMine } = await admin.from('con_containment_tests').select('tester_cert, tester_cert_type, test_equipment, equipment_precision').eq('company_id', p.company_id).eq('created_by', p.id).eq('state', state).order('created_at', { ascending: false }).limit(1).maybeSingle()
@@ -99,7 +101,11 @@ export async function saveTestHeader(id: string, formData: FormData): Promise<vo
   for (const f of HEADER_TEXT_FIELDS) if (formData.has(f)) patch[f] = str(formData.get(f))
   const st = oneOf(formData.get('state'), ['MD', 'VA', 'WV'] as const); if (st) patch.state = st
   const kind = oneOf(formData.get('sump_test_kind'), ['full', 'low_level'] as const); if (kind) patch.sump_test_kind = kind
-  if (formData.has('job_id')) patch.job_id = str(formData.get('job_id'))
+  if (formData.has('job_id')) {
+    const jobId = str(formData.get('job_id'))
+    if (jobId) { const { data: j } = await admin.from('con_jobs').select('id').eq('id', jobId).eq('company_id', p.company_id).maybeSingle(); if (!j) throw new Error('Job not found') }
+    patch.job_id = jobId
+  }
   if (!patch.test_date) delete patch.test_date
   const { error } = await admin.from('con_containment_tests').update(patch).eq('id', id).eq('company_id', p.company_id)
   if (error) throw new Error(error.message)
@@ -180,7 +186,8 @@ export async function finishTest(id: string, _prev: FinishResult | null, formDat
     if (bundle.test.pdf_document_id) await admin.from('con_documents').delete().eq('id', bundle.test.pdf_document_id).eq('company_id', p.company_id)
     if (bundle.test.pdf_path) await admin.storage.from(BUCKET).remove([bundle.test.pdf_path])
     let docId: string | null = null
-    if (bundle.test.job_id) {
+    const { data: ownJob } = bundle.test.job_id ? await admin.from('con_jobs').select('id').eq('id', bundle.test.job_id).eq('company_id', p.company_id).maybeSingle() : { data: null }
+    if (ownJob) {
       const { data: doc } = await admin.from('con_documents').insert({
         company_id: p.company_id, job_id: bundle.test.job_id, file_name: fileName, original_filename: fileName, storage_path: path,
         category: 'closeout', doc_type: 'testing_form', review_status: 'filed', uploaded_by: p.id, imported_by: 'containment_test', imported_at: new Date().toISOString(),
