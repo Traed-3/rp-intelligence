@@ -147,3 +147,48 @@
     font-size: 17px;
   }
 }
+/* ── Motion ─────────────────────────────────────────────────────────────────
+   One small, consistent set: page rise, ring loader, sign-in logo reveal,
+   status-change wipe, sent confirmation. Every element's resting style is its
+   final state, so turning animation off (reduced motion) leaves it correct. */
+
+@keyframes rp-rise      { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rp-fade      { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rp-draw      { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes rp-ring-loop { 0% { stroke-dashoffset: 100; opacity: 1; } 70% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes rp-ring-once { 0% { stroke-dashoffset: 100; opacity: 1; } 65% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes rp-mark-in   { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes rp-line-wipe { from { clip-path: inset(33% 47% 67% 50%); } to { clip-path: inset(33% 47% 31% 50%); } }
+@keyframes rp-text-in   { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+@keyframes rp-flash     { 0% { clip-path: inset(0 100% 0 0); } 28% { clip-path: inset(0); } 68% { clip-path: inset(0); } 100% { clip-path: inset(0 0 0 100%); } }
+
+/* Page change: quick fade + slight rise. No transform is left behind afterwards. */
+.rp-page-in { animation: rp-rise 180ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+
+/* Ring loader (replaces spinners): the logo's ring draws itself, then repeats. */
+.rp-ring { transform: rotate(-90deg); }
+.rp-ring-arc { stroke-dasharray: 100; stroke-dashoffset: 0; animation: rp-ring-loop 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+
+/* Sign-in logo reveal — plays once, about 1.4s. */
+.rp-logo { position: relative; aspect-ratio: 1498 / 890; }
+.rp-logo img { position: absolute; inset: 0; width: 100%; height: 100%; mix-blend-mode: multiply; }
+.rp-logo-mark { clip-path: inset(0 50% 0 0); transform-origin: 27.7% 50%; animation: rp-mark-in 500ms ease-out 350ms backwards; }
+.rp-logo-line { clip-path: inset(33% 47% 31% 50%); animation: rp-line-wipe 300ms ease-out 750ms backwards; }
+.rp-logo-text { clip-path: inset(0 0 0 53%); animation: rp-text-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) 950ms backwards; }
+.rp-logo-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rp-logo-ring circle { stroke-dasharray: 100; opacity: 0; transform: rotate(-90deg); transform-origin: 415px 445px; animation: rp-ring-once 1000ms cubic-bezier(0.4, 0, 0.2, 1); }
+.rp-logo-tag { animation: rp-fade 400ms ease-out 1100ms backwards; }
+
+/* Status change: a navy panel wipes across the badge with a check, then clears. */
+.rp-flash { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #16243d; color: #fff; clip-path: inset(0 0 0 100%); animation: rp-flash 900ms cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
+
+/* Sent confirmation: ring draws, then the check. */
+.rp-check-ring { stroke-dasharray: 100; animation: rp-draw 450ms ease-out backwards; }
+.rp-check-mark { stroke-dasharray: 100; animation: rp-draw 280ms ease-out 380ms backwards; }
+.rp-sent-in    { animation: rp-fade 160ms ease-out backwards; }
+.rp-sent-text  { animation: rp-rise 260ms ease-out 520ms backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rp-page-in, .rp-ring-arc, .rp-logo-mark, .rp-logo-line, .rp-logo-text, .rp-logo-ring circle,
+  .rp-logo-tag, .rp-flash, .rp-check-ring, .rp-check-mark, .rp-sent-in, .rp-sent-text { animation: none; }
+}

@@ -35,7 +35,7 @@ function Auto({ k, auto, why }: { k: Key; auto: Set<Key>; why: Partial<Record<st
 }
 
 export function ExpenseForm({
-  action, assets, paymentMethods, assetCategories, storeCategories, openTickets, constructionJobs, storeNumbers, projectCategories,
+  action, assets, paymentMethods, assetCategories, storeCategories, openTickets, constructionJobs, storeNumbers, projectCategories, sourceDoc = null,
 }: {
   action: (state: State, formData: FormData) => Promise<State>
   assets: Asset[]
@@ -46,11 +46,15 @@ export function ExpenseForm({
   constructionJobs: ConJob[]
   storeNumbers: string[]
   projectCategories: Record<string, string[]>
+  /** the receipt email this expense is being keyed in from (credits its sender) */
+  sourceDoc?: { id: string; sender: string | null; senderEmail: string | null; vendor: string | null; date: string | null; amount: number | null } | null
 }) {
   const [state, formAction, isPending] = useActionState(action, null)
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
   const [f, setF] = useState<Fields>({
-    expense_date: today, amount: '', vendor: '', description: '', notes: '',
+    // Opened from a receipt email (/expenses/new?doc=…): start from what the inbox already extracted.
+    expense_date: sourceDoc?.date ?? today, amount: sourceDoc?.amount != null ? sourceDoc.amount.toFixed(2) : '',
+    vendor: sourceDoc?.vendor ?? '', description: '', notes: '',
     expense_type: 'asset', asset_id: '', store_number: '', con_job_id: '', project_number: '',
     category_id: '', category_custom: '', repair_ticket_id: '', payment_method_code: '', card_last4: '',
   })
@@ -130,6 +134,17 @@ export function ExpenseForm({
       <input type="hidden" name="card_brand" value={scan?.read.card_brand ?? ''} />
       <input type="hidden" name="ai_extracted" value={scan ? JSON.stringify(scan.read) : ''} />
       <input type="hidden" name="ai_filled" value={Array.from(auto).join(',')} />
+
+      {sourceDoc && (
+        <>
+          <input type="hidden" name="source_document_id" value={sourceDoc.id} />
+          <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
+            From the receipt email sent by <strong>{sourceDoc.sender || sourceDoc.senderEmail}</strong>
+            {sourceDoc.sender && sourceDoc.senderEmail ? <span className="text-blue-600"> &lt;{sourceDoc.senderEmail}&gt;</span> : null}
+            {' '}— this expense will be submitted under their name.
+          </div>
+        </>
+      )}
 
       {/* Step 1 — receipt photo first */}
       <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4">

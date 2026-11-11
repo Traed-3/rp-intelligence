@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { learnCardFromExpense, cleanLast4 } from '@/lib/receipt-scan'
+import { resolveSubmitter } from '@/lib/receipt-submitter'
 
 type State = { error: string } | null
 
@@ -56,10 +57,28 @@ export async function createExpense(_state: State, formData: FormData): Promise<
   let aiExtracted: unknown = null
   try { const raw = str(formData.get('ai_extracted')); aiExtracted = raw ? JSON.parse(raw) : null } catch { aiExtracted = null }
   const aiFilled = (str(formData.get('ai_filled')) ?? '').split(',').map(x => x.trim()).filter(Boolean)
+  // Receipt keyed in from an inbox email → credit the person who sent the email.
+  const sourceDocId = str(formData.get('source_document_id'))
+  let submitter: { submitted_by: string | null; submitter_name: string | null; submitter_email: string | null } =
+    { submitted_by: profile.id, submitter_name: null, submitter_email: null }
+  if (sourceDocId) {
+    // The receipt importer (lib/receipt-expense-import.ts) may already have filed this email:
+    // one expense per email (unique source_document_id), so open that one instead of failing.
+    const { data: existing } = await admin.from('expenses').select('id')
+      .eq('company_id', profile.company_id).eq('source_document_id', sourceDocId).maybeSingle()
+    if (existing) redirect(`/expenses/${existing.id}`)
+    const { data: doc } = await admin.from('billing_inbox_documents')
+      .select('sender, sender_email').eq('id', sourceDocId).eq('company_id', profile.company_id).maybeSingle()
+    if (doc) {
+      const who = await resolveSubmitter(admin, profile.company_id, doc.sender_email, doc.sender)
+      submitter = { submitted_by: who.profileId, submitter_name: who.name, submitter_email: who.email }
+    }
+  }
 
   const { data: expense, error } = await admin.from('expenses').insert({
     company_id:          profile.company_id,
-    submitted_by:        profile.id,
+    ...submitter,
+    source_document_id:  sourceDocId,
     expense_date:        expenseDate,
     amount,
     description:         str(formData.get('description')),
@@ -85,9 +104,10 @@ export async function createExpense(_state: State, formData: FormData): Promise<
   if (error) return { error: error.message }
 
   // Teach the app which card number belongs to which code/person (each tech has their own TEC card).
+  // The card belongs to whoever submitted the receipt — the email's sender when keyed in from an inbox email.
   await learnCardFromExpense(admin, {
     company_id: profile.company_id, last4: cardLast4, brand: str(formData.get('card_brand')),
-    code: pmCode, submitted_by: profile.id,
+    code: pmCode, submitted_by: submitter.submitted_by,
   }).catch(() => {})
 
   revalidatePath('/expenses')

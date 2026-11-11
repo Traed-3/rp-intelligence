@@ -342,7 +342,7 @@ export function buildSuggestions(read: ReceiptRead, ctx: ScanContext): ScanResul
 
 /** Called after an expense is saved: remember which card number belongs to which code/person. */
 export async function learnCardFromExpense(admin: Admin, opts: {
-  company_id: string; last4: string | null; brand?: string | null; code: string | null; submitted_by: string
+  company_id: string; last4: string | null; brand?: string | null; code: string | null; submitted_by: string | null
 }) {
   const last4 = cleanLast4(opts.last4)
   const code = (opts.code ?? '').toUpperCase()
@@ -353,13 +353,13 @@ export async function learnCardFromExpense(admin: Admin, opts: {
   if (!row) {
     await admin.from('expense_cards').insert({
       company_id: opts.company_id, last4, brand: opts.brand ?? null, payment_method_code: code,
-      holder_profile_id: code === 'TEC' ? opts.submitted_by : null, source: 'learned', seen_count: 1, last_seen_at: now,
+      holder_profile_id: code === 'TEC' ? opts.submitted_by : null, // null when the sender has no app login source: 'learned', seen_count: 1, last_seen_at: now,
     })
     return
   }
   const patch: Record<string, unknown> = { seen_count: (row.seen_count ?? 0) + 1, last_seen_at: now, updated_at: now }
   // Fill gaps only — never overwrite a manual entry or an existing holder.
-  if (!row.holder_profile_id && code === 'TEC' && row.source !== 'manual') patch.holder_profile_id = opts.submitted_by
+  if (!row.holder_profile_id && code === 'TEC' && opts.submitted_by && row.source !== 'manual') patch.holder_profile_id = opts.submitted_by
   await admin.from('expense_cards').update(patch).eq('id', row.id)
 }
 

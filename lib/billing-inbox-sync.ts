@@ -145,14 +145,17 @@ function findReference(subject: string, body: string): string | null {
 
 // ── pass 1: sync ─────────────────────────────────────────────────────────────
 
-export async function syncInbox(inbox: BillingInbox, opts: { maxResults?: number; sinceDays?: number } = {}): Promise<SyncResult> {
+export async function syncInbox(inbox: BillingInbox, opts: { maxResults?: number; sinceDays?: number; after?: string; before?: string } = {}): Promise<SyncResult> {
   const admin = createAdminClient()
   const result: SyncResult = { inbox, listed: 0, new: 0, skipped: 0, replies: 0, errors: [] }
   const company_id = await companyId(admin)
 
   let ids: string[]
   try {
-    ids = await listMessages(inbox, `${INBOX_QUERY[inbox]} ${sinceQuery(opts.sinceDays ?? 14)}`, opts.maxResults ?? 30)
+    // after/before (YYYY-MM-DD) pin a dated slice for historical catch-ups; Gmail lists newest first, so a
+    // plain sinceDays window never reaches older mail once the newest page is all already filed.
+    const window = opts.after ? `after:${opts.after.replace(/-/g, '/')}${opts.before ? ` before:${opts.before.replace(/-/g, '/')}` : ''}` : sinceQuery(opts.sinceDays ?? 14)
+    ids = await listMessages(inbox, `${INBOX_QUERY[inbox]} ${window}`, opts.maxResults ?? 30)
   } catch (e) {
     result.errors.push(`list failed: ${(e as Error).message}`)
     return result
