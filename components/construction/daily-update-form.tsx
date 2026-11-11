@@ -1,7 +1,9 @@
 'use client'
 
 import { useActionState, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Plus, X } from 'lucide-react'
+import { RingCheck } from '@/components/ui/ring-loader'
 import type { ActionState } from '@/app/(app)/construction/actions'
 
 const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500'
@@ -35,13 +37,53 @@ export function DailyUpdateForm({
   // rows are our own state — clear them too so the next day starts empty instead
   // of silently re-submitting yesterday's crew and hours.
   const wasPending = useRef(false)
+  // What just went through — shown on the "sent" screen so the crew knows it landed.
+  const [sent, setSent] = useState<{ job: string; at: string } | null>(null)
+  const pendingJob = useRef('')
   useEffect(() => {
-    if (wasPending.current && !isPending && !state?.error) setTechs([{ ...blank }])
+    if (wasPending.current && !isPending && !state?.error) {
+      setTechs([{ ...blank }])
+      setSent({
+        job: pendingJob.current,
+        at: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }),
+      })
+    }
     wasPending.current = isPending
   }, [isPending, state])
 
+  // On a job page the confirmation clears itself; on the phone it stays until tapped.
+  useEffect(() => {
+    if (!sent || jobs) return
+    const t = setTimeout(() => setSent(null), 2400)
+    return () => clearTimeout(t)
+  }, [sent, jobs])
+
   return (
-    <form action={formAction} className="space-y-4">
+    <form
+      action={formAction}
+      onSubmit={(e) => {
+        const sel = e.currentTarget.elements.namedItem('job_id') as HTMLSelectElement | null
+        pendingJob.current = sel?.selectedOptions?.[0]?.text ?? ''
+      }}
+      className="relative space-y-4"
+    >
+      {sent && (
+        <div role="status" className="rp-sent-in absolute -inset-2 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-white text-center">
+          <RingCheck className="text-rps-green-dark" />
+          <div className="rp-sent-text">
+            <p className="text-lg font-bold text-gray-900">Daily update sent</p>
+            <p className="mt-1 text-sm text-gray-500">{[sent.job, sent.at].filter(Boolean).join(' · ')}</p>
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <button type="button" onClick={() => setSent(null)} className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+                {jobs ? 'File another' : 'OK'}
+              </button>
+              {jobs && (
+                <Link href="/mobile" className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white">Done</Link>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {jobs && (
         <div>
           <label className={lbl}>Job</label>

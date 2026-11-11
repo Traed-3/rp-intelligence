@@ -2,7 +2,8 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, Loader2, Plus } from 'lucide-react'
+import { Upload, Plus } from 'lucide-react'
+import { RingLoader } from '@/components/ui/ring-loader'
 
 // Add a deliverable to a site: a type, optional file, optional open-items note.
 export function DeliverableUpload({ siteId }: { siteId: string }) {
@@ -46,7 +47,7 @@ export function DeliverableUpload({ siteId }: { siteId: string }) {
       <div className="flex items-center gap-2">
         <button type="button" disabled={busy} onClick={() => fileRef.current?.click()}
           className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed border-gray-300 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-50">
-          {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading…</> : <><Upload className="w-4 h-4" /> Upload file</>}
+          {busy ? <><RingLoader /> Uploading…</> : <><Upload className="w-4 h-4" /> Upload file</>}
         </button>
         <button type="button" disabled={busy} onClick={() => submit(null)}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50">

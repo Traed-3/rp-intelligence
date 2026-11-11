@@ -1,7 +1,8 @@
 'use client'
 
 import { useActionState, useRef, useState, useTransition } from 'react'
-import { Camera, Loader2, Trash2 } from 'lucide-react'
+import { Camera, Trash2 } from 'lucide-react'
+import { RingLoader } from '@/components/ui/ring-loader'
 import { PartPicker, type PickedPart } from '@/components/construction/part-picker'
 import { SignaturePad } from '@/components/svc/signature-pad'
 import { money } from '@/lib/inventory'
@@ -181,7 +182,7 @@ function PhotoButton({ ticketId }: { ticketId: string }) {
   }
   return (
     <label className="flex items-center justify-center gap-2 w-full rounded-xl border border-dashed border-gray-300 py-3 text-sm text-gray-600 cursor-pointer hover:border-blue-300">
-      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}{busy ? 'Uploading…' : 'Take or add a photo'}
+      {busy ? <RingLoader /> : <Camera className="w-4 h-4" />}{busy ? 'Uploading…' : 'Take or add a photo'}
       <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} disabled={busy} />
       {err && <span className="text-red-600 text-xs">{err}</span>}
     </label>
