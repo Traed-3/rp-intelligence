@@ -21,27 +21,37 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   const { data: customers } = await admin
     .from('con_customers').select('id, name').eq('company_id', company_id).order('name')
 
-  // Explicit limit well above current volume — an unfiltered select otherwise
-  // silently caps at Supabase's default 1000 rows once completed jobs pile up.
-  let query = admin
-    .from('con_jobs')
-    .select('id, site_number, job_number, work_order_number, stage, priority, gas_brand, program, status_detail, date_received, customer_id, con_customers(name)')
-    .eq('company_id', company_id)
-    .order('date_received', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-    .limit(5000)
-
-  if (sp.customer) query = query.eq('customer_id', sp.customer)
-  if (sp.priority) query = query.eq('priority', sp.priority)
-  if (sp.brand)    query = query.ilike('gas_brand', `%${sp.brand}%`)
-  if (sp.program)  query = query.ilike('program', `%${sp.program}%`)
+  // Supabase returns at most 1000 rows per request no matter what .limit()
+  // says, so the list is read a page at a time until it runs out. (A plain
+  // .limit(5000) silently dropped the oldest completed jobs past row 1000.)
   const q = safeSearchTerm(sp.q)
-  if (q)           query = query.or(`site_number.ilike.%${q}%,work_order_number.ilike.%${q}%,scope_of_work.ilike.%${q}%`)
-  // stage filter only applies in table view (kanban shows all stages as columns)
-  if (view === 'table' && sp.stage) query = query.eq('stage', sp.stage)
+  const buildQuery = () => {
+    let query = admin
+      .from('con_jobs')
+      .select('id, site_number, job_number, work_order_number, stage, priority, gas_brand, program, status_detail, date_received, customer_id, con_customers(name)')
+      .eq('company_id', company_id)
+      .order('date_received', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .order('id')
 
-  const { data: jobs } = await query
-  const list = jobs ?? []
+    if (sp.customer) query = query.eq('customer_id', sp.customer)
+    if (sp.priority) query = query.eq('priority', sp.priority)
+    if (sp.brand)    query = query.ilike('gas_brand', `%${sp.brand}%`)
+    if (sp.program)  query = query.ilike('program', `%${sp.program}%`)
+    if (q)           query = query.or(`site_number.ilike.%${q}%,work_order_number.ilike.%${q}%,scope_of_work.ilike.%${q}%`)
+    // stage filter only applies in table view (kanban shows all stages as columns)
+    if (view === 'table' && sp.stage) query = query.eq('stage', sp.stage)
+
+    return query
+  }
+  const PAGE = 1000
+  const first = await buildQuery().range(0, PAGE - 1)
+  const list = first.data ?? []
+  for (let from = PAGE; list.length === from && from < 20000; from += PAGE) {
+    const { data: more } = await buildQuery().range(from, from + PAGE - 1)
+    if (!more?.length) break
+    list.push(...more)
+  }
 
   const qs = (extra: Record<string, string>) => {
     const p = new URLSearchParams()
