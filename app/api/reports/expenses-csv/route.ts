@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { toCsv } from '@/lib/csv'
 import { submitterLabel } from '@/lib/receipt-submitter'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-
-/** Quote a CSV cell and neutralise spreadsheet formulas (=, +, -, @, tab, CR) typed into subject lines. */
-const cell = (v: unknown) => {
-  const t = v == null ? '' : String(v)
-  // Only a plain number ("-74.07") is left alone; "-1+cmd|…" and friends get the leading quote.
-  const safe = /^[=+\-@\t\r]/.test(t) && !/^-?\d+(\.\d+)?$/.test(t) ? `'${t}` : t
-  return `"${safe.replace(/"/g, '""')}"`
-}
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
@@ -34,8 +27,8 @@ export async function GET(request: NextRequest) {
     .lte('expense_date', end)
     .order('expense_date')
 
-  const rows = [
-    ['Date', 'Employee', 'Amount', 'Type', 'Asset/Store/Project', 'Category', 'Vendor', 'Payment', 'Description'].join(','),
+  const rows: unknown[][] = [
+    ['Date', 'Employee', 'Amount', 'Type', 'Asset/Store/Project', 'Category', 'Vendor', 'Payment', 'Description'],
     ...(expenses ?? []).map(e => [
       e.expense_date,
       submitterLabel(e as any) ?? '',
@@ -46,10 +39,10 @@ export async function GET(request: NextRequest) {
       e.vendor ?? '',
       e.payment_method_code ?? '',
       e.description ?? '',
-    ].map(cell).join(','))
+    ]),
   ]
 
-  return new NextResponse(rows.join('\n'), {
+  return new NextResponse(toCsv(rows), {
     headers: {
       'Content-Type': 'text/csv',
       'Content-Disposition': `attachment; filename="expenses_${start}_${end}.csv"`,
