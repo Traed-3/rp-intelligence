@@ -22,13 +22,25 @@ export function ClockWidget({
   todayCompletedMins,
   clockInAction,
   clockOutAction,
+  setJobAction,
+  jobs = [],
+  currentJobId = null,
+  currentStore = null,
 }: {
   isClockedIn: boolean
   clockInTime: string | null
   todayCompletedMins: number
-  clockInAction: () => Promise<void>
+  clockInAction: (target?: { con_job_id?: string | null; store_number?: string | null }) => Promise<void>
   clockOutAction: () => Promise<void>
+  setJobAction?: (target: { con_job_id?: string | null; store_number?: string | null }) => Promise<void>
+  jobs?: { id: string; label: string }[]
+  currentJobId?: string | null
+  currentStore?: string | null
 }) {
+  const [jobId, setJobId] = useState(currentJobId ?? '')
+  const [store, setStore] = useState(currentStore ?? '')
+  const target = () => ({ con_job_id: jobId || null, store_number: jobId ? null : store || null })
+  const jobChanged = isClockedIn && (jobId !== (currentJobId ?? '') || (!jobId && store !== (currentStore ?? '')))
   const [elapsed, setElapsed] = useState(0)
   const [now, setNow] = useState(new Date())
   const [isPending, startTransition] = useTransition()
@@ -55,7 +67,7 @@ export function ClockWidget({
       if (isClockedIn) {
         await clockOutAction()
       } else {
-        await clockInAction()
+        await clockInAction(target())
       }
     })
   }
@@ -83,6 +95,28 @@ export function ClockWidget({
         <p className="text-sm text-gray-500 mt-3">
           Total today: <span className="font-semibold text-gray-700">{formatMins(totalTodayMins)}</span>
         </p>
+      )}
+
+      {/* Which job — receipts snapped while clocked in default to it */}
+      {jobs.length > 0 && (
+        <div className="mt-6 text-left">
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{isClockedIn ? 'Working on' : 'Clock into'}</label>
+          <select value={jobId} onChange={e => setJobId(e.target.value)}
+            className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Shop / no job</option>
+            {jobs.map(j => <option key={j.id} value={j.id}>{j.label}</option>)}
+          </select>
+          {!jobId && (
+            <input value={store} onChange={e => setStore(e.target.value)} placeholder="Or store # (service call)"
+              className="mt-2 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          )}
+          {jobChanged && setJobAction && (
+            <button type="button" disabled={isPending} onClick={() => startTransition(async () => { await setJobAction(target()) })}
+              className="mt-2 w-full py-2 rounded-xl border border-blue-200 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60">
+              Switch to this job
+            </button>
+          )}
+        </div>
       )}
 
       {/* Big clock button */}

@@ -20,7 +20,16 @@ async function getProfile() {
 
 // ── Clock In ──────────────────────────────────────────────────────────────────
 
-export async function clockIn() {
+export type ClockTarget = { con_job_id?: string | null; store_number?: string | null }
+
+function cleanTarget(t?: ClockTarget) {
+  return {
+    con_job_id: t?.con_job_id?.trim() || null,
+    store_number: t?.con_job_id ? null : (t?.store_number?.trim().toUpperCase() || null),
+  }
+}
+
+export async function clockIn(target?: ClockTarget) {
   const profile = await getProfile()
   if (!profile) redirect('/login')
 
@@ -45,6 +54,7 @@ export async function clockIn() {
       company_id: profile.company_id,
       profile_id: profile.id,
       clock_in: new Date().toISOString(),
+      ...cleanTarget(target),
     })
     .select('id')
     .single()
@@ -64,6 +74,17 @@ export async function clockIn() {
   revalidatePath('/shop')
   revalidatePath('/shop/clock')
   revalidatePath('/dashboard'); revalidatePath('/maintenance')
+}
+
+// ── Change the job on the open clock entry (receipts default to this job) ────
+
+export async function setClockJob(target: ClockTarget) {
+  const profile = await getProfile()
+  if (!profile) redirect('/login')
+  const admin = createAdminClient()
+  await admin.from('time_clock_entries').update(cleanTarget(target))
+    .eq('profile_id', profile.id).is('clock_out', null)
+  revalidatePath('/shop/clock')
 }
 
 // ── Clock Out ─────────────────────────────────────────────────────────────────
