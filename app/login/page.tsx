@@ -22,7 +22,7 @@ export default async function LoginPage({
             priority
             className="mx-auto w-[27rem] max-w-full h-auto"
           />
-          <p className="mt-3 text-sm text-gray-500">Fleet &amp; Shop Operations</p>
+          <p className="mt-3 text-sm text-gray-500">Rappahannock Petroleum Operations Platform</p>
         </div>
 
         {disabled === '1' && (
