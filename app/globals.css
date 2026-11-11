@@ -192,3 +192,22 @@
   .rp-page-in, .rp-ring-arc, .rp-logo-mark, .rp-logo-line, .rp-logo-text, .rp-logo-ring circle,
   .rp-logo-tag, .rp-flash, .rp-check-ring, .rp-check-mark, .rp-sent-in, .rp-sent-text { animation: none; }
 }
+
+/* ── Navigation links: bold, and one step larger than the text around them
+   (Trae 11/11/26). Applies to text links and nav items. Links that wrap a
+   whole card or row (they contain block elements) keep their own type, as
+   their label is already the bold line in the card. Unlayered on purpose so
+   it wins over Tailwind's text-size / font-weight utilities. ── */
+a[href]:not(:has(p, div, h1, h2, h3, ul, table, section, img)) {
+  font-weight: 700;
+
+  &:not([class*="text-"]) { font-size: 1.08em; }
+  &[class*="text-[10px]"] { font-size: 0.75rem; }
+  &[class*="text-[11px]"] { font-size: 0.8125rem; }
+  &[class*="text-xs"] { font-size: 0.875rem; }
+  &[class*="text-sm"] { font-size: 1rem; }
+  &[class*="text-base"] { font-size: 1.125rem; }
+  &[class*="text-lg"] { font-size: 1.25rem; }
+  /* the phone bottom tab bar has no room to grow — bold only */
+  &.flex-col { font-size: 0.75rem; }
+}

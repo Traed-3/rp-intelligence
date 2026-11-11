@@ -5,7 +5,7 @@ import { CON_STAGES, money, fmtDate, projectNotificationStatus } from '@/lib/con
 import { loadPermitGraph, computeAlerts, loadHashEnteredAt } from '@/lib/permits-data'
 import { FOCUS_TILES, buildFocusTiles, tallyMaterials, daysSince, packingSlipSiteKey, type FocusJob, type PackingSlip } from '@/lib/construction-dashboard'
 import { StageBadge } from '@/components/construction/badges'
-import { Users, Contact, HardHat, FileText, Receipt, Package, CalendarDays, BarChart3, ClipboardList, ListChecks, Hammer, Truck, Inbox, FileCheck2, AlertTriangle } from 'lucide-react'
+import { Users, Contact, HardHat, FileText, Receipt, Package, CalendarDays, BarChart3, ClipboardList, ListChecks, Truck, Inbox, FileCheck2, AlertTriangle } from 'lucide-react'
 
 function iso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -87,11 +87,9 @@ export default async function ConstructionDashboard() {
     { href: '/billing/invoices', label: 'Invoices', icon: Receipt, value: money(invoicedThisYear), sub: `invoiced ${thisYear}` },
     { href: '/construction/materials', label: 'Materials', icon: Package, value: neededMaterials?.length ?? 0, sub: 'to order/receive' },
     { href: '/construction/vendors', label: 'Vendors', icon: Truck },
-    { href: '/construction/subcontractors', label: 'Subcontractors', icon: Hammer },
     { href: '/construction/schedule', label: 'Schedule', icon: CalendarDays },
     { href: '/construction/surveys', label: 'Field Surveys', icon: ClipboardList },
     { href: '/construction/surveys/tests', label: 'Sump / Spill Tests', icon: ListChecks },
-    { href: '/construction/checklist', label: 'Checklist', icon: ListChecks },
     { href: '/construction/customers', label: 'Customers', icon: Users },
     { href: '/construction/contacts', label: 'Contacts', icon: Contact },
     { href: '/construction/documents/review', label: 'Doc Review', icon: Inbox, value: reviewCount ?? 0, sub: 'to review' },
