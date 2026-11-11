@@ -2,7 +2,8 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, Loader2 } from 'lucide-react'
+import { Upload } from 'lucide-react'
+import { RingLoader } from '@/components/ui/ring-loader'
 import { CON_DOC_CATEGORIES } from '@/lib/construction'
 
 /** Upload a file to the private construction-docs bucket for a job/quote/invoice. */
@@ -66,7 +67,7 @@ export function DocumentUpload({
         disabled={uploading}
         className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed border-gray-300 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all disabled:opacity-50"
       >
-        {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading…</> : <><Upload className="w-4 h-4" /> Upload Document</>}
+        {uploading ? <><RingLoader /> Uploading…</> : <><Upload className="w-4 h-4" /> Upload Document</>}
       </button>
       {error && <p className="text-xs text-red-600 w-full">{error}</p>}
     </div>

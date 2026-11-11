@@ -1,4 +1,4 @@
-import Image from 'next/image'
+import { LoginLogo } from './login-logo'
 import { SignInButton } from './sign-in-button'
 import { PasswordLoginForm } from './password-form'
 
@@ -13,17 +13,7 @@ export default async function LoginPage({
     <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
         {/* Logo / brand */}
-        <div className="text-center mb-8">
-          <Image
-            src="/logo-full-v4.png"
-            alt="RP Intelligence"
-            width={320}
-            height={145}
-            priority
-            className="mx-auto w-[27rem] max-w-full h-auto"
-          />
-          <p className="mt-3 text-sm text-gray-500">Rappahannock Petroleum Operations Platform</p>
-        </div>
+        <LoginLogo />
 
         {disabled === '1' && (
           <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

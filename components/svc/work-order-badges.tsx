@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { ChangeFlash } from '@/components/ui/change-flash'
 import { CON_DONE_STAGES, CON_STAGE_LABEL, type ConstructionTag } from '@/lib/con-stage'
 
 // ── Status ────────────────────────────────────────────────────────────────────
@@ -24,9 +25,11 @@ export const STATUS_CONFIG: Record<string, { label: string; className: string }>
 export function WorkOrderStatusBadge({ status }: { status: string }) {
   const c = STATUS_CONFIG[status] ?? STATUS_CONFIG.dispatched
   return (
-    <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border', c.className)}>
-      {c.label}
-    </span>
+    <ChangeFlash value={status}>
+      <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border', c.className)}>
+        {c.label}
+      </span>
+    </ChangeFlash>
   )
 }
 

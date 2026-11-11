@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { ChangeFlash } from '@/components/ui/change-flash'
 
 const config: Record<string, { label: string; className: string }> = {
   active:    { label: 'Active',     className: 'bg-green-100 text-green-800 border-green-200' },
@@ -13,6 +14,7 @@ const config: Record<string, { label: string; className: string }> = {
 export function StatusBadge({ status }: { status: string }) {
   const c = config[status] ?? config.active
   return (
+    <ChangeFlash value={status}>
     <span
       className={cn(
         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border',
@@ -21,5 +23,6 @@ export function StatusBadge({ status }: { status: string }) {
     >
       {c.label}
     </span>
+    </ChangeFlash>
   )
 }
