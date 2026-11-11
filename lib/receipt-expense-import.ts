@@ -277,6 +277,7 @@ export async function importReceiptExpenses(opts: { since?: string; until?: stri
         payment_method_code: p.code,
         category_custom: bucket,
         notes: [
+          amount < 0 ? 'RETURN / CREDIT (negative amount in the email subject).' : null,
           !unit && !p.store && !bucket ? 'NEEDS A TRUCK, SITE OR JOB # — none in the email subject.' : null,
           `Emailed to Construction Receipts by ${who.name ?? senderName ?? senderEmail}${who.email ? ` <${who.email}>` : ''} on ${ymd(d.received_at)}.`,
           `Subject: ${html(d.subject)}`,
@@ -296,8 +297,10 @@ export async function importReceiptExpenses(opts: { since?: string; until?: stri
       if (att) {
         const { data: blob, error: dl } = await admin.storage.from(INBOX_BUCKET).download(att.path)
         if (!dl && blob) {
-          const dest = `inbox/${d.gmail_message_id}/${att.path.split('/').pop()}`
-          const { error: up } = await admin.storage.from('receipts').upload(dest, blob, { contentType: att.mime, upsert: true })
+          // Unguessable name (the receipts bucket is public, like hand-entered receipts).
+          const ext = (att.path.split('.').pop() ?? 'bin').replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'bin'
+          const dest = `inbox/${crypto.randomUUID()}.${ext}`
+          const { error: up } = await admin.storage.from('receipts').upload(dest, blob, { contentType: att.mime, upsert: false })
           if (!up) row.receipt_url = admin.storage.from('receipts').getPublicUrl(dest).data.publicUrl
         }
       }

@@ -148,7 +148,7 @@ Paste it below ↓
 Local is fixed. Now update production:
 ============================================================
 
-1. Open  https://vercel.com/traed-3s-projects/rps-maintenance/settings/environment-variables
+1. Open  https://vercel.com/traed-3s-projects/rp-intelligence/settings/environment-variables
 2. Find  GMAIL_REFRESH_TOKEN  →  click the ⋮ menu → Edit
 3. Replace the value with the new token (same one you just pasted here).
 4. Save.

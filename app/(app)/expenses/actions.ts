@@ -56,6 +56,8 @@ export async function createExpense(_state: State, formData: FormData): Promise<
   const sourceDocId = str(formData.get('source_document_id'))
   let submitter: { submitted_by: string | null; submitter_name: string | null; submitter_email: string | null } =
     { submitted_by: profile.id, submitter_name: null, submitter_email: null }
+  // Only link an email this company actually has (never trust the raw form value).
+  let linkedDocId: string | null = null
   if (sourceDocId) {
     // The receipt importer (lib/receipt-expense-import.ts) may already have filed this email:
     // one expense per email (unique source_document_id), so open that one instead of failing.
@@ -63,8 +65,9 @@ export async function createExpense(_state: State, formData: FormData): Promise<
       .eq('company_id', profile.company_id).eq('source_document_id', sourceDocId).maybeSingle()
     if (existing) redirect(`/expenses/${existing.id}`)
     const { data: doc } = await admin.from('billing_inbox_documents')
-      .select('sender, sender_email').eq('id', sourceDocId).eq('company_id', profile.company_id).maybeSingle()
+      .select('id, sender, sender_email').eq('id', sourceDocId).eq('company_id', profile.company_id).maybeSingle()
     if (doc) {
+      linkedDocId = doc.id
       const who = await resolveSubmitter(admin, profile.company_id, doc.sender_email, doc.sender)
       submitter = { submitted_by: who.profileId, submitter_name: who.name, submitter_email: who.email }
     }
@@ -73,7 +76,7 @@ export async function createExpense(_state: State, formData: FormData): Promise<
   const { data: expense, error } = await admin.from('expenses').insert({
     company_id:          profile.company_id,
     ...submitter,
-    source_document_id:  sourceDocId,
+    source_document_id:  linkedDocId,
     expense_date:        expenseDate,
     amount,
     description:         str(formData.get('description')),

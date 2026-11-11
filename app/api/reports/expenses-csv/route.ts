@@ -3,6 +3,14 @@ import { submitterLabel } from '@/lib/receipt-submitter'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+/** Quote a CSV cell and neutralise spreadsheet formulas (=, +, -, @, tab, CR) typed into subject lines. */
+const cell = (v: unknown) => {
+  const t = v == null ? '' : String(v)
+  // Only a plain number ("-74.07") is left alone; "-1+cmd|…" and friends get the leading quote.
+  const safe = /^[=+\-@\t\r]/.test(t) && !/^-?\d+(\.\d+)?$/.test(t) ? `'${t}` : t
+  return `"${safe.replace(/"/g, '""')}"`
+}
+
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,15 +38,15 @@ export async function GET(request: NextRequest) {
     ['Date', 'Employee', 'Amount', 'Type', 'Asset/Store/Project', 'Category', 'Vendor', 'Payment', 'Description'].join(','),
     ...(expenses ?? []).map(e => [
       e.expense_date,
-      `"${submitterLabel(e as any) ?? ''}"`,
+      submitterLabel(e as any) ?? '',
       Number(e.amount).toFixed(2),
       e.expense_type,
-      `"${(e as any).assets?.unit_number ?? e.store_number ?? e.project_number ?? ''}"`,
-      `"${(e as any).expense_categories?.name ?? ''}"`,
-      `"${e.vendor ?? ''}"`,
+      (e as any).assets?.unit_number ?? e.store_number ?? e.project_number ?? '',
+      (e as any).expense_categories?.name ?? '',
+      e.vendor ?? '',
       e.payment_method_code ?? '',
-      `"${e.description ?? ''}"`,
-    ].join(','))
+      e.description ?? '',
+    ].map(cell).join(','))
   ]
 
   return new NextResponse(rows.join('\n'), {
