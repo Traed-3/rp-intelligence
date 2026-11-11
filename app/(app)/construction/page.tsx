@@ -5,7 +5,7 @@ import { CON_STAGES, money, fmtDate, projectNotificationStatus } from '@/lib/con
 import { loadPermitGraph, computeAlerts, loadHashEnteredAt } from '@/lib/permits-data'
 import { FOCUS_TILES, buildFocusTiles, tallyMaterials, daysSince, packingSlipSiteKey, type FocusJob, type PackingSlip } from '@/lib/construction-dashboard'
 import { StageBadge } from '@/components/construction/badges'
-import { Users, Contact, HardHat, FileText, Receipt, Package, CalendarDays, BarChart3, ClipboardList, ListChecks, Truck, Inbox, FileCheck2, AlertTriangle } from 'lucide-react'
+import { Users, Contact, HardHat, FileText, Receipt, Package, CalendarDays, BarChart3, ClipboardList, ListChecks, Truck, Inbox, FileCheck2, AlertTriangle, Search } from 'lucide-react'
 
 function iso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -82,6 +82,7 @@ export default async function ConstructionDashboard() {
 
   const tiles = [
     { href: '/construction/jobs', label: 'Jobs', icon: HardHat, value: allJobs.length },
+    { href: '/construction/sites', label: 'Site Lookup', icon: Search },
     { href: '/construction/permits', label: 'Permits', icon: FileCheck2, value: permitGraph.enriched.filter(p => p.requirement_status === 'Required').length, sub: 'tracked' },
     { href: '/billing/quotes', label: 'Quotes', icon: FileText },
     { href: '/billing/invoices', label: 'Invoices', icon: Receipt, value: money(invoicedThisYear), sub: `invoiced ${thisYear}` },
