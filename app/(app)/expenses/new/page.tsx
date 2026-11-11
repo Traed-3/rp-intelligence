@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/server'
 import { ExpenseForm } from './expense-form'
 import { createExpense } from '../actions'
 
-export default async function NewExpensePage() {
+export default async function NewExpensePage({ searchParams }: { searchParams: Promise<{ doc?: string }> }) {
+  const { doc: docId } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const admin = createAdminClient()
@@ -44,6 +45,23 @@ export default async function NewExpensePage() {
       .eq('company_id', profile!.company_id).not('job_id', 'is', null),
   ])
 
+  // Opened from a receipt email in the billing inbox: carry the email's sender through
+  // so the expense is credited to whoever sent it, and pre-fill what we extracted.
+  let sourceDoc: { id: string; sender: string | null; senderEmail: string | null; vendor: string | null; date: string | null; amount: number | null } | null = null
+  if (docId) {
+    const { data: d } = await admin.from('billing_inbox_documents')
+      .select('id, sender, sender_email, vendor, document_date, received_at, extracted')
+      .eq('id', docId).eq('company_id', profile!.company_id).maybeSingle()
+    if (d) {
+      const total = Number((d.extracted as { total?: unknown } | null)?.total)
+      sourceDoc = {
+        id: d.id, sender: d.sender, senderEmail: d.sender_email, vendor: d.vendor,
+        date: d.document_date ?? (d.received_at ? String(d.received_at).slice(0, 10) : null),
+        amount: Number.isFinite(total) && total > 0 ? total : null,
+      }
+    }
+  }
+
   const storeNumbers = Array.from(
     new Set((storeRows ?? []).map(r => (r.store_number ?? '').trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
@@ -81,6 +99,7 @@ export default async function NewExpensePage() {
           constructionJobs={constructionJobs ?? []}
           storeNumbers={storeNumbers}
           projectCategories={projectCategories}
+          sourceDoc={sourceDoc}
         />
       </div>
     </div>

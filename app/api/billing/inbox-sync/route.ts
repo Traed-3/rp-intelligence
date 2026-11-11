@@ -5,6 +5,7 @@ import { BILLING_INBOXES, inboxStatus, type BillingInbox } from '@/lib/billing-g
 import { backfillPermitEmails } from '@/lib/permit-email-backfill'
 import { backfillFieldTicketsForJob } from '@/lib/field-ticket-gmail-match'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { importReceiptExpenses } from '@/lib/receipt-expense-import'
 
 /** Supabase pg_cron (migration billing_sync_pg_cron.sql) sends the Vault token `rps_sync_token`; sync_token_ok() checks it in the DB. */
 async function syncTokenOk(token: string | null): Promise<boolean> {
@@ -17,7 +18,10 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 /**
- * GET /api/billing/inbox-sync?secret=…&pass=sync|extract|both|updates|orders|backfill-permits[&inbox=econstruction][&max=30][&since=14][&limit=3]
+ * GET /api/billing/inbox-sync?secret=…&pass=sync|extract|both|updates|orders|expenses|backfill-permits[&inbox=econstruction][&max=30][&since=14][&limit=3][&after=YYYY-MM-DD][&before=YYYY-MM-DD]
+ *
+ * `after`/`before` pin a dated slice for `pass=sync&inbox=…` (historical catch-up) and `pass=expenses`.
+ * `pass=expenses[&apply=1]` imports emailed receipts into Expenses & Receipts (dry run without apply=1).
  *
  * Supabase pg_cron (billing_sync_pg_cron.sql) hits `pass=sync`, `extract`, `updates` and `orders` on separate
  * ticks every 15 minutes so each stays under the 60 s budget (GitHub's schedule only fired every 5-7 hours). `pass=both` is for a manual "sync now".
@@ -49,14 +53,26 @@ export async function GET(request: NextRequest) {
   const sinceDays = Math.min(parseInt(q.get('since') ?? '14', 10) || 14, 365)
   const limit = Math.min(parseInt(q.get('limit') ?? '3', 10) || 3, 10)
   const only = q.get('inbox') as BillingInbox | null
+  const isoDay = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined)
+  const after = isoDay(q.get('after'))
+  const before = isoDay(q.get('before'))
 
   try {
     const out: Record<string, unknown> = { ok: true, timestamp: new Date().toISOString(), inboxes: inboxStatus().map(i => ({ key: i.key, connected: i.connected })) }
     if (pass === 'sync' || pass === 'both') {
-      if (only && BILLING_INBOXES.some(i => i.key === only)) out.sync = [await syncInbox(only, { maxResults, sinceDays })]
+      if (only && BILLING_INBOXES.some(i => i.key === only)) out.sync = [await syncInbox(only, { maxResults, sinceDays, after, before })]
       else out.sync = await syncAllInboxes({ maxResults, sinceDays })
     }
-    if (pass === 'extract' || pass === 'both') out.extract = await extractPending(limit)
+    if (pass === 'extract' || pass === 'both') {
+      out.extract = await extractPending(limit)
+      // Emailed receipts → Expenses & Receipts (lib/receipt-expense-import.ts). Runs on every extract tick;
+      // it only looks at the last 3 days and skips anything already imported, so it's cheap.
+      out.expenses = await importReceiptExpenses()
+    }
+    // Manual / historical run: pass=expenses&after=2026-01-01[&before=2026-07-01][&apply=1] (dry run without apply=1).
+    if (pass === 'expenses') {
+      out.expenses = await importReceiptExpenses({ since: after ?? new Date(Date.now() - sinceDays * 86_400_000).toISOString(), until: before, apply: q.get('apply') === '1', limit: 500 })
+    }
     // Tech updates, field tickets and Peggy's invoice workups onto their jobs (lib/job-email-feed.ts).
     if (pass === 'updates') out.updates = await syncJobEmailFeed({ sinceDays: Math.min(sinceDays, 7), part: 'updates' })
     if (pass === 'orders') out.updates = await syncJobEmailFeed({ sinceDays: Math.min(sinceDays, 7), part: 'orders' })

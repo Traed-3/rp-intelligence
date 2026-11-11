@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { submitterLabel } from '@/lib/receipt-submitter'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { Download } from 'lucide-react'
@@ -78,7 +79,7 @@ export default async function ExpenseReportPage({
 
   const { data: expenses } = await admin
     .from('expenses')
-    .select('id, amount, expense_type, payment_method_code, expense_date, assets(unit_number), profiles!expenses_submitted_by_fkey(full_name), expense_categories(name)')
+    .select('id, amount, expense_type, payment_method_code, expense_date, assets(unit_number), submitter_name, submitter_email, profiles!expenses_submitted_by_fkey(full_name), expense_categories(name)')
     .eq('company_id', profile!.company_id)
     .gte('expense_date', startDate.toISOString().split('T')[0])
     .order('expense_date', { ascending: false })
@@ -93,7 +94,7 @@ export default async function ExpenseReportPage({
   const fuelTotal = (fuelEntries ?? []).reduce((s, f) => s + Number(f.total_cost ?? 0), 0)
   const fuelGallons = (fuelEntries ?? []).reduce((s, f) => s + Number(f.gallons), 0)
 
-  const byPerson = groupBy(expenses ?? [], e => (e as any).profiles?.full_name ?? 'Unknown')
+  const byPerson = groupBy(expenses ?? [], e => submitterLabel(e as any) ?? 'Unknown')
   const byPayment = groupBy(expenses ?? [], e => e.payment_method_code ?? 'Unknown')
   const byAsset = groupBy(
     (expenses ?? []).filter(e => e.expense_type === 'asset'),
