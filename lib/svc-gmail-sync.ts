@@ -23,7 +23,7 @@ import {
   extractBody, getHeader, parseSender,
   parseDispatchEmail, parseCompletionEmail, isTrustedPortalNotice, isOfficeSender, isTicketSender,
 } from '@/lib/svc-work-order-parser'
-import { CON_DONE_STAGES, woTokens } from '@/lib/svc-construction-link'
+import { CON_DONE_STAGES, woTokens, loadConstructionLinks } from '@/lib/svc-construction-link'
 
 export const WORK_ORDER_DOCS_BUCKET = 'svc-work-order-docs'
 const MAX_ATTACHMENT_BYTES = 12 * 1024 * 1024
@@ -493,7 +493,7 @@ export async function syncInvoicing(opts: SvcPassOptions = {}): Promise<SvcSyncR
       if (parsed.woNumber) {
         const { data: candidates } = await admin
           .from('svc_work_orders')
-          .select('id, source_portal, status, completed_at, assigned_technician_id, dispatched_at, dispatch_gmail_message_id, dispatch_gmail_thread_id')
+          .select('id, source_portal, status, completed_at, assigned_technician_id, completion_gmail_message_id, dispatched_at, dispatch_gmail_message_id, dispatch_gmail_thread_id')
           .eq('portal_wo_number', parsed.woNumber)
           .order('dispatched_at', { ascending: false })
 
@@ -503,7 +503,14 @@ export async function syncInvoicing(opts: SvcPassOptions = {}): Promise<SvcSyncR
         // whichever twin happens to be newer.
         const wo = candidates?.find(c => c.source_portal !== 'unknown') ?? candidates?.[0]
         // A note older than the call's completion (picked up late, or listed out of order) must not reopen it.
-        const staleNote = !!wo && wo.status === 'completed' && !!wo.completed_at && receivedAt < new Date(wo.completed_at)
+        let staleNote = !!wo && wo.status === 'completed' && !!wo.completed_at && receivedAt < new Date(wo.completed_at)
+        // ...and, completed or not, an older ticket picked up late (backfill, a retry, mail delivered out of order) must not
+        // overwrite the outcome of a NEWER ticket already applied to the call.
+        if (wo && !staleNote && wo.completion_gmail_message_id && wo.completion_gmail_message_id !== msgId) {
+          const { data: applied } = await admin.from('svc_gmail_imports').select('received_at')
+            .eq('mailbox', 'rpinvoicing').eq('gmail_message_id', wo.completion_gmail_message_id).maybeSingle()
+          if (applied && new Date(applied.received_at) > receivedAt) staleNote = true
+        }
         if (wo && staleNote) {
           matchedWorkOrderId = wo.id
           importStatus = 'matched'
@@ -656,8 +663,16 @@ export async function archiveStaleWorkOrders(days = 60, dryRun = true, archivedB
     archived: 0, skippedHasInvoicingMail: 0, gmailFailures: 0, details: [],
   }
 
+  // A call handed to a construction job follows that job — a quiet service mailbox does not mean it is dead.
+  const links = await loadConstructionLinks(admin, COMPANY_ID)
+
   for (const w of candidates ?? []) {
     const woNumber = w.portal_wo_number!
+
+    if (links.has(woNumber.toUpperCase())) {
+      result.details.push({ woNumber, action: 'skipped — in construction' })
+      continue
+    }
 
     let hasMail = false
     try {
