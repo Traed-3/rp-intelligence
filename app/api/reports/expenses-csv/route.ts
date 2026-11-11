@@ -6,7 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 /** Quote a CSV cell and neutralise spreadsheet formulas (=, +, -, @, tab, CR) typed into subject lines. */
 const cell = (v: unknown) => {
   const t = v == null ? '' : String(v)
-  const safe = /^[=+\-@\t\r]/.test(t) && !/^-?\d/.test(t) ? `'${t}` : t
+  // Only a plain number ("-74.07") is left alone; "-1+cmd|…" and friends get the leading quote.
+  const safe = /^[=+\-@\t\r]/.test(t) && !/^-?\d+(\.\d+)?$/.test(t) ? `'${t}` : t
   return `"${safe.replace(/"/g, '""')}"`
 }
 
