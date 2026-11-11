@@ -22,11 +22,15 @@ async function getProfile() {
 
 export type ClockTarget = { con_job_id?: string | null; store_number?: string | null }
 
-function cleanTarget(t?: ClockTarget) {
-  return {
-    con_job_id: t?.con_job_id?.trim() || null,
-    store_number: t?.con_job_id ? null : (t?.store_number?.trim().toUpperCase() || null),
+/** Only accept a job from this person's company, and a sane store # format. */
+async function cleanTarget(admin: ReturnType<typeof createAdminClient>, company_id: string, t?: ClockTarget) {
+  let con_job_id = t?.con_job_id?.trim() || null
+  if (con_job_id) {
+    const { data: job } = await admin.from('con_jobs').select('id').eq('id', con_job_id).eq('company_id', company_id).maybeSingle()
+    if (!job) con_job_id = null
   }
+  const store = t?.store_number?.trim().toUpperCase() || null
+  return { con_job_id, store_number: con_job_id || !store || !/^[A-Z0-9-]{1,12}$/.test(store) ? null : store }
 }
 
 export async function clockIn(target?: ClockTarget) {
@@ -54,7 +58,7 @@ export async function clockIn(target?: ClockTarget) {
       company_id: profile.company_id,
       profile_id: profile.id,
       clock_in: new Date().toISOString(),
-      ...cleanTarget(target),
+      ...(await cleanTarget(admin, profile.company_id, target)),
     })
     .select('id')
     .single()
@@ -82,7 +86,7 @@ export async function setClockJob(target: ClockTarget) {
   const profile = await getProfile()
   if (!profile) redirect('/login')
   const admin = createAdminClient()
-  await admin.from('time_clock_entries').update(cleanTarget(target))
+  await admin.from('time_clock_entries').update(await cleanTarget(admin, profile.company_id, target))
     .eq('profile_id', profile.id).is('clock_out', null)
   revalidatePath('/shop/clock')
 }
