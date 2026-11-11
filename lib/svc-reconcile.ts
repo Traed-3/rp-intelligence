@@ -194,16 +194,10 @@ async function replayStatuses(
     const deciding = evs.filter(e => e.decisive !== false)
     if (!deciding.length) { if (!dryRun) await attachImports(admin, call.id, evs, result); continue }
     const isDone = call.status === 'completed'
-    let last = deciding[deciding.length - 1]
-    let target = targetFor(last.kind)
-    // The customer approving the invoice after a tech asked for a return trip does not prove the return
-    // happened: keep an OPEN call on Return Trip (the billing replay below still marks it invoiced). Two exceptions:
-    // a construction job that finished AFTER that ticket did the return, and a call already completed is left alone.
-    if (last.kind === 'approved' && !isDone) {
-      const lastTicket = [...deciding].reverse().find(e => e.kind === 'rtn' || e.kind === 'complete' || e.kind === 'incomplete')
-      const constructionDidIt = !!lastTicket && deciding.some(e => e.kind === 'construction_done' && e.at > lastTicket.at)
-      if (lastTicket?.kind === 'rtn' && !constructionDidIt) { last = lastTicket; target = 'rtn_needed' }
-    }
+    const last = deciding[deciding.length - 1]
+    const target = targetFor(last.kind)
+    // Trae 2026-11-11: the customer approving the invoice after a tech asked for a return trip means the call is
+    // complete (they only approve billed work), so an approval after a return-trip ticket simply completes the call.
     // A completed call is only ever reopened (by a return-trip ticket newer than everything that completed it).
     if (isDone && target !== 'rtn_needed') continue
 
