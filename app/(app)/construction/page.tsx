@@ -91,7 +91,6 @@ export default async function ConstructionDashboard() {
     { href: '/construction/schedule', label: 'Schedule', icon: CalendarDays },
     { href: '/construction/surveys', label: 'Field Surveys', icon: ClipboardList },
     { href: '/construction/surveys/tests', label: 'Sump / Spill Tests', icon: ListChecks },
-    { href: '/construction/trackers', label: 'Sunoco Trackers', icon: ClipboardList },
     { href: '/construction/checklist', label: 'Checklist', icon: ListChecks },
     { href: '/construction/customers', label: 'Customers', icon: Users },
     { href: '/construction/contacts', label: 'Contacts', icon: Contact },
