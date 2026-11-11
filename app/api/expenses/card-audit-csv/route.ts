@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cardAuditViewer, loadCardAudit } from '@/lib/card-audit-data'
+import { toCsv } from '@/lib/csv'
 import { FLAG_LABEL } from '@/lib/card-audit'
-
-const cell = (v: unknown) => {
-  const s = v == null ? '' : String(v)
-  // Quote everything and neutralise spreadsheet formulas (=, +, -, @) typed into subject lines.
-  const safe = /^[=+\-@]/.test(s) && !/^-?\d/.test(s) ? `'${s}` : s
-  return `"${safe.replace(/"/g, '""')}"`
-}
 
 export async function GET(request: NextRequest) {
   const viewer = await cardAuditViewer()
@@ -20,7 +14,7 @@ export async function GET(request: NextRequest) {
     ['Date', 'Submitted by', 'Amount (subject)', 'Receipt total', 'Vendor', 'Reference', 'Job / asset', 'What it was for', 'Flags', 'Matched to statement'],
     ...rows.map(r => [r.date, r.who, r.amount, r.receiptTotal, r.vendor, r.reference, r.job, r.description, r.flags.map(f => FLAG_LABEL[f]).join('; '), r.matched ? 'yes' : '']),
   ]
-  const csv = lines.map(l => l.map(cell).join(',')).join('\r\n')
+  const csv = toCsv(lines, '\r\n')
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',

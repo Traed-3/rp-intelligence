@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { toCsv } from '@/lib/csv'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -48,26 +49,26 @@ export async function GET(request: NextRequest) {
   const { data: entries } = await query
 
   // Build CSV
-  const rows: string[] = [
-    ['Employee', 'Email', 'Date', 'Clock In', 'Clock Out', 'Total Hours', 'Approved', 'Adjusted', 'Note'].join(',')
+  const rows: unknown[][] = [
+    ['Employee', 'Email', 'Date', 'Clock In', 'Clock Out', 'Total Hours', 'Approved', 'Adjusted', 'Note'],
   ]
 
   for (const e of entries ?? []) {
     const p = (e as any).profiles
     rows.push([
-      `"${p?.full_name ?? ''}"`,
-      `"${p?.email ?? ''}"`,
+      p?.full_name ?? '',
+      p?.email ?? '',
       fmtDate(e.clock_in),
       fmtTime(e.clock_in),
       e.clock_out ? fmtTime(e.clock_out) : '',
       fmtHours(e.total_minutes),
       e.is_approved ? 'Yes' : 'No',
       e.manually_adjusted ? 'Yes' : 'No',
-      `"${e.adjustment_note ?? ''}"`,
-    ].join(','))
+      e.adjustment_note ?? '',
+    ])
   }
 
-  const csv = rows.join('\n')
+  const csv = toCsv(rows)
   const filename = `payroll_${start}_${end}.csv`
 
   return new NextResponse(csv, {
