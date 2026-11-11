@@ -65,9 +65,9 @@ export default async function ReceiveQueuePage({ searchParams }: { searchParams:
                 return (
                   <ClickableRow key={d.id} href={`/inventory/receive/queue/${d.id}`}>
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{fmtDate(d.received_at)}<div className="text-xs text-gray-400">{d.inbox}</div></td>
-                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full border ${KIND_CLASS[d.kind] ?? ''}`}>{KIND_LABEL[d.kind] ?? d.kind}</span></td>
+                    <td className="px-4 py-3 whitespace-nowrap"><span className={`text-xs px-2 py-0.5 rounded-full border ${KIND_CLASS[d.kind] ?? ''}`}>{KIND_LABEL[d.kind] ?? d.kind}</span></td>
                     <td className="px-4 py-3 text-gray-900">{d.vendor ?? d.sender}<div className="text-xs text-gray-400">{d.sender_email}</div></td>
-                    <td className="px-4 py-3 text-gray-700 hidden md:table-cell max-w-xs truncate">{d.subject}<div className="text-xs text-gray-400">{atts} attachment{atts === 1 ? '' : 's'}{loc ? ` · ${loc.name}` : ''}</div>{lastReply && <div className="text-xs text-emerald-700 truncate" title={lastReply.text}>↩ {lastReply.from}: {lastReply.text}</div>}</td>
+                    <td className="px-4 py-3 text-gray-700 hidden md:table-cell max-w-72 truncate">{d.subject}<div className="text-xs text-gray-400">{atts} attachment{atts === 1 ? '' : 's'}{loc ? ` · ${loc.name}` : ''}</div>{lastReply && <div className="text-xs text-emerald-700 truncate" title={lastReply.text}>↩ {lastReply.from}: {lastReply.text}</div>}</td>
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs hidden sm:table-cell">{d.reference ?? '—'}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{d.extract_status === 'done' ? lines : <span className={`text-xs ${d.extract_status === 'failed' ? 'text-red-600' : 'text-amber-700'}`}>{d.extract_status === 'pending' ? 'reading…' : d.extract_status === 'failed' ? 'failed' : 'by hand'}</span>}</td>
                     <td className="px-4 py-3 text-right"><span className="text-xs font-medium text-blue-600">Open →</span></td>
