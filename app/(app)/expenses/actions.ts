@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { learnCardFromExpense, cleanLast4 } from '@/lib/receipt-scan'
 import { resolveSubmitter } from '@/lib/receipt-submitter'
 
 type State = { error: string } | null
@@ -31,7 +32,7 @@ export async function createExpense(_state: State, formData: FormData): Promise<
   if (!profile) return { error: 'Not authenticated.' }
 
   const amount = num(formData.get('amount'))
-  if (!amount || amount <= 0) return { error: 'Amount is required.' }
+  if (!amount || amount <= 0) return { error: 'Amount must be more than $0.' }
 
   const expenseDate = str(formData.get('expense_date'))
   if (!expenseDate) return { error: 'Date is required.' }
@@ -52,6 +53,10 @@ export async function createExpense(_state: State, formData: FormData): Promise<
     pmId = pm?.id ?? null
   }
 
+  const cardLast4 = cleanLast4(formData.get('card_last4'))
+  let aiExtracted: unknown = null
+  try { const raw = str(formData.get('ai_extracted')); aiExtracted = raw ? JSON.parse(raw) : null } catch { aiExtracted = null }
+  const aiFilled = (str(formData.get('ai_filled')) ?? '').split(',').map(x => x.trim()).filter(Boolean)
   // Receipt keyed in from an inbox email → credit the person who sent the email.
   const sourceDocId = str(formData.get('source_document_id'))
   let submitter: { submitted_by: string | null; submitter_name: string | null; submitter_email: string | null } =
@@ -94,9 +99,19 @@ export async function createExpense(_state: State, formData: FormData): Promise<
     repair_ticket_id:    expenseType === 'project' ? null : str(formData.get('repair_ticket_id')),
     receipt_url:         str(formData.get('receipt_url')),
     notes:               str(formData.get('notes')),
+    card_last4:          cardLast4,
+    ai_extracted:        aiExtracted,
+    ai_filled:           aiFilled,
   }).select('id').single()
 
   if (error) return { error: error.message }
+
+  // Teach the app which card number belongs to which code/person (each tech has their own TEC card).
+  // The card belongs to whoever submitted the receipt — the email's sender when keyed in from an inbox email.
+  await learnCardFromExpense(admin, {
+    company_id: profile.company_id, last4: cardLast4, brand: str(formData.get('card_brand')),
+    code: pmCode, submitted_by: submitter.submitted_by,
+  }).catch(() => {})
 
   revalidatePath('/expenses')
   redirect(`/expenses/${expense.id}`)

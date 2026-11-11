@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { clockIn, clockOut } from '../actions'
+import { clockIn, clockOut, setClockJob, type ClockTarget } from '../actions'
 import { ClockWidget } from './clock-widget'
 
 export default async function ClockPage() {
@@ -24,7 +24,7 @@ export default async function ClockPage() {
   // Open clock entry (if clocked in)
   const { data: openEntry } = await admin
     .from('time_clock_entries')
-    .select('id, clock_in')
+    .select('id, clock_in, con_job_id, store_number')
     .eq('profile_id', profile!.id)
     .is('clock_out', null)
     .order('clock_in', { ascending: false })
@@ -46,9 +46,23 @@ export default async function ClockPage() {
 
   const isClockedIn = empStatus?.clock_status === 'clocked_in'
 
-  async function handleClockIn() {
+  // Jobs a person can clock into — receipts they snap while clocked in default to this job.
+  const { data: jobs } = await admin
+    .from('con_jobs')
+    .select('id, site_number, work_order_number')
+    .eq('company_id', profile!.company_id)
+    .not('stage', 'in', '(complete,quoting)')
+    .order('site_number')
+    .limit(300)
+
+  async function handleClockIn(target?: ClockTarget) {
     'use server'
-    await clockIn()
+    await clockIn(target)
+  }
+
+  async function handleSetJob(target: ClockTarget) {
+    'use server'
+    await setClockJob(target)
   }
 
   async function handleClockOut() {
@@ -70,6 +84,10 @@ export default async function ClockPage() {
           todayCompletedMins={todayCompletedMins}
           clockInAction={handleClockIn}
           clockOutAction={handleClockOut}
+          setJobAction={handleSetJob}
+          jobs={(jobs ?? []).map(j => ({ id: j.id as string, label: `${j.site_number ?? '—'}${j.work_order_number ? ` (${j.work_order_number})` : ''}` }))}
+          currentJobId={openEntry?.con_job_id ?? null}
+          currentStore={openEntry?.store_number ?? null}
         />
 
         <div className="mt-6 grid grid-cols-3 gap-2">

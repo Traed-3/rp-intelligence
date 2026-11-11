@@ -399,3 +399,25 @@ Fillable onsite integrity-test report; the site's state picks the agency form th
   (`sendDocumentEmail` in lib/email.ts) to the addresses in the finish box (default econstruction.rp@gmail.com — test
   reports carry no pricing) → status sent. Reopen + re-finish replaces the filed PDF. GET
   /api/construction/surveys/tests/[id]/pdf renders live; `?saved=1` serves the filed copy.
+
+---
+
+## PHOTO-FIRST RECEIPTS (added 2026-11-11)
+
+Expenses → New starts with the receipt photo. `/api/expenses/scan` reads it with Claude (`lib/receipt-scan.ts`
+readReceipt, model RECEIPT_SCAN_MODEL → BILLING_EXTRACT_MODEL → claude-sonnet-5, fallback claude-sonnet-4-6) and
+`buildSuggestions` pre-fills the form. Nothing saves until the person submits; every field stays editable and
+auto-filled ones carry a violet "auto" tag (hover = why) that drops off when edited.
+- Charge-to order: job/store # printed or handwritten on the receipt → job they're clocked into
+  (`time_clock_entries.con_job_id` / `.store_number`, picked on /shop/clock) → fuel = their truck
+  (`assets.assigned_profile_id`) → today's daily update naming them → their last expense (≤3 days).
+- Cards: every tech has their own TEC card, so the last 4 identify code + holder. `expense_cards` (last4 →
+  payment_method_code, holder_profile_id/holder_label, source learned|backfill|manual, conflict_note).
+  Learned on save (`learnCardFromExpense`, fills gaps only, never overwrites a manual row) and backfilled from TEC
+  receipts in the Construction Receipts inbox (`backfillCardsFromInbox`: last 4 from extracted text or a small
+  Claude read cached into `billing_inbox_documents.extracted.card`; holder = top sender if ≥70% of that number's
+  receipts or a uniquely matching printed cardholder name, else left blank for a person). Edit on Settings →
+  Payment Methods ("Cards" + "Learn from past receipts" button; 40 photo reads per click).
+  CLI: `npx tsx --env-file=.env.local scripts/receipt-cards-backfill.mts [maxReads]` (needs ANTHROPIC_API_KEY for reads).
+- expenses gained card_last4, ai_extracted (what was read), ai_filled (fields still auto at submit).
+- Migration `supabase/migrations/receipt_scan.sql` (APPLIED 2026-11-11 via Supabase MCP).
