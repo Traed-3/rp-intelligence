@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { submitterLabel } from '@/lib/receipt-submitter'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -59,7 +60,8 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
       <div className="space-y-5">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <h2 className="font-semibold text-gray-900 mb-3">Details</h2>
-          <Row label="Submitted By" value={(expense as any).profiles?.full_name} />
+          <Row label="Submitted By" value={submitterLabel(expense as any)} />
+          {(expense as any).submitter_email && (expense as any).submitter_name && <Row label="Submitter Email" value={(expense as any).submitter_email} />}
           <Row label="Charged To" value={chargedTo} />
           <Row label="Category" value={(expense as any).expense_categories?.name ?? expense.category_custom} />
           <Row label="Description" value={expense.description} />

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { submitterLabel } from '@/lib/receipt-submitter'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   const { data: expenses } = await admin
     .from('expenses')
-    .select('expense_date, amount, vendor, description, expense_type, payment_method_code, store_number, project_number, profiles!expenses_submitted_by_fkey(full_name, email), assets(unit_number), expense_categories(name)')
+    .select('expense_date, amount, vendor, description, expense_type, payment_method_code, store_number, project_number, submitter_name, submitter_email, profiles!expenses_submitted_by_fkey(full_name, email), assets(unit_number), expense_categories(name)')
     .eq('company_id', profile.company_id)
     .gte('expense_date', start)
     .lte('expense_date', end)
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     ['Date', 'Employee', 'Amount', 'Type', 'Asset/Store/Project', 'Category', 'Vendor', 'Payment', 'Description'].join(','),
     ...(expenses ?? []).map(e => [
       e.expense_date,
-      `"${(e as any).profiles?.full_name ?? ''}"`,
+      `"${submitterLabel(e as any) ?? ''}"`,
       Number(e.amount).toFixed(2),
       e.expense_type,
       `"${(e as any).assets?.unit_number ?? e.store_number ?? e.project_number ?? ''}"`,

@@ -25,6 +25,7 @@ export function ExpenseForm({
   constructionJobs,
   storeNumbers,
   projectCategories,
+  sourceDoc = null,
 }: {
   action: (state: State, formData: FormData) => Promise<State>
   assets: Asset[]
@@ -35,6 +36,8 @@ export function ExpenseForm({
   constructionJobs: ConJob[]
   storeNumbers: string[]
   projectCategories: Record<string, string[]>
+  /** the receipt email this expense is being keyed in from (credits its sender) */
+  sourceDoc?: { id: string; sender: string | null; senderEmail: string | null; vendor: string | null; date: string | null; amount: number | null } | null
 }) {
   const [state, formAction, isPending] = useActionState(action, null)
   const [expenseType, setExpenseType] = useState<string>('asset')
@@ -56,16 +59,26 @@ export function ExpenseForm({
       {/* Hidden receipt URL */}
       <input type="hidden" name="receipt_url" value={receiptUrl ?? ''} />
       <input type="hidden" name="payment_method_code" value={pmCode} />
+      {sourceDoc && (
+        <>
+          <input type="hidden" name="source_document_id" value={sourceDoc.id} />
+          <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
+            From the receipt email sent by <strong>{sourceDoc.sender || sourceDoc.senderEmail}</strong>
+            {sourceDoc.sender && sourceDoc.senderEmail ? <span className="text-blue-600"> &lt;{sourceDoc.senderEmail}&gt;</span> : null}
+            {' '}— this expense will be submitted under their name.
+          </div>
+        </>
+      )}
 
       {/* Date + Amount */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={lbl}>Date <span className="text-red-500">*</span></label>
-          <input name="expense_date" type="date" className={inp} defaultValue={today} required />
+          <input name="expense_date" type="date" className={inp} defaultValue={sourceDoc?.date ?? today} required />
         </div>
         <div>
           <label className={lbl}>Amount ($) <span className="text-red-500">*</span></label>
-          <input name="amount" type="number" step="0.01" min="0" className={inp} placeholder="0.00" required />
+          <input name="amount" type="number" step="0.01" min="0" className={inp} placeholder="0.00" defaultValue={sourceDoc?.amount ?? undefined} required />
         </div>
       </div>
 
@@ -183,7 +196,7 @@ export function ExpenseForm({
       <div className={`grid gap-4 ${expenseType === 'project' ? 'grid-cols-1' : 'grid-cols-2'}`}>
         <div>
           <label className={lbl}>Vendor / Store</label>
-          <input name="vendor" className={inp} placeholder="Home Depot, O'Reilly, etc." />
+          <input name="vendor" className={inp} placeholder="Home Depot, O'Reilly, etc." defaultValue={sourceDoc?.vendor ?? undefined} />
         </div>
         {expenseType !== 'project' && (
           <div>

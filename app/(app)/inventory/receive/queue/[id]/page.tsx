@@ -28,6 +28,10 @@ export default async function ReceiveQueueDocumentPage({ params }: { params: Pro
   const replies = ((doc as unknown as { thread_replies?: ThreadReply[] }).thread_replies ?? [])
   const who = (doc as unknown as { profiles: { full_name: string } | null }).profiles
   const office = (locations ?? []).find(l => l.kind === 'office')
+  // Already filed as an expense (by the receipt importer or by hand)? Link to it instead of offering a second one.
+  const { data: filedExpense } = doc.kind === 'receipt'
+    ? await admin.from('expenses').select('id').eq('company_id', company_id).eq('source_document_id', doc.id).maybeSingle()
+    : { data: null }
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -41,6 +45,16 @@ export default async function ReceiveQueueDocumentPage({ params }: { params: Pro
           <div className="text-right text-xs text-gray-500">
             {doc.status !== 'new' && <div>{doc.status.replace('_', ' ')} {doc.processed_at ? fmtDate(doc.processed_at) : ''}{who ? ` by ${who.full_name}` : ''}{loc ? ` → ${loc.name}` : ''}</div>}
             {ex?.total != null && <div>Document total {money(ex.total)}{ex.tax != null ? ` · tax ${money(ex.tax)}` : ''}{ex.freight != null ? ` · freight ${money(ex.freight)}` : ''}</div>}
+            {doc.kind === 'receipt' && filedExpense && (
+              <Link href={`/expenses/${filedExpense.id}`} className="inline-block mt-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-gray-400">
+                View expense ({doc.sender || doc.sender_email})
+              </Link>
+            )}
+            {doc.kind === 'receipt' && !filedExpense && canWrite && (
+              <Link href={`/expenses/new?doc=${doc.id}`} className="inline-block mt-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-gray-400">
+                Record as expense ({doc.sender || doc.sender_email})
+              </Link>
+            )}
           </div>
         </div>
       </div>
