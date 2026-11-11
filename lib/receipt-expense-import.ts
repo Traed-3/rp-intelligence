@@ -277,6 +277,7 @@ export async function importReceiptExpenses(opts: { since?: string; until?: stri
         payment_method_code: p.code,
         category_custom: bucket,
         notes: [
+          amount < 0 ? 'RETURN / CREDIT (negative amount in the email subject).' : null,
           !unit && !p.store && !bucket ? 'NEEDS A TRUCK, SITE OR JOB # — none in the email subject.' : null,
           `Emailed to Construction Receipts by ${who.name ?? senderName ?? senderEmail}${who.email ? ` <${who.email}>` : ''} on ${ymd(d.received_at)}.`,
           `Subject: ${html(d.subject)}`,
