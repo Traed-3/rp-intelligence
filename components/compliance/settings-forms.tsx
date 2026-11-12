@@ -73,7 +73,7 @@ export function NoticeSettingsForm({ settings, canWrite }: { settings: Complianc
 
       {canWrite && (
         <div className="flex items-center gap-3">
-          <button disabled={pending} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{pending ? 'Saving…' : 'Save settings'}</button>
+          <button disabled={pending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">{pending ? 'Saving…' : 'Save settings'}</button>
           <Status s={state} />
         </div>
       )}
@@ -89,7 +89,7 @@ export function PreviewAndTest({ canWrite }: { canWrite: boolean }) {
     <div className="space-y-4">
       <div>
         <button type="button" disabled={loading} onClick={() => start(async () => setResult(await previewCheck()))}
-          className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:border-blue-300 disabled:opacity-50">
+          className="px-3 py-2 rounded-lg border border-gray-300 bg-card text-sm font-semibold text-gray-700 hover:border-blue-300 disabled:opacity-50">
           {loading ? 'Checking…' : 'Preview what tomorrow’s check would send'}
         </button>
         {result && 'error' in result && <p className="text-sm text-red-600 mt-2">{result.error}</p>}
@@ -113,7 +113,7 @@ export function PreviewAndTest({ canWrite }: { canWrite: boolean }) {
       {canWrite && (
         <form action={testAction} className="flex flex-wrap items-center gap-2">
           <input name="to" type="email" placeholder="your@email.com" className="rounded-lg border border-gray-300 px-3 py-2 text-sm w-64" />
-          <button disabled={testing} className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:border-blue-300 disabled:opacity-50">{testing ? 'Sending…' : 'Send a test email'}</button>
+          <button disabled={testing} className="px-3 py-2 rounded-lg border border-gray-300 bg-card text-sm font-semibold text-gray-700 hover:border-blue-300 disabled:opacity-50">{testing ? 'Sending…' : 'Send a test email'}</button>
           <Status s={testState} />
         </form>
       )}
@@ -160,7 +160,7 @@ export function RequirementTypeForm({ type, canWrite, onDone }: { type?: Require
         <label className="inline-flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="expires" defaultChecked={t?.expires ?? true} disabled={!canWrite} className="w-4 h-4" />Expires</label>
         <label className="inline-flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="notify" defaultChecked={t?.notify ?? t?.category === 'dqf'} disabled={!canWrite} className="w-4 h-4" />Send expiry emails</label>
         {t && <label className="inline-flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="retired" defaultChecked={!t.is_active} disabled={!canWrite} className="w-4 h-4" />Retired (hide)</label>}
-        {canWrite && <button disabled={pending} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50">{pending ? 'Saving…' : t ? 'Save' : 'Add requirement'}</button>}
+        {canWrite && <button disabled={pending} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 disabled:opacity-50">{pending ? 'Saving…' : t ? 'Save' : 'Add requirement'}</button>}
         <Status s={state} />
       </div>
     </form>

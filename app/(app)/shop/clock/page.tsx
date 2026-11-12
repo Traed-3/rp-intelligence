@@ -75,7 +75,7 @@ export default async function ClockPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <p className="text-sm text-gray-500">Welcome back</p>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">{profile?.full_name}</h1>
+          <h1 className="rp-title">{profile?.full_name}</h1>
         </div>
 
         <ClockWidget
@@ -91,13 +91,13 @@ export default async function ClockPage() {
         />
 
         <div className="mt-6 grid grid-cols-3 gap-2">
-          <a href="/shop/status" className="text-center py-3 rounded-2xl border border-gray-200 shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+          <a href="/shop/status" className="rp-card text-center py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
             Set Status
           </a>
-          <a href="/shop/my-tasks" className="text-center py-3 rounded-2xl border border-gray-200 shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+          <a href="/shop/my-tasks" className="rp-card text-center py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
             My Tasks
           </a>
-          <a href="/shop/general-time" className="text-center py-3 rounded-2xl border border-gray-200 shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+          <a href="/shop/general-time" className="rp-card text-center py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
             Log Time
           </a>
         </div>

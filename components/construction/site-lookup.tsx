@@ -69,7 +69,7 @@ export function SiteLookup({ sites }: { sites: LookupSite[] }) {
           value={q}
           onChange={e => setQ(e.target.value)}
           placeholder="Site number, street, city or brand…"
-          className="w-full rounded-2xl border border-gray-300 bg-white pl-11 pr-4 py-3 text-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+          className="w-full rounded-2xl border border-gray-300 bg-card pl-11 pr-4 py-3 text-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
         />
       </div>
 
@@ -84,7 +84,7 @@ export function SiteLookup({ sites }: { sites: LookupSite[] }) {
           const cityLine = [s.city, [s.state, s.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ')
           const full = [s.address, cityLine].filter(Boolean).join(', ')
           return (
-            <li key={s.site_number} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-3">
+            <li key={s.site_number} className="rp-card px-4 py-3">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <div className="flex flex-wrap items-baseline gap-x-2.5 min-w-0">
                   <span className="text-xl font-bold text-gray-900 tabular-nums">{s.site_number}</span>

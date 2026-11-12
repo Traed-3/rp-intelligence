@@ -38,7 +38,7 @@ export function ReviewRow({ doc }: { doc: ReviewDoc }) {
         value={category}
         onChange={(e) => setCategory(e.target.value)}
         disabled={pending}
-        className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg bg-white"
+        className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg bg-card"
       >
         {CON_DOC_CATEGORIES.map(c => (
           <option key={c.value} value={c.value}>{c.label}</option>
@@ -48,7 +48,7 @@ export function ReviewRow({ doc }: { doc: ReviewDoc }) {
         type="button"
         disabled={pending}
         onClick={() => start(async () => { await fileDocument(doc.id, category) })}
-        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
       >
         <Check className="w-4 h-4" /> File
       </button>

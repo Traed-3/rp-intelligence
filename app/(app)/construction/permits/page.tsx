@@ -79,7 +79,7 @@ export default async function PermitBoardPage({ searchParams }: { searchParams: 
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             {heading}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{subheading} · {rows.length} shown</p>
@@ -94,16 +94,16 @@ export default async function PermitBoardPage({ searchParams }: { searchParams: 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
         {sp.alert && (
-          <Link href="/construction/permits" className="px-2.5 py-1 rounded-full bg-blue-600 text-white font-semibold">← Back to full board</Link>
+          <Link href="/construction/permits" className="px-2.5 py-1 rounded-full bg-primary text-primary-foreground font-semibold">← Back to full board</Link>
         )}
         <FilterGroup label="Status" current={sp.status} base={qs} param="status" options={PERMIT_STATUS_VALUES as readonly string[]} />
         <FilterGroup label="Type" current={sp.type} base={qs} param="type" options={PERMIT_TYPES as readonly string[]} />
         <FilterGroup label="Pulled by" current={sp.pulled_by} base={qs} param="pulled_by" options={PULLED_BY as readonly string[]} />
         <details className="relative inline-block">
-          <summary className={`cursor-pointer list-none px-2.5 py-1 rounded-full border ${sp.jurisdiction ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}>
+          <summary className={`cursor-pointer list-none px-2.5 py-1 rounded-full border ${sp.jurisdiction ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-600 border-gray-300'}`}>
             {sp.jurisdiction ? `Jurisdiction: ${jurisdictions.find(j => j.id === sp.jurisdiction)?.name ?? ''}` : 'Jurisdiction'}
           </summary>
-          <div className="absolute z-10 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-1 min-w-52 max-h-72 overflow-auto">
+          <div className="absolute z-10 mt-1 bg-card border border-gray-200 rounded-lg shadow-lg p-1 min-w-52 max-h-72 overflow-auto">
             <Link href={qs({ jurisdiction: undefined })} className="block px-2.5 py-1.5 rounded hover:bg-gray-50 text-gray-600">All</Link>
             {jurisdictions.map(j => (
               <Link key={j.id} href={qs({ jurisdiction: j.id })} className={`block px-2.5 py-1.5 rounded hover:bg-gray-50 ${sp.jurisdiction === j.id ? 'font-semibold text-blue-700' : 'text-gray-700'}`}>{j.name}</Link>
@@ -112,7 +112,7 @@ export default async function PermitBoardPage({ searchParams }: { searchParams: 
         </details>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         {rows.length === 0 ? (
           <div className="p-12 text-center">
             <FileCheck2 className="w-8 h-8 text-gray-300 mx-auto mb-3" />
@@ -120,7 +120,7 @@ export default async function PermitBoardPage({ searchParams }: { searchParams: 
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className={th}>Permit ID</th>
@@ -176,10 +176,10 @@ function FilterGroup({
 }) {
   return (
     <details className="relative inline-block">
-      <summary className={`cursor-pointer list-none px-2.5 py-1 rounded-full border ${current ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}>
+      <summary className={`cursor-pointer list-none px-2.5 py-1 rounded-full border ${current ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-600 border-gray-300'}`}>
         {label}{current ? `: ${current}` : ''}
       </summary>
-      <div className="absolute z-10 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-1 min-w-44 max-h-72 overflow-auto">
+      <div className="absolute z-10 mt-1 bg-card border border-gray-200 rounded-lg shadow-lg p-1 min-w-44 max-h-72 overflow-auto">
         <Link href={base({ [param]: undefined })} className="block px-2.5 py-1.5 rounded hover:bg-gray-50 text-gray-600">All</Link>
         {options.map(o => (
           <Link key={o} href={base({ [param]: o })} className={`block px-2.5 py-1.5 rounded hover:bg-gray-50 ${current === o ? 'font-semibold text-blue-700' : 'text-gray-700'}`}>{o}</Link>

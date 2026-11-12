@@ -47,7 +47,7 @@ export function UserRoleForm({
         const newRole = e.target.value
         startTransition(() => onUpdate(newRole))
       }}
-      className="text-sm border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 bg-white"
+      className="text-sm border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 bg-card"
     >
       {!ROLES.some(r => r.value === currentRole) && (
         <option value={currentRole} disabled>{HIDDEN_ROLE_LABELS[currentRole] ?? currentRole}</option>

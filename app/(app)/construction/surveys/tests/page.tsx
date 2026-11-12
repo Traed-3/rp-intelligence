@@ -5,9 +5,9 @@ import { testTitle, stateInfo, ITEM_KINDS, STATES } from '@/lib/containment-test
 import { createTest } from './actions'
 
 export const dynamic = 'force-dynamic'
-const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-white'
+const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-card'
 const lbl = 'block text-xs font-medium text-gray-600 mb-1'
-const STATUS: Record<string, string> = { draft: 'bg-[#FFC000] text-black', complete: 'bg-[#70AD47] text-white', sent: 'bg-[#385624] text-white' }
+const STATUS: Record<string, string> = { draft: 'rp-stage rp-stage-needs-scheduled', complete: 'rp-stage rp-stage-complete', sent: 'rp-stage rp-stage-scheduled' }
 
 export default async function ContainmentTestsPage() {
   const profile = await requireFieldSurveys()
@@ -33,8 +33,8 @@ export default async function ContainmentTestsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide bg-gray-900 text-white">Tests</div>
+        <div className="rp-card lg:col-span-2 overflow-hidden">
+          <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide bg-foreground text-background">Tests</div>
           {!tests?.length ? <p className="p-4 text-sm text-gray-400">No tests yet. Start one on the right.</p> : (
             <ul className="divide-y divide-gray-100">
               {tests.map(t => { const r = results.get(t.id); return (
@@ -54,8 +54,8 @@ export default async function ContainmentTestsPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide bg-emerald-700 text-white">New test</div>
+        <div className="rp-card overflow-hidden">
+          <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide bg-emerald-600 text-white">New test</div>
           <form action={createTest} className="p-4 space-y-3">
             <div><label className={lbl}>Job (fills site, address and state)</label><select name="job_id" defaultValue="" className={inp}><option value="">— no job, type the site —</option>{(jobs ?? []).map(j => { const st = (j.con_sites as unknown as { state: string | null } | null)?.state; return <option key={j.id} value={j.id}>{j.site_number}{j.gas_brand ? ` · ${j.gas_brand}` : ''}{st ? ` · ${st}` : ''}{profile.fullAccess && j.work_order_number ? ` · ${j.work_order_number}` : ''}</option> })}</select></div>
             <div className="grid grid-cols-2 gap-2">
@@ -69,7 +69,7 @@ export default async function ContainmentTestsPage() {
               <div><label className={lbl}>Number / product</label><input name="label" list="first-item-num" placeholder="1/2, RUL" className={inp} /><datalist id="first-item-num">{[...new Set(ITEM_KINDS.flatMap(k => k.numbers))].map(n => <option key={n} value={n} />)}</datalist></div>
             </div>
             <div><label className={lbl}>Test date</label><input name="test_date" type="date" defaultValue={new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })} className={inp} /></div>
-            <button className="w-full rounded-lg bg-emerald-600 text-white py-2.5 text-sm font-semibold hover:bg-emerald-700">Start test</button>
+            <button className="w-full rounded-lg bg-emerald-600 text-white py-2.5 text-sm font-semibold hover:bg-emerald-600/90">Start test</button>
           </form>
         </div>
       </div>

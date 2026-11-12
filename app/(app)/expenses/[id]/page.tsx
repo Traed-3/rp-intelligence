@@ -44,7 +44,7 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
 
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">${Number(expense.amount).toFixed(2)}</h1>
+          <h1 className="rp-title">${Number(expense.amount).toFixed(2)}</h1>
           <p className="text-gray-500 text-sm mt-0.5">
             {expense.vendor || 'No vendor'} ·{' '}
             {new Date(expense.expense_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
@@ -58,7 +58,7 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="space-y-5">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           <h2 className="font-semibold text-gray-900 mb-3">Details</h2>
           <Row label="Submitted By" value={submitterLabel(expense as any)} />
           {(expense as any).submitter_email && (expense as any).submitter_name && <Row label="Submitter Email" value={(expense as any).submitter_email} />}
@@ -87,7 +87,7 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
         </div>
 
         {expense.receipt_url && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-3">Receipt</h2>
             <img src={expense.receipt_url} alt="Receipt" className="max-w-full rounded-lg border border-gray-100" />
           </div>

@@ -5,7 +5,7 @@ import { surveyTitle, surveyTypeLabel, SURVEY_TYPES, SUMP_TYPES } from '@/lib/su
 import { createSurvey } from './actions'
 
 export const dynamic = 'force-dynamic'
-const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-white'
+const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-card'
 const lbl = 'block text-xs font-medium text-gray-600 mb-1'
 
 export default async function SurveysPage() {
@@ -21,24 +21,24 @@ export default async function SurveysPage() {
     const { data: sumps } = await admin.from('con_survey_sumps').select('survey_id').in('survey_id', surveys.map(s => s.id))
     for (const r of sumps ?? []) counts.set(r.survey_id, (counts.get(r.survey_id) ?? 0) + 1)
   }
-  const STATUS: Record<string, string> = { draft: 'bg-[#FFC000] text-black', complete: 'bg-[#70AD47] text-white', sent: 'bg-[#385624] text-white' }
+  const STATUS: Record<string, string> = { draft: 'rp-stage rp-stage-needs-scheduled', complete: 'rp-stage rp-stage-complete', sent: 'rp-stage rp-stage-scheduled' }
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto overflow-x-hidden">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Field Surveys</h1>
+          <h1 className="rp-title">Field Surveys</h1>
           <p className="text-sm text-gray-500 mt-0.5">ICON sump survey worksheets, filled on the phone, photos through the camera, PDF built here.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/construction/surveys/tests" className="rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm font-semibold hover:bg-emerald-700">💧 Sump / UDC / Spill Bucket Tests →</Link>
+          <Link href="/construction/surveys/tests" className="rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm font-semibold hover:bg-emerald-600/90">💧 Sump / UDC / Spill Bucket Tests →</Link>
           {profile.fullAccess && <Link href="/construction" className="text-sm text-gray-500 hover:text-gray-700">← Construction</Link>}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide bg-gray-900 text-white">Surveys</div>
+        <div className="rp-card lg:col-span-2 overflow-hidden">
+          <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide bg-foreground text-background">Surveys</div>
           {!surveys?.length ? <p className="p-4 text-sm text-gray-400">No surveys yet. Start one on the right.</p> : (
             <ul className="divide-y divide-gray-100">
               {surveys.map(sv => (
@@ -57,8 +57,8 @@ export default async function SurveysPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide bg-blue-700 text-white">New field survey</div>
+        <div className="rp-card overflow-hidden">
+          <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide bg-primary text-primary-foreground">New field survey</div>
           <form action={createSurvey} className="p-4 space-y-3">
             <div><label className={lbl}>Survey type</label><select name="survey_type" defaultValue="icon_fittings" className={inp}>{SURVEY_TYPES.map(t => <option key={t.value} value={t.value} disabled={!t.ready}>{t.label}{t.ready ? '' : ' (coming soon)'}</option>)}</select></div>
             <div><label className={lbl}>Job (fills site and address)</label><select name="job_id" defaultValue="" className={inp}><option value="">— no job yet, type the site —</option>{(jobs ?? []).map(j => <option key={j.id} value={j.id}>{j.site_number}{j.gas_brand ? ` · ${j.gas_brand}` : ''}{profile.fullAccess && j.work_order_number ? ` · ${j.work_order_number}` : ''}</option>)}</select></div>
@@ -79,7 +79,7 @@ export default async function SurveysPage() {
               <div><label className={lbl}>Tech phone</label><input name="tech_phone" defaultValue={me?.phone ?? ''} className={inp} /></div>
               <div><label className={lbl}>Tech email</label><input name="tech_email" defaultValue={me?.email ?? ''} className={inp} /></div>
             </div>
-            <button className="w-full rounded-lg bg-blue-600 text-white py-2.5 text-sm font-semibold hover:bg-blue-700">Start survey</button>
+            <button className="w-full rounded-lg bg-primary text-primary-foreground py-2.5 text-sm font-semibold hover:bg-primary/90">Start survey</button>
           </form>
         </div>
       </div>

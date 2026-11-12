@@ -53,11 +53,11 @@ export default async function CardAuditPage({
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <p className="text-xs text-gray-500"><Link href="/expenses" className="hover:underline">Expenses</Link> / Card audit</p>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Card Audit</h1>
+          <h1 className="rp-title">Card Audit</h1>
           <p className="text-sm text-gray-500 mt-0.5">Every receipt emailed in with <b>{code}</b> in the subject, ready to check against the {cardName} statement.</p>
         </div>
         <a href={`/api/expenses/card-audit-csv?card=${code}&month=${range.ym}`}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700">
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-600/90">
           <Download className="w-4 h-4" />Export CSV
         </a>
       </div>
@@ -66,7 +66,7 @@ export default async function CardAuditPage({
       <div className="flex flex-wrap items-center gap-2 mb-5">
         {methods.map(m => (
           <Link key={m.code} href={href({ card: m.code })}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full border ${m.code.toUpperCase() === code ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+            className={`px-3 py-1.5 text-xs font-medium rounded-full border ${m.code.toUpperCase() === code ? 'bg-foreground text-background border-foreground' : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'}`}>
             {m.name} <span className="opacity-60">({m.code})</span>
           </Link>
         ))}
@@ -85,7 +85,7 @@ export default async function CardAuditPage({
           { label: 'Need review', value: String(reviewCount), sub: 'duplicates, mismatches, refunds, policy', warn: reviewCount > 0 },
           { label: 'Matched to statement', value: `${rows.filter(r => r.matched).length} / ${rows.length}`, sub: money(matchedTotal) },
         ].map(t => (
-          <div key={t.label} className={`bg-white rounded-2xl border p-4 shadow-sm ${t.warn ? 'border-red-200' : 'border-gray-200'}`}>
+          <div key={t.label} className={`bg-card rounded-2xl border p-4 shadow-sm ${t.warn ? 'border-red-200' : 'border-gray-200'}`}>
             <p className={`text-2xl font-bold ${t.warn ? 'text-red-600' : 'text-gray-900'}`}>{t.value}</p>
             <p className="text-xs font-medium text-gray-700">{t.label}</p>
             <p className="text-xs text-gray-400">{t.sub}</p>
@@ -94,11 +94,11 @@ export default async function CardAuditPage({
       </div>
 
       <div className="grid lg:grid-cols-[1fr_300px] gap-5 items-start">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-100">
             {([['all', `All (${rows.length})`], ['review', `Needs review (${reviewCount})`], ['unmatched', `Not matched (${rows.filter(r => !r.matched).length})`]] as const).map(([v, l]) => (
               <Link key={v} href={href({ show: v })}
-                className={`px-3 py-1 text-xs font-medium rounded-full border ${show === v ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:border-gray-400'}`}>{l}</Link>
+                className={`px-3 py-1 text-xs font-medium rounded-full border ${show === v ? 'bg-foreground text-background border-foreground' : 'border-gray-200 text-gray-600 hover:border-gray-400'}`}>{l}</Link>
             ))}
             {visible.some(r => !r.matched) && (
               <form action={setStatementMatch} className="ml-auto">
@@ -112,7 +112,7 @@ export default async function CardAuditPage({
             <p className="p-8 text-center text-sm text-gray-400">No {code} receipts here for {range.label}.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="rp-table w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
                     <th className="px-3 py-2 w-10">On stmt</th>
@@ -162,7 +162,7 @@ export default async function CardAuditPage({
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 bg-gray-50"><h2 className="font-semibold text-sm text-gray-900">By person</h2></div>
           <div className="divide-y divide-gray-50">
             {people.map(p => (

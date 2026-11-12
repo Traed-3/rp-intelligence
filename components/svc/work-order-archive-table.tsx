@@ -61,7 +61,7 @@ export function WorkOrderArchiveTable({ workOrders, showArchived, mixed = false 
   return (
     <>
       {selected.size > 0 && (
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 bg-gray-900 text-white rounded-xl px-4 py-2.5 mb-3 shadow-lg">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 bg-foreground text-background rounded-xl px-4 py-2.5 mb-3 shadow-lg">
           <p className="text-sm font-medium">{selected.size} selected</p>
           <div className="flex items-center gap-2">
             <button
@@ -72,7 +72,7 @@ export function WorkOrderArchiveTable({ workOrders, showArchived, mixed = false 
             </button>
             <button
               onClick={() => setModalIds(Array.from(selected))}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white text-gray-900 rounded-lg px-3 py-1.5 hover:bg-gray-100"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-card text-gray-900 rounded-lg px-3 py-1.5 hover:bg-gray-100"
             >
               <Archive className="w-3.5 h-3.5" /> Archive Selected
             </button>
@@ -81,13 +81,13 @@ export function WorkOrderArchiveTable({ workOrders, showArchived, mixed = false 
       )}
 
       {!workOrders.length ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+        <div className="rp-card p-12 text-center">
           <p className="text-gray-400 text-sm">No work orders match this view.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="px-4 py-3 w-8">
@@ -99,13 +99,13 @@ export function WorkOrderArchiveTable({ workOrders, showArchived, mixed = false 
                       aria-label="Select all"
                     />
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 w-28">WO #</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Site</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Client</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Priority</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Tech</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">
+                  <th className="text-left px-4 py-3 w-28">WO #</th>
+                  <th className="text-left px-4 py-3">Site</th>
+                  <th className="text-left px-4 py-3 hidden sm:table-cell">Client</th>
+                  <th className="text-left px-4 py-3 hidden sm:table-cell">Priority</th>
+                  <th className="text-left px-4 py-3">Status</th>
+                  <th className="text-left px-4 py-3 hidden lg:table-cell">Tech</th>
+                  <th className="text-left px-4 py-3 hidden lg:table-cell">
                     {mixed ? 'Last Update / Archived' : showArchived ? 'Archived' : 'Last Update'}
                   </th>
                   <th className="px-4 py-3 w-10" />
@@ -237,7 +237,7 @@ function ArchiveReasonModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
       <div
-        className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5"
+        className="bg-card rounded-2xl shadow-xl max-w-sm w-full p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between mb-3">
@@ -286,7 +286,7 @@ function ArchiveReasonModal({
           <button
             onClick={() => canConfirm && onConfirm(reason)}
             disabled={!canConfirm}
-            className="text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg px-3.5 py-1.5"
+            className="text-sm font-semibold text-white bg-red-600 hover:bg-red-600/90 disabled:opacity-50 rounded-lg px-3.5 py-1.5"
           >
             {isPending ? 'Archiving…' : 'Archive'}
           </button>

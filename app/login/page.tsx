@@ -28,7 +28,7 @@ export default async function LoginPage({
         )}
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 space-y-5">
+        <div className="rp-card p-8 space-y-5">
 
           {/* Email + password (master / admin login) */}
           <div>

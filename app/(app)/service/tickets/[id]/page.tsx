@@ -26,7 +26,7 @@ export default async function ServiceTicketDetailPage({ params }: { params: Prom
       <div className="mb-5">
         <Link href="/service/tickets" className="text-sm text-gray-500 hover:text-gray-700">← Field Tickets</Link>
         <div className="flex flex-wrap items-center justify-between gap-3 mt-2">
-          <h1 className="text-2xl font-bold text-gray-900 font-mono">{t.ticket_number}</h1>
+          <h1 className="rp-title font-mono">{t.ticket_number}</h1>
           <div className="flex flex-wrap items-center gap-2">
             {(t as { work_order_id?: string | null }).work_order_id && (
               <Link href={`/service/${(t as { work_order_id?: string | null }).work_order_id}`}><Button variant="outline" className="gap-2"><FileText className="w-3.5 h-3.5" />Work order</Button></Link>

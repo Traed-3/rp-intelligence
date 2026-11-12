@@ -59,12 +59,12 @@ export default async function EditAssetPage({
         <Link href={`/assets/${id}`} className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to {asset.unit_number}
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">
+        <h1 className="rp-title mt-2">
           Edit {asset.unit_number}
         </h1>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="rp-card p-6">
         <AssetForm
           action={updateAssetWithId}
           assetTypes={assetTypes ?? []}

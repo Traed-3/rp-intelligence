@@ -55,7 +55,7 @@ export function EmployeeForm({
       </div>
 
       <div className="flex items-center gap-3">
-        <button disabled={pending} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{pending ? 'Saving…' : submitLabel}</button>
+        <button disabled={pending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">{pending ? 'Saving…' : submitLabel}</button>
         {state.error && <p className="text-sm text-red-600">{state.error}</p>}
         {state.message && <p className="text-sm text-green-700">{state.message}</p>}
       </div>

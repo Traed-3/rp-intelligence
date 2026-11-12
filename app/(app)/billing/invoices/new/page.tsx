@@ -13,7 +13,7 @@ export default async function NewInvoicePage({ searchParams }: { searchParams: P
   const lists = await loadBuilderLists(createAdminClient(), company_id)
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-5"><Link href="/billing/invoices" className="text-sm text-gray-500 hover:text-gray-700">← Invoices</Link><h1 className="text-2xl font-bold text-gray-900 mt-1">New invoice</h1><p className="text-sm text-gray-500">Same twelve categories as the quote. Labor by day, mobilization by tech-travel-day, receipts on the material lines.</p></div>
+      <div className="mb-5"><Link href="/billing/invoices" className="text-sm text-gray-500 hover:text-gray-700">← Invoices</Link><h1 className="rp-title mt-1">New invoice</h1><p className="text-sm text-gray-500">Same twelve categories as the quote. Labor by day, mobilization by tech-travel-day, receipts on the material lines.</p></div>
       <Rev19Builder action={saveInvoice.bind(null, null)} header={{ kind: 'invoice', job_id: job ?? null, department: department ?? 'construction' } as never} customers={lists.customers} jobs={lists.jobs} rateCards={lists.rateCards} team={lists.team} quickPicks={lists.quickPicks} currentUser={lists.team.find(t => t.id === userId) ?? null} />
     </div>
   )

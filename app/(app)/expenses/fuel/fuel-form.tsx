@@ -138,7 +138,7 @@ export function FuelForm({
               type="button"
               onClick={() => setPmCode(pmCode === pm.code ? '' : pm.code)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-                pmCode === pm.code ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
+                pmCode === pm.code ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-700 border-gray-200 hover:border-gray-400'
               }`}
               title={pm.name}
             >

@@ -54,7 +54,7 @@ export default async function ReportsPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Construction Reports
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Job cost · margin · pipeline aging · invoiced revenue</p>
@@ -73,18 +73,18 @@ export default async function ReportsPage() {
       {/* Job cost */}
       <Section title="Job Cost" csv="job_cost">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-xs text-gray-500">
-                <th className="text-left px-4 py-2 font-medium">Job</th>
-                <th className="text-left px-4 py-2 font-medium hidden md:table-cell">Customer</th>
-                <th className="text-left px-4 py-2 font-medium hidden lg:table-cell">Stage</th>
-                <th className="text-right px-4 py-2 font-medium">Quoted</th>
-                <th className="text-right px-4 py-2 font-medium">Invoiced</th>
-                <th className="text-right px-4 py-2 font-medium hidden sm:table-cell">Material</th>
-                <th className="text-right px-4 py-2 font-medium hidden sm:table-cell">Labor</th>
-                <th className="text-right px-4 py-2 font-medium">Margin</th>
-                <th className="text-right px-4 py-2 font-medium hidden md:table-cell">%</th>
+                <th className="text-left px-4 py-2">Job</th>
+                <th className="text-left px-4 py-2 hidden md:table-cell">Customer</th>
+                <th className="text-left px-4 py-2 hidden lg:table-cell">Stage</th>
+                <th className="text-right px-4 py-2">Quoted</th>
+                <th className="text-right px-4 py-2">Invoiced</th>
+                <th className="text-right px-4 py-2 hidden sm:table-cell">Material</th>
+                <th className="text-right px-4 py-2 hidden sm:table-cell">Labor</th>
+                <th className="text-right px-4 py-2">Margin</th>
+                <th className="text-right px-4 py-2 hidden md:table-cell">%</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -116,7 +116,7 @@ export default async function ReportsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-6">
         {/* Pipeline aging */}
         <Section title="Pipeline Aging" csv="pipeline">
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <tbody className="divide-y divide-gray-50">
               {aging.length === 0 ? <tr><td className="px-4 py-6 text-gray-400">No open jobs.</td></tr> : aging.map(s => (
                 <tr key={s.stage}>
@@ -131,7 +131,7 @@ export default async function ReportsPage() {
 
         {/* Invoiced revenue by year */}
         <Section title={`Invoiced — ${money(invoicedTotal)}`} csv="invoiced">
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <tbody className="divide-y divide-gray-50">
               {years.length === 0 ? <tr><td className="px-4 py-6 text-gray-400">Nothing invoiced yet.</td></tr> : years.map(y => (
                 <tr key={y.year} className="hover:bg-gray-50">
@@ -150,7 +150,7 @@ export default async function ReportsPage() {
 
 function Section({ title, csv, children }: { title: string; csv: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="rp-card overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <h2 className="font-semibold text-gray-900">{title}</h2>
         <a href={`/api/construction/reports/csv?report=${csv}`} className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800">
@@ -164,16 +164,16 @@ function Section({ title, csv, children }: { title: string; csv: string; childre
 
 function MarginTable({ title, rows }: { title: string; rows: { name: string; quoted: number; invoiced: number; cost: number; margin: number }[] }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="rp-card overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">{title}</h2></div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="rp-table w-full text-sm">
           <thead>
             <tr className="bg-gray-50 text-xs text-gray-500">
-              <th className="text-left px-4 py-2 font-medium">{title.includes('Customer') ? 'Customer' : 'Program'}</th>
-              <th className="text-right px-4 py-2 font-medium">Invoiced</th>
-              <th className="text-right px-4 py-2 font-medium">Cost</th>
-              <th className="text-right px-4 py-2 font-medium">Margin</th>
+              <th className="text-left px-4 py-2">{title.includes('Customer') ? 'Customer' : 'Program'}</th>
+              <th className="text-right px-4 py-2">Invoiced</th>
+              <th className="text-right px-4 py-2">Cost</th>
+              <th className="text-right px-4 py-2">Margin</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -194,7 +194,7 @@ function MarginTable({ title, rows }: { title: string; rows: { name: string; quo
 
 function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+    <div className="rp-card p-4">
       <p className="text-xs text-gray-400">{label}</p>
       <p className={`text-lg font-bold mt-0.5 ${accent ?? 'text-gray-900'}`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}

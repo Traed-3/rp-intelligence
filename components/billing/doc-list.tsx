@@ -14,25 +14,25 @@ export function DocList({ kind, rows, status, department, canWrite, statuses }: 
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">{isQ ? 'Quotes' : 'Invoices'}</h1>
+          <h1 className="rp-title">{isQ ? 'Quotes' : 'Invoices'}</h1>
           <p className="text-sm text-gray-500 mt-0.5">{rows.length} {isQ ? 'quote' : 'invoice'}{rows.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/billing" className="text-sm text-gray-500 hover:text-gray-700">← Billing</Link>
           {isQ && <Link href="/billing/quotes/templates" className="text-sm text-gray-500 hover:text-gray-700">Templates</Link>}
-          {canWrite && <Link href={`/billing/${kind}/new`} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium px-3 py-2 hover:bg-blue-700"><Plus className="w-4 h-4" />{isQ ? 'New quote' : 'New invoice'}</Link>}
+          {canWrite && <Link href={`/billing/${kind}/new`} className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium px-3 py-2 hover:bg-primary/90"><Plus className="w-4 h-4" />{isQ ? 'New quote' : 'New invoice'}</Link>}
         </div>
       </div>
       <div className="flex flex-wrap gap-1.5 mb-2">
-        {['', ...statuses].map(s => <Link key={s || 'all'} href={q(s, department)} className={`px-3 py-1.5 text-xs font-medium rounded-full border capitalize ${status === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>{s === 'sent' && !isQ ? 'Invoiced' : s || 'All'}</Link>)}
+        {['', ...statuses].map(s => <Link key={s || 'all'} href={q(s, department)} className={`px-3 py-1.5 text-xs font-medium rounded-full border capitalize ${status === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'}`}>{s === 'sent' && !isQ ? 'Invoiced' : s || 'All'}</Link>)}
       </div>
       <div className="flex flex-wrap gap-1.5 mb-5">
-        {[['', 'Both departments'], ['construction', 'Construction'], ['service', 'Service']].map(([d, l]) => <Link key={d} href={q(status, d)} className={`px-3 py-1 text-xs rounded-full border ${department === d ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200'}`}>{l}</Link>)}
+        {[['', 'Both departments'], ['construction', 'Construction'], ['service', 'Service']].map(([d, l]) => <Link key={d} href={q(status, d)} className={`px-3 py-1 text-xs rounded-full border ${department === d ? 'bg-foreground text-background border-foreground' : 'bg-card text-gray-600 border-gray-200'}`}>{l}</Link>)}
       </div>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         {!rows.length ? <p className="p-12 text-center text-sm text-gray-400">Nothing here yet.</p> : (
-          <div className="overflow-x-auto"><table className="w-full text-sm">
-            <thead><tr className="border-b border-gray-100 bg-gray-50"><th className="text-left px-4 py-3 font-medium text-gray-500">#</th><th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Customer</th><th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Store</th><th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Dept</th><th className="text-left px-4 py-3 font-medium text-gray-500">Status</th><th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Date</th><th className="text-right px-4 py-3 font-medium text-gray-500">Total</th><th className="px-4 py-3" /></tr></thead>
+          <div className="overflow-x-auto"><table className="rp-table w-full text-sm">
+            <thead><tr className="border-b border-gray-100 bg-gray-50"><th className="text-left px-4 py-3">#</th><th className="text-left px-4 py-3 hidden sm:table-cell">Customer</th><th className="text-left px-4 py-3 hidden md:table-cell">Store</th><th className="text-left px-4 py-3 hidden md:table-cell">Dept</th><th className="text-left px-4 py-3">Status</th><th className="text-left px-4 py-3 hidden lg:table-cell">Date</th><th className="text-right px-4 py-3">Total</th><th className="px-4 py-3" /></tr></thead>
             <tbody className="divide-y divide-gray-50">
               {rows.map(r => (
                 <ClickableRow key={r.id} href={`/billing/${kind}/${r.id}`}>

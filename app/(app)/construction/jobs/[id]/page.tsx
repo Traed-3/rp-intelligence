@@ -117,7 +117,7 @@ export default async function JobDetailPage({
         <div className="flex flex-wrap items-start justify-between gap-3 mt-2">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-gray-900">{job.job_number ?? job.site_number ?? 'Job'}</h1>
+              <h1 className="rp-title">{job.job_number ?? job.site_number ?? 'Job'}</h1>
               {job.job_number && job.site_number && (
                 <span className="text-sm text-gray-400">Site {job.site_number}</span>
               )}
@@ -158,7 +158,7 @@ export default async function JobDetailPage({
       {/* ── OVERVIEW ───────────────────────────────────────── */}
       {tab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
+          <div className="rp-card lg:col-span-2 p-5 space-y-4">
             {job.scope_of_work && (
               <div>
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Scope of Work</h3>
@@ -183,7 +183,7 @@ export default async function JobDetailPage({
           </div>
           <div className="space-y-5">
             <NotificationCard jobId={job.id} status={projectNotificationStatus(job)} canWrite={canWrite} />
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3 text-sm">
+            <div className="rp-card p-5 space-y-3 text-sm">
               <Detail label="Customer PO #" value={job.po_number} />
               <Detail label="Program" value={job.program} />
               <Detail label="Facility Address" value={job.facility_address} />
@@ -193,7 +193,7 @@ export default async function JobDetailPage({
               <Detail label="Project Start" value={fmtDate(job.project_start_date)} />
               {job.master_sync_hold && <p className="text-xs text-amber-700">Master Schedule sync is off for this job.</p>}
             </div>
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="rp-card overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Stage History</h2></div>
               {!stageHistory?.length ? (
                 <p className="px-4 py-6 text-sm text-gray-400">No history yet.</p>
@@ -250,7 +250,7 @@ export default async function JobDetailPage({
 
       {/* ── PERMITS ────────────────────────────────────────── */}
       {tab === 'permits' && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Permits ({(jobPermits ?? []).length})</h2></div>
           {!(jobPermits ?? []).length ? (
             <p className="px-4 py-6 text-sm text-gray-400">No permits linked to this job.</p>
@@ -285,12 +285,12 @@ export default async function JobDetailPage({
       {/* ── MATERIALS ──────────────────────────────────────── */}
       {tab === 'materials' && (
         <div className="space-y-5">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="rp-card overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Materials ({materials?.length ?? 0})</h2></div>
             {!materials?.length ? (
               <p className="px-4 py-6 text-sm text-gray-400">No materials listed.</p>
             ) : (
-              <table className="w-full text-sm">
+              <table className="rp-table w-full text-sm">
                 <tbody className="divide-y divide-gray-50">
                   {materials.map(m => (
                     <tr key={m.id}>
@@ -311,7 +311,7 @@ export default async function JobDetailPage({
             )}
           </div>
           {canWrite && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+            <div className="rp-card p-5">
               <h3 className="font-semibold text-gray-900 mb-3">Add Material</h3>
               <MaterialForm action={saveMaterial.bind(null, null)} jobId={id} vendors={vendorNames} />
             </div>
@@ -322,12 +322,12 @@ export default async function JobDetailPage({
       {/* ── SCHEDULE ───────────────────────────────────────── */}
       {tab === 'schedule' && (
         <div className="space-y-5">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="rp-card overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Scheduled Work</h2></div>
             {!schedule?.length ? (
               <p className="px-4 py-6 text-sm text-gray-400">Not scheduled yet.</p>
             ) : (
-              <table className="w-full text-sm">
+              <table className="rp-table w-full text-sm">
                 <tbody className="divide-y divide-gray-50">
                   {schedule.map(s => (
                     <tr key={s.id}>
@@ -344,7 +344,7 @@ export default async function JobDetailPage({
             )}
           </div>
           {canWrite && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+            <div className="rp-card p-5">
               <h3 className="font-semibold text-gray-900 mb-3">Add to Schedule</h3>
               <ScheduleEntryForm action={saveScheduleEntry.bind(null, null)} jobs={[]} fixedJobId={id} />
             </div>
@@ -359,7 +359,7 @@ export default async function JobDetailPage({
         const totalManHours = updates.reduce((s, u) => s + hoursOf(u), 0)
         return (
           <div className="space-y-5">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="rp-card overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="font-semibold text-gray-900">Daily Updates ({updates.length})</h2>
                 <span className="text-sm text-gray-500">Total man-hours: <span className="font-semibold text-gray-800">{totalManHours.toFixed(2)}</span></span>
@@ -428,14 +428,14 @@ export default async function JobDetailPage({
               )}
             </div>
             {canWrite && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+              <div className="rp-card p-5">
                 <h3 className="font-semibold text-gray-900 mb-3">Add Daily Update</h3>
                 <DailyUpdateForm action={addDailyUpdate.bind(null, id)} />
               </div>
             )}
 
             {/* ── Disposables ─────────────────────────────── */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="rp-card overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100">
                 <h2 className="font-semibold text-gray-900">Disposables ({disposables?.length ?? 0})</h2>
               </div>
@@ -488,12 +488,12 @@ export default async function JobDetailPage({
       {/* ── SUBCONTRACTORS ─────────────────────────────────── */}
       {tab === 'subs' && (
         <div className="space-y-5">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="rp-card overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Assigned Subcontractors ({assignedSubs?.length ?? 0})</h2></div>
             {!assignedSubs?.length ? (
               <p className="px-4 py-6 text-sm text-gray-400">No subcontractors assigned to this project.</p>
             ) : (
-              <table className="w-full text-sm">
+              <table className="rp-table w-full text-sm">
                 <tbody className="divide-y divide-gray-50">
                   {assignedSubs.map(a => {
                     const sc = (a as any).con_subcontractors
@@ -514,7 +514,7 @@ export default async function JobDetailPage({
             )}
           </div>
           {canWrite && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+            <div className="rp-card p-5">
               <h3 className="font-semibold text-gray-900 mb-3">Assign a Subcontractor</h3>
               {allSubs?.length ? (
                 <AssignSubcontractor action={assignSubcontractor.bind(null, id)} subs={allSubs} />
@@ -552,7 +552,7 @@ export default async function JobDetailPage({
               onSeed={seedCloseoutTasks.bind(null, id)}
             />
 
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="rp-card overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100">
                 <h2 className="font-semibold text-gray-900">Closeout Documents ({closeoutDocs.length})</h2>
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -601,12 +601,12 @@ export default async function JobDetailPage({
       {tab === 'documents' && (
         <div className="space-y-5">
           {canWrite && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+            <div className="rp-card p-5">
               <h3 className="font-semibold text-gray-900 mb-3">Upload Document</h3>
               <DocumentUpload jobId={id} />
             </div>
           )}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="rp-card overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">Documents ({documents?.length ?? 0})</h2>
             </div>
@@ -651,7 +651,7 @@ export default async function JobDetailPage({
             }
             const siblings = [...bySibling.values()].sort((a, b) => a.label.localeCompare(b.label))
             return (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="rp-card overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <h2 className="font-semibold text-gray-900">
                     Other projects at site {job.site_number}
@@ -703,7 +703,7 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
 type DocRow = { id: string; href: string; left: string; sub: string; badge: React.ReactNode; amount: string }
 function DocList({ title, newHref, canWrite, empty, rows }: { title: string; newHref: string; canWrite: boolean; empty: string; rows: DocRow[] }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="rp-card overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <h2 className="font-semibold text-gray-900">{title}</h2>
         {canWrite && <Link href={newHref}><Button size="sm" className="gap-1.5"><Plus className="w-3.5 h-3.5" />New</Button></Link>}
@@ -765,12 +765,12 @@ async function CostSummary({ jobId, companyId, canWrite, labor }: { jobId: strin
         <Stat label="Margin" value={money(margin)} accent={margin >= 0 ? 'text-green-700' : 'text-red-700'} sub={marginPct != null ? `${marginPct.toFixed(1)}%` : undefined} />
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Manual Labor Log</h2></div>
         {!labor?.length ? (
           <p className="px-4 py-6 text-sm text-gray-400">No manual labor logged. (Invoice labor is included in the totals above.)</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <tbody className="divide-y divide-gray-50">
               {labor.map(l => (
                 <tr key={l.id}>
@@ -796,7 +796,7 @@ async function CostSummary({ jobId, companyId, canWrite, labor }: { jobId: strin
 
 function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+    <div className="rp-card p-4">
       <p className="text-xs text-gray-400">{label}</p>
       <p className={`text-lg font-bold mt-0.5 ${accent ?? 'text-gray-900'}`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}

@@ -66,7 +66,7 @@ export function SetPasswordButton({ userId, fullName, email }: { userId: string;
         <>
           <div className="fixed inset-0 bg-black/40 z-40" onClick={handleClose} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="bg-card rounded-2xl shadow-xl w-full max-w-sm p-6">
               <h2 className="text-base font-bold text-gray-900 mb-1">Set password</h2>
               <p className="text-xs text-gray-500 mb-4">{fullName} · {email}</p>
 
@@ -76,7 +76,7 @@ export function SetPasswordButton({ userId, fullName, email }: { userId: string;
                     Password saved. Give it to {fullName} now. It can&apos;t be viewed again, only replaced.
                   </div>
                   <div className="flex justify-end">
-                    <button onClick={handleClose} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">Done</button>
+                    <button onClick={handleClose} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Done</button>
                   </div>
                 </>
               ) : (
@@ -112,7 +112,7 @@ export function SetPasswordButton({ userId, fullName, email }: { userId: string;
                     <button
                       onClick={handleSave}
                       disabled={isPending || !password}
-                      className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                      className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
                     >
                       {isPending ? 'Saving…' : 'Save password'}
                     </button>

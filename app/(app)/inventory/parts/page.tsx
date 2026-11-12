@@ -48,7 +48,7 @@ export default async function PartsPage({
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Parts catalog
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{total.toLocaleString()} item{total !== 1 ? 's' : ''}{q ? ` matching “${q}”` : ''}</p>
@@ -59,7 +59,7 @@ export default async function PartsPage({
         </div>
       </div>
 
-      <form method="get" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 mb-4 grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto_auto] gap-3 items-end">
+      <form method="get" className="rp-card p-4 mb-4 grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto_auto] gap-3 items-end">
         <div>
           <label htmlFor="parts-q" className="block text-xs font-medium text-gray-500 mb-1">Search part number or description</label>
           <div className="relative">
@@ -93,15 +93,15 @@ export default async function PartsPage({
             {Object.entries(SEED_TAG_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </div>
-        <button type="submit" className="rounded-lg bg-blue-600 text-white text-sm font-medium px-4 py-2 hover:bg-blue-700">Filter</button>
+        <button type="submit" className="rounded-lg bg-primary text-primary-foreground text-sm font-medium px-4 py-2 hover:bg-primary/90">Filter</button>
       </form>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+      <div className="rp-card overflow-hidden mb-5">
         {parts.length === 0 ? (
           <div className="p-12 text-center text-gray-400 text-sm">No parts match.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className={th}>Part</th>
@@ -155,7 +155,7 @@ export default async function PartsPage({
       </div>
 
       {canWrite && (
-        <details className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+        <details className="rp-card">
           <summary className="px-5 py-4 cursor-pointer font-semibold text-gray-900 flex items-center gap-2"><Plus className="w-4 h-4 text-blue-600" />Add part</summary>
           <div className="px-5 pb-5"><PartForm action={savePart.bind(null, null)} /></div>
         </details>

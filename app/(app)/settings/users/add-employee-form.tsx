@@ -36,7 +36,7 @@ export function AddEmployeeForm() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+        className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
       >
         + Add Employee
       </button>

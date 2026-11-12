@@ -58,13 +58,13 @@ export default async function DocReviewPage() {
       </Link>
 
       <div className="mb-6">
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+        <h1 className="rp-title">
           Document Review
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">Files the importer wasn&apos;t sure about. Pick a category and File each one.</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">Needs Review ({rows.length})</h2>
         </div>
@@ -80,7 +80,7 @@ export default async function DocReviewPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mt-6">
+      <div className="rp-card overflow-hidden mt-6">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">Field Ticket Drafts ({draftRows.length})</h2>
           <span className="text-xs text-gray-400">Backfilled from Gmail — confirm on the job&apos;s Daily Updates tab</span>

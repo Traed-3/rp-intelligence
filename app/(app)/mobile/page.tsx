@@ -73,12 +73,12 @@ export default async function MobilePage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="relative overflow-hidden text-white px-6 pt-10 pb-8 rounded-b-3xl shadow-lg"
-        style={{ background: 'linear-gradient(135deg, #16243d 0%, #1e3558 55%, #2d4e7a 100%)' }}>
+        data-hero>
         <div className="pointer-events-none absolute -top-16 -right-10 w-52 h-52 rounded-full bg-blue-300/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 -left-8 w-52 h-52 rounded-full bg-green-400/10 blur-3xl" />
         <div className="relative">
         <div className="flex items-center gap-2 mb-4">
-          <span className="inline-flex items-center justify-center bg-white rounded-lg p-1">
+          <span className="inline-flex items-center justify-center bg-card rounded-lg p-1">
             <Image src="/logo-mark-v2.png" alt="" width={32} height={32} className="h-7 w-7" />
           </span>
           <span className="font-semibold tracking-tight text-white/95">RP Intelligence</span>
@@ -120,7 +120,7 @@ export default async function MobilePage() {
       {isClockedIn && (empStatus as any)?.repair_tickets && (
         <Link
           href={`/tickets/${(empStatus as any).repair_tickets.id}`}
-          className="mx-4 -mt-4 bg-white rounded-xl border border-green-200 shadow-sm px-4 py-3 flex items-center justify-between"
+          className="mx-4 -mt-4 bg-card rounded-xl border border-green-200 shadow-sm px-4 py-3 flex items-center justify-between"
         >
           <div>
             <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">Active Ticket</p>
@@ -137,13 +137,13 @@ export default async function MobilePage() {
 
         {/* Construction crew: Field Surveys one tap from the home screen */}
         {surveyFirst && (
-          <Link href="/construction/surveys" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-sm">
+          <Link href="/construction/surveys" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-sm">
             <span>📸 Field Surveys</span>
             <span className="text-2xl opacity-80">→</span>
           </Link>
         )}
         {surveyFirst && (
-          <Link href="/construction/surveys/tests" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg shadow-sm">
+          <Link href="/construction/surveys/tests" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-emerald-600 hover:bg-emerald-600/90 text-white font-bold text-lg shadow-sm">
             <span>💧 Sump / Spill Bucket Test</span>
             <span className="text-2xl opacity-80">→</span>
           </Link>
@@ -152,7 +152,7 @@ export default async function MobilePage() {
         {/* Field service ticket — sign on the phone, invoice from the office */}
         <Link
           href="/mobile/service-ticket"
-          className="flex items-center justify-between w-full rounded-2xl px-6 py-4 bg-white border border-gray-200 shadow-sm font-semibold text-gray-900"
+          className="rp-card flex items-center justify-between w-full px-6 py-4 font-semibold text-gray-900"
         >
           <span>🧾 Service Ticket</span>
           <span className="text-gray-400">→</span>
@@ -172,60 +172,60 @@ export default async function MobilePage() {
 
         {/* Secondary actions grid */}
         <div className="grid grid-cols-2 gap-3">
-          <Link href="/shop/status" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+          <Link href="/shop/status" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">🏷️</span>
             <span className="text-sm font-semibold text-gray-800">Set Status</span>
           </Link>
 
-          <Link href="/shop/my-tasks" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors relative">
+          <Link href="/shop/my-tasks" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2 relative">
             <span className="text-3xl">📋</span>
             <span className="text-sm font-semibold text-gray-800">My Tasks</span>
             {(myTaskCount ?? 0) > 0 && (
-              <span className="absolute top-3 right-3 w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+              <span className="absolute top-3 right-3 w-5 h-5 bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center">
                 {myTaskCount}
               </span>
             )}
           </Link>
 
-          <Link href="/mobile/report-issue" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+          <Link href="/mobile/report-issue" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">⚠️</span>
             <span className="text-sm font-semibold text-gray-800">Report Issue</span>
           </Link>
 
-          <Link href="/mobile/mileage" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+          <Link href="/mobile/mileage" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">🚗</span>
             <span className="text-sm font-semibold text-gray-800">Log Mileage</span>
           </Link>
 
-          <Link href="/mobile/daily-update" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+          <Link href="/mobile/daily-update" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">📋</span>
             <span className="text-sm font-semibold text-gray-800">Daily Update</span>
           </Link>
           {canSurvey && !surveyFirst && (
-            <Link href="/construction/surveys" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+            <Link href="/construction/surveys" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">📸</span>
               <span className="text-sm font-semibold text-gray-800">Field Survey</span>
             </Link>
           )}
           {canSurvey && !surveyFirst && (
-            <Link href="/construction/surveys/tests" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+            <Link href="/construction/surveys/tests" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">💧</span>
               <span className="text-sm font-semibold text-gray-800">Sump / Spill Test</span>
             </Link>
           )}
 
-          <Link href="/shop/general-time" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+          <Link href="/shop/general-time" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">⏱️</span>
             <span className="text-sm font-semibold text-gray-800">Log Shop Time</span>
           </Link>
 
           {isManager ? (
-            <Link href="/maintenance" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+            <Link href="/maintenance" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">📊</span>
               <span className="text-sm font-semibold text-gray-800">Maintenance Dashboard</span>
             </Link>
           ) : (
-            <Link href="/tickets" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+            <Link href="/tickets" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">🔧</span>
               <span className="text-sm font-semibold text-gray-800">All Tickets</span>
             </Link>
@@ -233,14 +233,14 @@ export default async function MobilePage() {
 
           {/* Owners & managers — admin access on any device */}
           {canAdmin && (
-            <Link href="/settings" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+            <Link href="/settings" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">⚙️</span>
               <span className="text-sm font-semibold text-gray-800">Settings</span>
             </Link>
           )}
 
           {canAdmin && (
-            <Link href="/settings/users" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+            <Link href="/settings/users" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">👥</span>
               <span className="text-sm font-semibold text-gray-800">Users</span>
             </Link>

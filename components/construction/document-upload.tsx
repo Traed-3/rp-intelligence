@@ -54,7 +54,7 @@ export function DocumentUpload({
       <select
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        className="px-2.5 py-2 text-sm border border-gray-300 rounded-lg bg-white"
+        className="px-2.5 py-2 text-sm border border-gray-300 rounded-lg bg-card"
       >
         <option value="">Category… (auto-detect)</option>
         {CON_DOC_CATEGORIES.map(c => (

@@ -142,7 +142,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Schedule
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{title}</p>
@@ -151,8 +151,8 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           <Link href="/construction" className="text-sm text-gray-500 hover:text-gray-700 mr-1">← Construction</Link>
           {/* View toggle */}
           <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
-            <Link href={navHref('month', sp.date ?? '')} className={`px-3 py-2 ${view === 'month' ? 'bg-gray-900 text-white' : 'hover:bg-gray-50 text-gray-600'}`}>Month</Link>
-            <Link href={navHref('week', sp.date ?? '')} className={`px-3 py-2 ${view === 'week' ? 'bg-gray-900 text-white' : 'hover:bg-gray-50 text-gray-600'}`}>Week</Link>
+            <Link href={navHref('month', sp.date ?? '')} className={`px-3 py-2 ${view === 'month' ? 'bg-foreground text-background' : 'hover:bg-gray-50 text-gray-600'}`}>Month</Link>
+            <Link href={navHref('week', sp.date ?? '')} className={`px-3 py-2 ${view === 'week' ? 'bg-foreground text-background' : 'hover:bg-gray-50 text-gray-600'}`}>Week</Link>
           </div>
           <Link href={navHref(view, prevDate)} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronLeft className="w-4 h-4" /></Link>
           <Link href={navHref(view, '')} className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-50">Today</Link>
@@ -163,7 +163,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       {/* Status filter — also serves as the colour legend */}
       <div className="flex flex-wrap items-center gap-1.5 mb-4">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mr-0.5">Status</span>
-        <Link href={filterHref('')} className={`text-[10px] px-2 py-0.5 rounded-full border ${!stageFilter ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>All</Link>
+        <Link href={filterHref('')} className={`text-[10px] px-2 py-0.5 rounded-full border ${!stageFilter ? 'bg-foreground text-background border-foreground' : 'bg-card text-gray-600 border-gray-300 hover:bg-gray-50'}`}>All</Link>
         {orderedStages.map(s => (
           <Link key={s.value} href={filterHref(s.value)} className={`text-[10px] px-2 py-0.5 rounded-full border ${s.className} ${stageFilter === s.value ? 'ring-2 ring-gray-900 ring-offset-1' : hasJobs(s.value) ? 'opacity-100' : 'opacity-50 hover:opacity-90'}`}>{s.label}</Link>
         ))}
@@ -171,7 +171,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       </div>
 
       {view === 'month' ? (
-        <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
+        <div className="rp-card overflow-hidden">
           {/* Weekday header */}
           <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(w => (
@@ -185,7 +185,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
               const isToday = di === todayIso
               const dayEntries = byDay.get(di) ?? []
               return (
-                <div key={di} className={`min-h-28 border-b border-r border-gray-100 p-1.5 ${inMonth ? 'bg-white' : 'bg-gray-50/60'} ${isToday ? 'ring-2 ring-inset ring-blue-400' : ''}`}>
+                <div key={di} className={`min-h-28 border-b border-r border-gray-100 p-1.5 ${inMonth ? 'bg-card' : 'bg-gray-50/60'} ${isToday ? 'ring-2 ring-inset ring-blue-400' : ''}`}>
                   <div className={`text-[11px] font-semibold mb-1 ${inMonth ? 'text-gray-700' : 'text-gray-300'} ${isToday ? 'text-blue-600' : ''}`}>{d.getDate()}</div>
                   <div className="space-y-1">
                     {dayEntries.map(e => <EntryChip key={e.id} e={e} di={di} />)}
@@ -219,7 +219,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
 
       {/* Add form */}
       {canWrite && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 max-w-2xl mt-6">
+        <div className="rp-card p-5 max-w-2xl mt-6">
           <h3 className="font-semibold text-gray-900 mb-3">Add to Schedule</h3>
           <ScheduleEntryForm action={saveScheduleEntry.bind(null, null)} jobs={(jobs ?? []) as Job[]} defaultDate={rangeStart} />
         </div>

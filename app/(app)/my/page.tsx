@@ -88,7 +88,7 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
 
   const openCount = plate.now.length + plate.next.length
   const allCount = [...kindCounts.values()].reduce((a, b) => a + b, 0)
-  const chip = (on: boolean) => `px-3 py-1.5 rounded-full border text-[13px] font-semibold transition-colors ${on ? 'bg-blue-700 border-blue-700 text-white' : 'bg-card border-border text-foreground hover:bg-blue-50'}`
+  const chip = (on: boolean) => `px-3 py-1.5 rounded-full border text-[13px] font-semibold transition-colors ${on ? 'bg-primary border-primary text-primary-foreground' : 'bg-card border-border text-foreground hover:bg-blue-50'}`
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto overflow-x-hidden">
@@ -113,7 +113,7 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
 
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <div className="flex flex-wrap gap-1.5 text-xs">
-          <Link href={filterHref({ ...filters, kind: null })} className={`px-2.5 py-1 rounded-full border ${!kindFilter ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 text-gray-600 bg-card hover:bg-gray-50'}`}>All types {allCount}</Link>
+          <Link href={filterHref({ ...filters, kind: null })} className={`px-2.5 py-1 rounded-full border ${!kindFilter ? 'bg-foreground text-background border-foreground' : 'border-gray-300 text-gray-600 bg-card hover:bg-gray-50'}`}>All types {allCount}</Link>
           {(Object.keys(KIND_LABEL) as TaskKind[]).filter(k => kindCounts.get(k)).map(k => (
             <Link key={k} href={filterHref({ ...filters, kind: k })} className={`px-2.5 py-1 rounded-full border ${kindFilter === k ? 'ring-2 ring-offset-1 ring-gray-900 ' : ''}${KIND_CLASS[k]}`}>{KIND_LABEL[k]} {kindCounts.get(k)}</Link>
           ))}
@@ -176,7 +176,7 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
                 </select>
               </div>
               <textarea name="detail" rows={2} placeholder="Detail, numbers, who to call (start with SD if Starsky asked)" className="w-full rounded-md border border-gray-300 px-2.5 py-1.5" />
-              <button className="w-full rounded-md bg-blue-700 text-white py-1.5 text-sm font-semibold hover:bg-blue-800">Add</button>
+              <button className="w-full rounded-md bg-primary text-primary-foreground py-1.5 text-sm font-semibold hover:bg-primary/90">Add</button>
             </form>
           </section>
 
@@ -317,7 +317,7 @@ function TaskCard({ t, today, urls, waiting = false }: { t: TaskRow; today: stri
         </details>
       </div>
       <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:col-start-2 sm:row-start-1">
-        <form action={completeTask.bind(null, t.id)}><button className="px-4 py-1.5 rounded-md bg-emerald-700 border border-emerald-700 text-white text-[13px] font-semibold hover:bg-emerald-800">Done</button></form>
+        <form action={completeTask.bind(null, t.id)}><button className="px-4 py-1.5 rounded-md bg-emerald-600 border border-emerald-700 text-white text-[13px] font-semibold hover:bg-emerald-600/90">Done</button></form>
       </div>
     </li>
   )
@@ -369,7 +369,7 @@ function Resolver({ t }: { t: TaskRow }) {
           <input name="part_number" placeholder="WALK-BEHIND SAW" className={`${input} w-36`} />
           <select name="category" defaultValue="9" className={input}><option value="9">9 equipment</option><option value="10">10 disposables</option><option value="5">5 concrete / disposal</option><option value="11">11 sub</option><option value="12">12 permit</option></select>
         </label>
-        <button className="px-2 py-0.5 rounded bg-amber-600 text-white hover:bg-amber-700">Apply to quote</button>
+        <button className="px-2 py-0.5 rounded bg-amber-600 text-white hover:bg-amber-600/90">Apply to quote</button>
       </form>
     )
   }
@@ -383,9 +383,9 @@ function Resolver({ t }: { t: TaskRow }) {
             <div className="text-gray-700"><b>To</b> {d.to} · <b>Cc</b> {d.cc.join(', ')}</div>
             <div className="text-gray-700"><b>Subject</b> {d.subject}</div>
             {a.attachments?.length ? <div className="text-gray-700"><b>Attach</b> {a.attachments.map(x => x.name).join(', ')}{a.survey_id && <> · <a href={`/api/construction/surveys/${a.survey_id}/pdf`} target="_blank" rel="noopener" className="text-blue-600 hover:underline">open PDF</a></>} <span className="text-gray-400">(Proton push attaches it; mail link cannot)</span></div> : null}
-            <pre className="whitespace-pre-wrap font-sans text-gray-700 bg-white rounded border border-emerald-100 p-2 max-h-48 overflow-auto">{d.body}</pre>
+            <pre className="whitespace-pre-wrap font-sans text-gray-700 bg-card rounded border border-emerald-100 p-2 max-h-48 overflow-auto">{d.body}</pre>
             <div className="flex flex-wrap items-center gap-1.5">
-              <a href={mailtoHref(d)} className="px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-700">Open in mail</a>
+              <a href={mailtoHref(d)} className="px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-600/90">Open in mail</a>
               <CopyButton text={`To: ${d.to}\nCc: ${d.cc.join(', ')}\nSubject: ${d.subject}\n\n${d.body}`} label="Copy email" />
               <form action={markOrderSent.bind(null, t.id)} className="flex items-center gap-1"><input name="who" defaultValue="Shannon (PO#)" className={`${input} w-28`} /><button className="px-2 py-0.5 rounded border border-emerald-300 text-emerald-800 hover:bg-emerald-100">I sent it → waiting</button></form>
             </div>
@@ -424,7 +424,7 @@ function OrderForm({ t, a, input }: { t: TaskRow; a: { vendor?: OrderVendorKey; 
       <div className="flex flex-wrap items-center gap-1.5">
         <input name="note" placeholder="extra line (optional)" className={`${input} w-64`} />
         <label className="flex items-center gap-1"><input type="checkbox" name="ask_po" value="on" defaultChecked /> ask Shannon for a PO#</label>
-        <button className="px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-700">Draft it</button>
+        <button className="px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-600/90">Draft it</button>
       </div>
     </form>
   )

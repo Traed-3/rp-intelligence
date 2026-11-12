@@ -95,33 +95,33 @@ export default async function ShopPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Shop</h1>
+          <h1 className="rp-title">Shop</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {clockedInCount} of {employees?.length ?? 0} employee{employees?.length !== 1 ? 's' : ''} clocked in
           </p>
         </div>
         <Link
           href="/shop/clock"
-          className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           Clock In / Out
         </Link>
       </div>
 
       {/* Live employee status table */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+      <div className="rp-card overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
           <h2 className="font-semibold text-gray-900 text-sm">Live Employee Status</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-50">
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Employee</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Clock</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Current Status</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Working On</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-500">Hours Today</th>
+                <th className="text-left px-4 py-3">Employee</th>
+                <th className="text-left px-4 py-3">Clock</th>
+                <th className="text-left px-4 py-3">Current Status</th>
+                <th className="text-left px-4 py-3 hidden md:table-cell">Working On</th>
+                <th className="text-right px-4 py-3">Hours Today</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -169,7 +169,7 @@ export default async function ShopPage() {
       </div>
 
       {/* Open tickets */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900 text-sm">Active Tickets</h2>
           <Link href="/tickets" className="text-xs text-blue-600 hover:text-blue-800 font-medium">View all →</Link>

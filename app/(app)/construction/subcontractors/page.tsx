@@ -19,7 +19,7 @@ export default async function SubcontractorsPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Subcontractors
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{list.length} subcontractor{list.length !== 1 ? 's' : ''}</p>
@@ -27,7 +27,7 @@ export default async function SubcontractorsPage() {
         <Link href="/construction" className="text-sm text-gray-500 hover:text-gray-700">← Construction</Link>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+      <div className="rp-card overflow-hidden mb-5">
         {list.length === 0 ? (
           <div className="p-12 text-center">
             <HardHat className="w-8 h-8 text-gray-300 mx-auto mb-3" />
@@ -35,7 +35,7 @@ export default async function SubcontractorsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className={th}>Name</th>
@@ -71,7 +71,7 @@ export default async function SubcontractorsPage() {
       </div>
 
       {canWrite && (
-        <details className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+        <details className="rp-card">
           <summary className="px-5 py-4 cursor-pointer font-semibold text-gray-900 flex items-center gap-2"><Plus className="w-4 h-4 text-blue-600" />Add Subcontractor</summary>
           <div className="px-5 pb-5">
             <SubcontractorForm action={saveSubcontractor.bind(null, null)} />

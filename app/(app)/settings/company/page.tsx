@@ -42,10 +42,10 @@ export default async function CompanySettingsPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">← Settings</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Company Settings</h1>
+        <h1 className="rp-title">Company Settings</h1>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="rp-card p-6">
         <form action={saveCompany} className="space-y-5">
           <div>
             <label className={lbl}>Company Name</label>
@@ -60,7 +60,7 @@ export default async function CompanySettingsPage() {
               <option value="America/Los_Angeles">Pacific Time (PT)</option>
             </select>
           </div>
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+          <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
             Save Changes
           </button>
         </form>

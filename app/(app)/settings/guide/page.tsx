@@ -15,7 +15,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-4 mb-5">
-      <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
+      <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
         {n}
       </div>
       <div>
@@ -46,12 +46,12 @@ export default async function GuidePage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">← Settings</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">User Guide</h1>
+        <h1 className="rp-title">User Guide</h1>
       </div>
 
       {/* Tab-style navigation */}
       <div className="flex gap-2 mb-8">
-        <a href="#owner" className="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium">Owner / Manager</a>
+        <a href="#owner" className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium">Owner / Manager</a>
         <a href="#employee" className="px-4 py-2 rounded-full border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50">Shop Employees</a>
         <a href="#construction" className="px-4 py-2 rounded-full border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50">Construction</a>
         <a href="#iphone" className="px-4 py-2 rounded-full border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50">iPhone Setup</a>
@@ -173,7 +173,7 @@ export default async function GuidePage() {
             href="https://claude.ai/artifact/Tb17WwUwmigqm9mVeA6pSY"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
           >
             Open the Construction Playbook →
           </a>

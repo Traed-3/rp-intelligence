@@ -36,7 +36,7 @@ export function MiscTasksCard({
 
   function renderBox(title: string, tint: string, list: Item[]) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         <div className={`px-3 py-2 border-b flex items-center justify-between ${tint}`}>
           <h3 className="text-xs font-bold uppercase tracking-wide">{title}</h3>
           <span className="text-xs font-bold opacity-70">{list.length}</span>

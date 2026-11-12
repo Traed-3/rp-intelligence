@@ -24,7 +24,7 @@ export default async function StockOverviewPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Stock on hand</h1>
+          <h1 className="rp-title">Stock on hand</h1>
           <p className="text-sm text-gray-500 mt-0.5">Every shelf and truck. Open one to set min/max, count it, or adjust.</p>
         </div>
         <div className="flex items-center gap-3">
@@ -33,8 +33,8 @@ export default async function StockOverviewPage() {
           <Link href="/inventory" className="text-sm text-gray-500 hover:text-gray-700">← Inventory</Link>
         </div>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto"><table className="w-full text-sm">
+      <div className="rp-card overflow-hidden">
+        <div className="overflow-x-auto"><table className="rp-table w-full text-sm">
           <thead><tr className="border-b border-gray-100 bg-gray-50"><th className={th}>Location</th><th className={`${th} hidden sm:table-cell`}>Kind</th><th className={`${th} hidden md:table-cell`}>Technician</th><th className={`${th} text-right`}>Parts</th><th className={`${th} text-right`}>Units</th><th className={`${th} text-right`}>Below min</th><th className={`${th} text-right hidden sm:table-cell`}>Inbound</th><th className="px-4 py-3" /></tr></thead>
           <tbody className="divide-y divide-gray-50">
             {list.map(l => { const s = stats.get(l.id) ?? { lines: 0, units: 0, below: 0 }; const tech = (l as unknown as { svc_technicians: { full_name: string } | null }).svc_technicians; return (

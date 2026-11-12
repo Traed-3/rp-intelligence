@@ -78,7 +78,7 @@ export function SignaturePad({
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+    <div className="rp-card p-4">
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-semibold text-gray-900 inline-flex items-center gap-1.5"><PenLine className="w-4 h-4 text-blue-600" />{title}</div>
         <button type="button" onClick={clear} className="text-xs text-gray-500 inline-flex items-center gap-1 hover:text-gray-800"><Eraser className="w-3.5 h-3.5" />Clear</button>
@@ -96,7 +96,7 @@ export function SignaturePad({
         aria-label={`${title} signature area`}
       />
       {error && <div className="text-xs text-red-600 mt-2">{error}</div>}
-      <button type="button" onClick={save} disabled={pending || disabled} className="mt-3 w-full rounded-xl bg-blue-600 text-white text-sm font-semibold py-2.5 disabled:opacity-50">
+      <button type="button" onClick={save} disabled={pending || disabled} className="mt-3 w-full rounded-xl bg-primary text-primary-foreground text-sm font-semibold py-2.5 disabled:opacity-50">
         {pending ? 'Saving…' : `Save ${title.toLowerCase()}`}
       </button>
     </div>
