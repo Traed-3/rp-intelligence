@@ -100,7 +100,7 @@ export default async function ConstructionDashboard() {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto overflow-x-hidden">
       <div className="mb-6">
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+        <h1 className="rp-title">
           Construction
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">Job pipeline, quotes, invoices & scheduling</p>
@@ -111,7 +111,7 @@ export default async function ConstructionDashboard() {
         {FOCUS_TILES.map(t => {
           const list = focus[t.key]
           return (
-            <section key={t.key} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col min-w-0">
+            <section key={t.key} className="rp-card overflow-hidden flex flex-col min-w-0">
               <div className={`px-3 py-2 flex items-start justify-between gap-2 ${t.band}`}>
                 <div className="min-w-0">
                   <h2 className="font-bold text-sm leading-tight break-words">{t.title}</h2>
@@ -159,7 +159,7 @@ export default async function ConstructionDashboard() {
       {/* Quick links */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
         {tiles.map(t => (
-          <Link key={t.href} href={t.href} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:border-blue-300 hover:shadow transition-all">
+          <Link key={t.href} href={t.href} className="rp-card rp-card-link p-4">
             <t.icon className="w-5 h-5 text-blue-600 mb-2" />
             <p className="text-sm font-semibold text-gray-900 break-words leading-tight">{t.label}</p>
             {t.value != null && <p className="text-xs text-gray-500 mt-0.5">{t.value}{t.sub ? ` ${t.sub}` : ''}</p>}
@@ -185,7 +185,7 @@ export default async function ConstructionDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {otherAlerts.map(a => (
           <Link key={a.key} href={`/construction/permits?alert=${a.key}`}
-            className={`rounded-2xl border shadow-sm p-4 transition-all ${a.count > 0 ? 'bg-white border-amber-300 hover:border-amber-400' : 'bg-gray-50 border-gray-200 hover:border-gray-300'}`}>
+            className={`rounded-2xl border shadow-sm p-4 transition-all ${a.count > 0 ? 'bg-card border-amber-300 hover:border-amber-400' : 'bg-gray-50 border-gray-200 hover:border-gray-300'}`}>
             <p className={`text-2xl font-bold ${a.count > 0 ? 'text-amber-600' : 'text-gray-300'}`}>{a.count}</p>
             <p className="text-xs font-semibold text-gray-700 mt-0.5 leading-tight">{a.label}</p>
           </Link>
@@ -194,7 +194,7 @@ export default async function ConstructionDashboard() {
 
       {/* Project notifications due */}
       {notifyDue.length > 0 && (
-        <div className="bg-white rounded-2xl border border-amber-300 shadow-sm overflow-hidden mb-6">
+        <div className="bg-card rounded-2xl border border-amber-300 shadow-sm overflow-hidden mb-6">
           <div className="px-5 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
             <h2 className="font-semibold text-amber-900 text-sm">⚠ Project Notifications to send</h2>
             <span className="text-xs font-semibold text-amber-800">{notifyDue.length}</span>
@@ -217,20 +217,20 @@ export default async function ConstructionDashboard() {
       )}
 
       {/* Pipeline counts */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6">
+      <div className="rp-card p-5 mb-6">
         <h2 className="font-semibold text-gray-900 mb-3">Pipeline by Stage</h2>
         <div className="flex flex-wrap gap-2">
           {stageCounts.map(s => (
             <Link key={s.value} href={`/construction/jobs?view=table&stage=${s.value}`}
               className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold ${s.className} hover:opacity-80`}>
-              {s.label}<span className="bg-white/60 rounded-full px-1.5">{s.count}</span>
+              {s.label}<span className="bg-card/60 rounded-full px-1.5">{s.count}</span>
             </Link>
           ))}
         </div>
       </div>
 
       {/* This week's schedule */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mt-6">
+      <div className="rp-card overflow-hidden mt-6">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">This Week&apos;s Schedule</h2>
           <Link href="/construction/schedule" className="text-xs font-medium text-blue-600 hover:text-blue-800">Open schedule →</Link>

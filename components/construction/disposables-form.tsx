@@ -130,7 +130,7 @@ export function DisposablesForm({
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={isPending} className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-60">
+        <button type="submit" disabled={isPending} className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg disabled:opacity-60">
           {isPending ? 'Saving…' : 'Save disposables'}
         </button>
         <button type="button" onClick={() => setOpen(false)} className="text-sm text-gray-500 hover:text-gray-800">

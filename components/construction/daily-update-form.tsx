@@ -68,7 +68,7 @@ export function DailyUpdateForm({
       className="relative space-y-4"
     >
       {sent && (
-        <div role="status" className="rp-sent-in absolute -inset-2 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-white text-center">
+        <div role="status" className="rp-sent-in absolute -inset-2 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-card text-center">
           <RingCheck className="text-rps-green-dark" />
           <div className="rp-sent-text">
             <p className="text-lg font-bold text-gray-900">Daily update sent</p>
@@ -78,7 +78,7 @@ export function DailyUpdateForm({
                 {jobs ? 'File another' : 'OK'}
               </button>
               {jobs && (
-                <Link href="/mobile" className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white">Done</Link>
+                <Link href="/mobile" className="px-4 py-2 text-sm font-medium rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground">Done</Link>
               )}
             </div>
           </div>
@@ -157,7 +157,7 @@ export function DailyUpdateForm({
 
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
 
-      <button type="submit" disabled={isPending} className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-60">
+      <button type="submit" disabled={isPending} className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg disabled:opacity-60">
         {isPending ? 'Saving…' : 'Save daily update'}
       </button>
     </form>

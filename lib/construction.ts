@@ -44,18 +44,18 @@ export type ConProfile = { id: string; company_id: string; role: string }
 // accent4 FFC000, accent6 70AD47 (-50% = 385624, +40% = A9CE91), accent1 4472C4 (-50% = 223962), accent2 ED7D31 (+60% = F8CBAD), accent5 5B9BD5 (+40% = 9DC3E6).
 export const CON_STAGES = [
   { value: 'survey',            label: 'Survey',              className: 'bg-gray-100 text-gray-700 border border-gray-300' },
-  { value: 'quoting',           label: 'Quote',               className: 'bg-[#ED7D31] text-white border border-black/10' },
-  { value: 'permitting',        label: 'Permitting',          className: 'bg-[#223962] text-white border border-black/10' },
-  { value: 'material_ordering', label: 'Waiting on Material', className: 'bg-[#F8CBAD] text-black border border-black/10' },
-  { value: 'needs_scheduled',   label: 'Needs Scheduled',     className: 'bg-[#FFC000] text-black border border-black/10' },
-  { value: 'scheduled',         label: 'Scheduled',           className: 'bg-[#385624] text-white border border-black/10' },
-  { value: 'in_progress',       label: 'In-Progress',         className: 'bg-[#04FAE1] text-black border border-black/10' },
-  { value: 'on_hold',           label: 'On Hold',             className: 'bg-[#C00000] text-white border border-black/10' },
-  { value: 'return_needed',     label: 'Return Needed',       className: 'bg-[#FF0000] text-white border border-black/10' },
-  { value: 'close_out',         label: 'Close Out/Invoice',   className: 'bg-[#7030A0] text-white border border-black/10' },
-  { value: 'invoicing',         label: 'Need Invoiced',       className: 'bg-[#FFFF00] text-black border border-black/10' },
-  { value: 'complete',          label: 'Complete',            className: 'bg-[#A9CE91] text-black border border-black/10' },
-  { value: 'overspill_program', label: 'Overspill Program',   className: 'bg-[#9DC3E6] text-black border border-black/10' },
+  { value: 'quoting',           label: 'Quote',               className: 'rp-stage rp-stage-quoting' },
+  { value: 'permitting',        label: 'Permitting',          className: 'rp-stage rp-stage-permitting' },
+  { value: 'material_ordering', label: 'Waiting on Material', className: 'rp-stage rp-stage-material-ordering' },
+  { value: 'needs_scheduled',   label: 'Needs Scheduled',     className: 'rp-stage rp-stage-needs-scheduled' },
+  { value: 'scheduled',         label: 'Scheduled',           className: 'rp-stage rp-stage-scheduled' },
+  { value: 'in_progress',       label: 'In-Progress',         className: 'rp-stage rp-stage-in-progress' },
+  { value: 'on_hold',           label: 'On Hold',             className: 'rp-stage rp-stage-on-hold' },
+  { value: 'return_needed',     label: 'Return Needed',       className: 'rp-stage rp-stage-return-needed' },
+  { value: 'close_out',         label: 'Close Out/Invoice',   className: 'rp-stage rp-stage-close-out' },
+  { value: 'invoicing',         label: 'Need Invoiced',       className: 'rp-stage rp-stage-invoicing' },
+  { value: 'complete',          label: 'Complete',            className: 'rp-stage rp-stage-complete' },
+  { value: 'overspill_program', label: 'Overspill Program',   className: 'rp-stage rp-stage-overspill-program' },
 ] as const
 
 export const CON_STAGE_VALUES = CON_STAGES.map(s => s.value)

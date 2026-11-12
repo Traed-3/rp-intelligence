@@ -67,8 +67,8 @@ export default async function ContactsPage({
             href={k.value ? `/construction/contacts?kind=${k.value}` : '/construction/contacts'}
             className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${
               (sp.kind ?? '') === k.value
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-gray-600 border-gray-200 hover:border-blue-300'
             }`}
           >
             {k.label}
@@ -88,19 +88,19 @@ export default async function ContactsPage({
         </form>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         {!contacts?.length ? (
           <p className="px-4 py-8 text-sm text-gray-400">No contacts match.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Type</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Email</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Phone</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Works for</th>
+                  <th className="text-left px-4 py-3">Name</th>
+                  <th className="text-left px-4 py-3">Type</th>
+                  <th className="text-left px-4 py-3 hidden md:table-cell">Email</th>
+                  <th className="text-left px-4 py-3">Phone</th>
+                  <th className="text-left px-4 py-3 hidden lg:table-cell">Works for</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">

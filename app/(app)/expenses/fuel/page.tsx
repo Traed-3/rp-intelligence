@@ -28,17 +28,17 @@ export default async function FuelPage() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
         <Link href="/expenses" className="text-sm text-gray-500 hover:text-gray-700">← Expenses</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">Fuel Receipt</h1>
+        <h1 className="rp-title mt-2">Fuel Receipt</h1>
         <p className="text-sm text-gray-500 mt-0.5">Log a fill-up. Mileage auto-updates the asset record.</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
+      <div className="rp-card p-6 mb-6">
         <FuelForm action={createFuelEntry} assets={assets ?? []} paymentMethods={paymentMethods ?? []} today={today} />
       </div>
 
       {/* Recent fuel entries */}
       {recentFuel && recentFuel.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
             <h2 className="font-semibold text-sm text-gray-900">Recent Fill-Ups</h2>
           </div>

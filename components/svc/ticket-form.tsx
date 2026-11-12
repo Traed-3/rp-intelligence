@@ -11,7 +11,7 @@ import { saveTicketDetails, addLabor, removeLabor, addPart, removePart, addPhoto
 
 const inp = 'w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500'
 const lbl = 'block text-xs font-medium text-gray-600 mb-1'
-const card = 'bg-white rounded-2xl border border-gray-200 shadow-sm p-4'
+const card = 'rp-card p-4'
 
 export type TicketRecord = {
   id: string; ticket_number: string; status: string; brand: string | null; store_number: string | null; csr_number: string | null; po_number: string | null
@@ -73,7 +73,7 @@ export function TicketForm({ ticket, labor, parts, photos, trucks, techs, canWri
         <div><label className={lbl} htmlFor="t-work">Work performed <span className="text-gray-400">(this becomes the invoice description)</span></label>
           <textarea id="t-work" name="work_performed" rows={4} className={inp} defaultValue={ticket.work_performed ?? ''} disabled={!editable} placeholder="Arrived on site. Found… Replaced… Tested, all functions normal." /></div>
         <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="needs_quote" defaultChecked={!!ticket.needs_quote} disabled={!editable} className="w-4 h-4 rounded border-gray-300" />Needs a quote before more work (over NTE)</label>
-        {canWrite && <button type="submit" disabled={pending} className="w-full rounded-xl bg-blue-600 text-white text-sm font-semibold py-2.5 disabled:opacity-50">{pending ? 'Saving…' : 'Save details'}</button>}
+        {canWrite && <button type="submit" disabled={pending} className="w-full rounded-xl bg-primary text-primary-foreground text-sm font-semibold py-2.5 disabled:opacity-50">{pending ? 'Saving…' : 'Save details'}</button>}
       </form>
 
       {/* Labor */}

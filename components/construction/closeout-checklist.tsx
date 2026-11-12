@@ -70,7 +70,7 @@ export function CloseoutChecklist({
   const done = tasks.filter(t => t.is_complete).length
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="rp-card overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <h2 className="font-semibold text-gray-900">Close-Out Punchlist</h2>
         <span className="text-xs text-gray-400">{done}/{tasks.length} done</span>
@@ -84,7 +84,7 @@ export function CloseoutChecklist({
               type="button"
               disabled={isSeeding}
               onClick={() => startSeed(() => { onSeed() })}
-              className="px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-60"
             >
               {isSeeding ? 'Adding…' : 'Add standard checklist'}
             </button>

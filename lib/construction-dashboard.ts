@@ -58,11 +58,11 @@ export const FOCUS_TILES: {
   /** exact fill + font color of the matching legend cell in 1 - Master schedule.xlsm (Job List, B1:D4) */
   band: string
 }[] = [
-  { key: 'needs_scheduled', title: 'Needs Scheduled',        blurb: 'Open projects and heavy-maintenance calls that need a date and a crew.', linkStage: 'needs_scheduled', band: 'bg-[#FFC000] text-black' },
-  { key: 'parts_in',        title: 'Parts In, Waiting to Schedule', blurb: 'Material has been ordered and is here. Put it on the calendar.',   linkStage: 'material_ordering', band: 'bg-[#F8CBAD] text-black' },
-  { key: 'in_progress',     title: 'In Progress',            blurb: 'Crews are on these now.',                                             linkStage: 'in_progress', band: 'bg-[#04FAE1] text-black' },
-  { key: 'started',         title: 'Started, Not Complete',  blurb: 'Work began but the job is parked: on hold, return trip, or the start date passed.', linkStage: 'on_hold', band: 'bg-[#C00000] text-white' },
-  { key: 'needs_invoicing', title: 'Complete, Needs Invoicing', blurb: 'Field work is done. Close out and send the final invoice.',      linkStage: 'invoicing', band: 'bg-[#FFFF00] text-black' },
+  { key: 'needs_scheduled', title: 'Needs Scheduled',        blurb: 'Open projects and heavy-maintenance calls that need a date and a crew.', linkStage: 'needs_scheduled', band: 'rp-stage rp-stage-needs-scheduled' },
+  { key: 'parts_in',        title: 'Parts In, Waiting to Schedule', blurb: 'Material has been ordered and is here. Put it on the calendar.',   linkStage: 'material_ordering', band: 'rp-stage rp-stage-material-ordering' },
+  { key: 'in_progress',     title: 'In Progress',            blurb: 'Crews are on these now.',                                             linkStage: 'in_progress', band: 'rp-stage rp-stage-in-progress' },
+  { key: 'started',         title: 'Started, Not Complete',  blurb: 'Work began but the job is parked: on hold, return trip, or the start date passed.', linkStage: 'on_hold', band: 'rp-stage rp-stage-on-hold' },
+  { key: 'needs_invoicing', title: 'Complete, Needs Invoicing', blurb: 'Field work is done. Close out and send the final invoice.',      linkStage: 'invoicing', band: 'rp-stage rp-stage-invoicing' },
 ]
 
 export function emptyTally(): MaterialTally {

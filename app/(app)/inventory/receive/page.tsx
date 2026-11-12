@@ -19,7 +19,7 @@ export default async function ReceivePage({ searchParams }: { searchParams: Prom
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Receive stock</h1>
+          <h1 className="rp-title">Receive stock</h1>
           <p className="text-sm text-gray-500 mt-0.5">Parts arriving from a packing slip, a vendor invoice, or the counter. The cost you type here becomes the part&apos;s receipt cost.</p>
         </div>
         <div className="flex items-center gap-3">
@@ -29,14 +29,14 @@ export default async function ReceivePage({ searchParams }: { searchParams: Prom
       </div>
 
       {canWrite ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6"><ReceiveForm locations={locations ?? []} defaultLocation={loc} /></div>
+        <div className="rp-card p-5 mb-6"><ReceiveForm locations={locations ?? []} defaultLocation={loc} /></div>
       ) : <p className="text-sm text-gray-500 mb-6">Your role can view stock but not receive it.</p>}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         <h2 className="px-5 py-3 font-semibold text-gray-900 border-b border-gray-100">Recent receipts</h2>
         {(recent ?? []).length === 0 ? <p className="p-5 text-sm text-gray-400">Nothing received yet.</p> : (
-          <div className="overflow-x-auto"><table className="w-full text-sm">
-            <thead><tr className="bg-gray-50 text-gray-500 text-xs"><th className="text-left px-4 py-2 font-medium">When</th><th className="text-left px-4 py-2 font-medium">Part</th><th className="text-right px-4 py-2 font-medium">Qty</th><th className="text-right px-4 py-2 font-medium">Cost</th><th className="text-left px-4 py-2 font-medium">Into</th><th className="text-left px-4 py-2 font-medium hidden md:table-cell">Ref</th><th className="text-left px-4 py-2 font-medium hidden md:table-cell">By</th></tr></thead>
+          <div className="overflow-x-auto"><table className="rp-table w-full text-sm">
+            <thead><tr className="bg-gray-50 text-gray-500 text-xs"><th className="text-left px-4 py-2">When</th><th className="text-left px-4 py-2">Part</th><th className="text-right px-4 py-2">Qty</th><th className="text-right px-4 py-2">Cost</th><th className="text-left px-4 py-2">Into</th><th className="text-left px-4 py-2 hidden md:table-cell">Ref</th><th className="text-left px-4 py-2 hidden md:table-cell">By</th></tr></thead>
             <tbody className="divide-y divide-gray-50">
               {(recent ?? []).map(r => { const p = (r as unknown as { parts: { part_number: string | null; description: string } | null }).parts; const l = (r as unknown as { stock_locations: { name: string } | null }).stock_locations; const u = (r as unknown as { profiles: { full_name: string } | null }).profiles; return (
                 <tr key={r.id}>

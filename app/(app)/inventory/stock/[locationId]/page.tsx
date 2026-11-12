@@ -38,7 +38,7 @@ export default async function LocationStockPage({ params }: { params: Promise<{ 
         <Link href="/inventory/stock" className="text-sm text-gray-500 hover:text-gray-700">← Stock on hand</Link>
         <div className="flex flex-wrap items-center justify-between gap-3 mt-2">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{loc.name}</h1>
+            <h1 className="rp-title">{loc.name}</h1>
             <p className="text-sm text-gray-500">{kind}{asset ? ` · ${asset.unit_number}${asset.name ? ` ${asset.name}` : ''}` : ''}{tech ? ` · ${tech.full_name}` : ''}</p>
           </div>
           <div className="flex gap-2">
@@ -50,11 +50,11 @@ export default async function LocationStockPage({ params }: { params: Promise<{ 
 
       <LocationStock locationId={loc.id} rows={rows} canWrite={canWrite} />
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mt-5">
+      <div className="rp-card overflow-hidden mt-5">
         <h2 className="px-5 py-3 font-semibold text-gray-900 border-b border-gray-100">Recent movements</h2>
         {(history ?? []).length === 0 ? <p className="p-5 text-sm text-gray-400">No movements yet.</p> : (
-          <div className="overflow-x-auto"><table className="w-full text-sm">
-            <thead><tr className="bg-gray-50 text-gray-500 text-xs"><th className="text-left px-4 py-2 font-medium">When</th><th className="text-left px-4 py-2 font-medium">What</th><th className="text-left px-4 py-2 font-medium">Part</th><th className="text-right px-4 py-2 font-medium">Qty</th><th className="text-left px-4 py-2 font-medium hidden md:table-cell">Ref / note</th></tr></thead>
+          <div className="overflow-x-auto"><table className="rp-table w-full text-sm">
+            <thead><tr className="bg-gray-50 text-gray-500 text-xs"><th className="text-left px-4 py-2">When</th><th className="text-left px-4 py-2">What</th><th className="text-left px-4 py-2">Part</th><th className="text-right px-4 py-2">Qty</th><th className="text-left px-4 py-2 hidden md:table-cell">Ref / note</th></tr></thead>
             <tbody className="divide-y divide-gray-50">
               {(history ?? []).map(h => { const p = (h as unknown as { parts: { part_number: string | null; description: string } | null }).parts; const u = (h as unknown as { profiles: { full_name: string } | null }).profiles; return (
                 <tr key={h.id}>

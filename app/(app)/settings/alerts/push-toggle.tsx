@@ -135,7 +135,7 @@ export function PushToggle() {
     <button
       onClick={enable}
       disabled={busy}
-      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
     >
       <span>🔔</span>
       {busy ? 'Enabling…' : 'Enable Push Notifications for This Browser'}

@@ -28,10 +28,10 @@ const CLIENT_FILTERS = [
 
 // Rank 1 = most urgent .. 4 = routine (matches PriorityBadge's PRIORITY_CLASS).
 const PRIORITY_FILTERS = [
-  { rank: 1, label: 'P1 · Critical',  activeClass: 'bg-red-600 text-white border-red-600',       idleClass: 'bg-white text-red-700 border-red-200 hover:border-red-400' },
-  { rank: 2, label: 'P2 · Emergency', activeClass: 'bg-orange-600 text-white border-orange-600', idleClass: 'bg-white text-orange-700 border-orange-200 hover:border-orange-400' },
-  { rank: 3, label: 'P3 · Rush',      activeClass: 'bg-amber-600 text-white border-amber-600',   idleClass: 'bg-white text-amber-700 border-amber-200 hover:border-amber-400' },
-  { rank: 4, label: 'P4 · Routine',   activeClass: 'bg-blue-600 text-white border-blue-600',     idleClass: 'bg-white text-blue-700 border-blue-200 hover:border-blue-400' },
+  { rank: 1, label: 'P1 · Critical',  activeClass: 'bg-red-600 text-white border-red-600',       idleClass: 'bg-card text-red-700 border-red-200 hover:border-red-400' },
+  { rank: 2, label: 'P2 · Emergency', activeClass: 'bg-orange-600 text-white border-orange-600', idleClass: 'bg-card text-orange-700 border-orange-200 hover:border-orange-400' },
+  { rank: 3, label: 'P3 · Rush',      activeClass: 'bg-amber-600 text-white border-amber-600',   idleClass: 'bg-card text-amber-700 border-amber-200 hover:border-amber-400' },
+  { rank: 4, label: 'P4 · Routine',   activeClass: 'bg-primary text-primary-foreground border-primary',     idleClass: 'bg-card text-blue-700 border-blue-200 hover:border-blue-400' },
 ]
 
 export default async function ServiceDispatchPage({
@@ -228,7 +228,7 @@ export default async function ServiceDispatchPage({
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Service Dispatch
           </h1>
           <Link href="/service/tickets" className="ml-3 text-sm text-blue-600 hover:text-blue-800 align-middle">Field tickets →</Link>
@@ -241,8 +241,8 @@ export default async function ServiceDispatchPage({
         </div>
         {!showArchived && !oldOnly && (
           <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
-            <Link href={layoutHref('board')} className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${boardView ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}><LayoutGrid className="w-3.5 h-3.5" />Tiles</Link>
-            <Link href={layoutHref('list')} className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${!boardView ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}><List className="w-3.5 h-3.5" />List</Link>
+            <Link href={layoutHref('board')} className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${boardView ? 'bg-primary text-primary-foreground' : 'bg-card text-gray-600'}`}><LayoutGrid className="w-3.5 h-3.5" />Tiles</Link>
+            <Link href={layoutHref('list')} className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${!boardView ? 'bg-primary text-primary-foreground' : 'bg-card text-gray-600'}`}><List className="w-3.5 h-3.5" />List</Link>
           </div>
         )}
       </div>
@@ -267,10 +267,10 @@ export default async function ServiceDispatchPage({
             defaultValue={term}
             autoComplete="off"
             placeholder="Search WO #, site #, incident, store name, address, tech, construction job…"
-            className="w-full text-sm border border-gray-300 rounded-lg pl-9 pr-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full text-sm border border-gray-300 rounded-lg pl-9 pr-3 py-2 bg-card focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <button type="submit" className="text-sm font-medium bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700">Search</button>
+        <button type="submit" className="text-sm font-medium bg-primary text-primary-foreground rounded-lg px-4 py-2 hover:bg-primary/90">Search</button>
         {searching && <Link href={buildHref({ q: '' })} className="text-sm text-gray-500 hover:text-gray-800 px-2">Clear</Link>}
       </form>
 
@@ -296,8 +296,8 @@ export default async function ServiceDispatchPage({
             href={rtnFilterHref()}
             className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
               rtnOnly
-                ? 'bg-red-800 text-white border-red-800'
-                : 'bg-white text-red-700 border-red-200 hover:border-red-400'
+                ? 'bg-red-600 text-white border-red-800'
+                : 'bg-card text-red-700 border-red-200 hover:border-red-400'
             }`}
           >
             ⟲ RTN — Return Trip Needed
@@ -306,8 +306,8 @@ export default async function ServiceDispatchPage({
             href={staleFilterHref()}
             className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
               staleOnly
-                ? 'bg-gray-800 text-white border-gray-800'
-                : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'
+                ? 'bg-foreground text-background border-foreground'
+                : 'bg-card text-gray-600 border-gray-300 hover:border-gray-500'
             }`}
           >
             ⏰ Updates Needed (7+ Days)
@@ -316,8 +316,8 @@ export default async function ServiceDispatchPage({
             href={oldFilterHref()}
             className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
               oldOnly
-                ? 'bg-slate-700 text-white border-slate-700'
-                : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500'
+                ? 'bg-slate-600 text-white border-slate-700'
+                : 'bg-card text-slate-600 border-slate-300 hover:border-slate-500'
             }`}
           >
             📦 60+ Days Old
@@ -326,8 +326,8 @@ export default async function ServiceDispatchPage({
             href={constructionFilterHref()}
             className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
               constructionOnly
-                ? 'bg-amber-700 text-white border-amber-700'
-                : 'bg-white text-amber-800 border-amber-300 hover:border-amber-500'
+                ? 'bg-amber-600 text-white border-amber-700'
+                : 'bg-card text-amber-800 border-amber-300 hover:border-amber-500'
             }`}
           >
             🏗 In Construction ({constructionCount})
@@ -337,19 +337,19 @@ export default async function ServiceDispatchPage({
 
       {/* Supervisor summary cards */}
       {!searching && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <Link href="/service" className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:border-blue-300 transition-colors">
+        <Link href="/service" className="rp-card rp-card-link p-4">
           <p className="text-2xl font-bold text-gray-900">{openCount ?? 0}</p>
           <p className="text-xs text-gray-500 mt-0.5">Open Work Orders</p>
         </Link>
-        <Link href="/service?view=stale" className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:border-red-300 transition-colors">
+        <Link href="/service?view=stale" className="rp-card rp-card-link p-4">
           <p className={`text-2xl font-bold ${staleCount ? 'text-red-600' : 'text-gray-900'}`}>{staleCount}</p>
           <p className="text-xs text-gray-500 mt-0.5">No Update in 7+ Days</p>
         </Link>
-        <Link href="/service?rtn=1" className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:border-red-300 transition-colors">
+        <Link href="/service?rtn=1" className="rp-card rp-card-link p-4">
           <p className={`text-2xl font-bold ${rtnCount ? 'text-red-600' : 'text-gray-900'}`}>{rtnCount ?? 0}</p>
           <p className="text-xs text-gray-500 mt-0.5">Return Trip Needed</p>
         </Link>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <div className="rp-card p-4">
           <p className={`text-2xl font-bold ${rejectedCount ? 'text-amber-600' : 'text-gray-900'}`}>{rejectedCount ?? 0}</p>
           <p className="text-xs text-gray-500 mt-0.5">Invoice Rejected</p>
         </div>
@@ -364,8 +364,8 @@ export default async function ServiceDispatchPage({
               href={statusFilterHref(f.value)}
               className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
                 status === f.value && !staleOnly && !oldOnly
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'
               }`}
             >
               {f.label}
@@ -383,8 +383,8 @@ export default async function ServiceDispatchPage({
               href={clientFilterHref(f.value)}
               className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                 client === f.value
-                  ? 'bg-gray-800 text-white border-gray-800'
-                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-card text-gray-500 border-gray-200 hover:border-gray-400'
               }`}
             >
               {f.label}
@@ -395,8 +395,8 @@ export default async function ServiceDispatchPage({
           href={archivedFilterHref()}
           className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
             showArchived
-              ? 'bg-gray-800 text-white border-gray-800'
-              : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+              ? 'bg-foreground text-background border-foreground'
+              : 'bg-card text-gray-500 border-gray-200 hover:border-gray-400'
           }`}
         >
           🗄 {showArchived ? 'Back to Active' : 'Archived'}

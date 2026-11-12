@@ -27,7 +27,7 @@ export default async function ReceiveQueuePage({ searchParams }: { searchParams:
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Receive queue</h1>
+          <h1 className="rp-title">Receive queue</h1>
           <p className="text-sm text-gray-500 mt-0.5">Packing slips, vendor invoices and receipts pulled from the RPS inboxes. Open one, check the lines, put them into stock.</p>
         </div>
         <div className="flex items-center gap-3">
@@ -36,7 +36,7 @@ export default async function ReceiveQueuePage({ searchParams }: { searchParams:
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs text-gray-600 mb-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+      <div className="rp-card px-4 py-2.5 text-xs text-gray-600 mb-4 flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="font-medium text-gray-800">Inboxes</span>
         {inboxes.map(i => <span key={i.key} className="inline-flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${i.connected ? 'bg-green-500' : 'bg-gray-300'}`} />{i.email}{!i.connected && <span className="text-gray-400">(not connected)</span>}</span>)}
         <Link href="/settings" className="text-blue-600 hover:text-blue-800 ml-auto">Connect in Settings →</Link>
@@ -44,17 +44,17 @@ export default async function ReceiveQueuePage({ searchParams }: { searchParams:
 
       <div className="flex flex-wrap gap-2 mb-4">
         {TABS.map(([s, label]) => (
-          <Link key={s} href={`/inventory/receive/queue?status=${s}`} className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${status === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+          <Link key={s} href={`/inventory/receive/queue?status=${s}`} className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${status === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'}`}>
             {label}{s === 'new' && (newCount ?? 0) > 0 ? ` (${newCount})` : ''}
           </Link>
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         {(docs ?? []).length === 0 ? (
           <p className="p-8 text-center text-sm text-gray-400">{status === 'new' ? (connected.length ? 'Nothing waiting. New paperwork shows up here within 15 minutes of landing in an inbox.' : 'No inboxes are connected yet, so nothing can arrive here. Connect one in Settings → Billing inboxes.') : 'Nothing here.'}</p>
         ) : (
-          <div className="overflow-x-auto"><table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="rp-table w-full text-sm">
             <thead><tr className="border-b border-gray-100 bg-gray-50"><th className={th}>Received</th><th className={th}>Kind</th><th className={th}>From</th><th className={`${th} hidden md:table-cell`}>Subject</th><th className={`${th} hidden sm:table-cell`}>Ref</th><th className={`${th} text-right`}>Lines</th><th className="px-4 py-3" /></tr></thead>
             <tbody className="divide-y divide-gray-50">
               {(docs ?? []).map(d => {

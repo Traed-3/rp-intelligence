@@ -9,7 +9,7 @@ export function InboxSyncButton({ compact = false }: { compact?: boolean }) {
   const [state, action, pending] = useActionState(async () => runInboxSync(), {} as SyncState)
   return (
     <form action={action} className={compact ? 'inline-flex items-center gap-2' : 'space-y-2'}>
-      <button type="submit" disabled={pending} className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+      <button type="submit" disabled={pending} className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50">
         <RefreshCw className={`w-4 h-4 ${pending ? 'animate-spin' : ''}`} />{pending ? 'Syncing…' : 'Sync inboxes now'}
       </button>
       {state?.error && <span className="text-xs text-red-600">{state.error}</span>}

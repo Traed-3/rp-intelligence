@@ -19,7 +19,7 @@ export default async function CustomersPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Customers
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{customers?.length ?? 0} customer{customers?.length !== 1 ? 's' : ''}</p>
@@ -33,7 +33,7 @@ export default async function CustomersPage() {
       </div>
 
       {!customers?.length ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+        <div className="rp-card p-12 text-center">
           <Building2 className="w-8 h-8 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-400 text-sm">No customers yet.</p>
           {canWrite && (
@@ -43,15 +43,15 @@ export default async function CustomersPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Customer</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Contact</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Phone</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Sites</th>
+                  <th className="text-left px-4 py-3">Customer</th>
+                  <th className="text-left px-4 py-3 hidden sm:table-cell">Contact</th>
+                  <th className="text-left px-4 py-3 hidden md:table-cell">Phone</th>
+                  <th className="text-left px-4 py-3">Sites</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>

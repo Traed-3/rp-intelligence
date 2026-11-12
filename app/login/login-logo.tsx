@@ -12,7 +12,7 @@ export function LoginLogo() {
           <Image key={part} src="/logo-full-v4.png" alt="" width={1498} height={890} sizes="27rem" priority className={part} />
         ))}
         <svg viewBox="0 0 1498 890" fill="none" aria-hidden className="rp-logo-ring">
-          <circle cx="415" cy="445" r="306" stroke="#16243d" strokeWidth="9" pathLength={100} />
+          <circle cx="415" cy="445" r="306" stroke="var(--navy)" strokeWidth="9" pathLength={100} />
         </svg>
       </div>
       <p className="rp-logo-tag mt-3 text-sm text-gray-500">Rappahannock Petroleum Operations Platform</p>

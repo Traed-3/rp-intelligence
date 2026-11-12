@@ -83,7 +83,7 @@ export default async function EmployeeDetailPage({
       <div className="mb-6 flex items-center gap-3">
         <Link href="/shop/employees" className="text-sm text-gray-500 hover:text-gray-700">← Employees</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">{employee.full_name}</h1>
+        <h1 className="rp-title">{employee.full_name}</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -91,18 +91,18 @@ export default async function EmployeeDetailPage({
         <div className="lg:col-span-2 space-y-5">
           {/* Hours summary */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 text-center">
+            <div className="rp-card p-5 text-center">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Today</p>
               <p className="text-3xl font-bold text-gray-900">{minutesToDisplay(todayMins)}</p>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 text-center">
+            <div className="rp-card p-5 text-center">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Last 7 Days</p>
               <p className="text-3xl font-bold text-gray-900">{minutesToDisplay(weekMins)}</p>
             </div>
           </div>
 
           {/* Today's time entries */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-3">Today's Time Entries</h2>
             {!todayEntries?.length ? (
               <p className="text-sm text-gray-400">No entries today.</p>
@@ -128,7 +128,7 @@ export default async function EmployeeDetailPage({
           </div>
 
           {/* Assigned tickets */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-3">Assigned Tickets</h2>
             {!assignedTickets?.length ? (
               <p className="text-sm text-gray-400">No open tickets assigned.</p>
@@ -154,7 +154,7 @@ export default async function EmployeeDetailPage({
 
         {/* Right — status */}
         <div className="space-y-5">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-3">Current Status</h2>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
@@ -174,7 +174,7 @@ export default async function EmployeeDetailPage({
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-3">Employee Info</h2>
             <div className="space-y-1 text-sm text-gray-600">
               <p>{employee.email}</p>

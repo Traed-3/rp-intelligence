@@ -70,7 +70,7 @@ export function SitePicker({
       />
       {loading && <Search className="w-3.5 h-3.5 text-gray-300 absolute right-2 top-2.5 animate-pulse" />}
       {open && results.length > 0 && (
-        <ul className="absolute z-30 mt-1 w-[30rem] max-w-[90vw] max-h-72 overflow-auto rounded-xl border border-gray-200 bg-white shadow-lg text-sm" role="listbox">
+        <ul className="rp-card absolute z-30 mt-1 w-[30rem] max-w-[90vw] max-h-72 overflow-auto shadow-lg text-sm" role="listbox">
           {results.map(s => (
             <li key={s.id} role="option" aria-selected={false}>
               <button

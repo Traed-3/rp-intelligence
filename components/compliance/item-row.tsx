@@ -91,11 +91,11 @@ export function ItemRow({
             </div>
             {canWrite && (
               <div className="col-span-2 md:col-span-6 flex flex-wrap items-center gap-3 pt-1">
-                <button disabled={pending} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50">{pending ? 'Saving…' : 'Save'}</button>
+                <button disabled={pending} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 disabled:opacity-50">{pending ? 'Saving…' : 'Save'}</button>
                 <input ref={fileRef} type="file" accept="image/*,application/pdf" capture="environment" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
                 <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:border-blue-300 disabled:opacity-50">
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-card text-xs font-semibold text-gray-700 hover:border-blue-300 disabled:opacity-50">
                   <Upload className="w-3.5 h-3.5" />{uploading ? 'Uploading…' : item?.document_path ? 'Replace scan' : 'Upload card / document'}
                 </button>
                 {item?.document_path && <a href={`/api/compliance/documents/${item.id}`} target="_blank" className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"><Paperclip className="w-3.5 h-3.5" />{item.document_name ?? 'View document'}</a>}

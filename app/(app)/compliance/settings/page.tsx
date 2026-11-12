@@ -21,11 +21,11 @@ export default async function ComplianceSettingsPage() {
   const granted = new Set(settings.access_profile_ids ?? [])
   const byRole = (people ?? []).filter(p => p.is_active !== false && COMPLIANCE_READ_ROLES.includes(p.role))
   const others = (people ?? []).filter(p => p.is_active !== false && !COMPLIANCE_READ_ROLES.includes(p.role))
-  const card = 'bg-white rounded-2xl border border-gray-200 shadow-sm mb-6'
+  const card = 'rp-card mb-6'
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <Link href="/compliance" className="text-sm text-gray-500 hover:text-gray-700">← DQF &amp; Certifications</Link>
-      <h1 className="text-2xl font-bold text-gray-900 tracking-tight mt-2 mb-5">Notices &amp; settings</h1>
+      <h1 className="rp-title mt-2 mb-5">Notices &amp; settings</h1>
 
       <section className={`${card} p-5`}>
         <h2 className="font-semibold text-gray-900 mb-4">Expiry notices</h2>
@@ -45,7 +45,7 @@ export default async function ComplianceSettingsPage() {
               <span>{p.full_name ?? p.email} <span className="text-xs text-gray-400">({p.role})</span></span>
             </label>
           ))}
-          {canManageAccess && <div className="sm:col-span-2 lg:col-span-3 pt-2"><button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">Save access</button></div>}
+          {canManageAccess && <div className="sm:col-span-2 lg:col-span-3 pt-2"><button className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90">Save access</button></div>}
         </form>
       </section>
 
@@ -71,7 +71,7 @@ export default async function ComplianceSettingsPage() {
       <section className={card}>
         <h2 className="px-4 py-3 border-b border-gray-100 font-semibold text-gray-900">Recently sent notices</h2>
         {!log?.length ? <p className="px-4 py-4 text-sm text-gray-400">Nothing sent yet.</p> : (
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <tbody className="divide-y divide-gray-50">
               {log.map(l => {
                 const rel = l.hr_employee_items as unknown as { hr_employees: { full_name: string } | null; hr_requirement_types: { name: string } | null } | null

@@ -36,7 +36,7 @@ export default async function WorkOrderDocReviewPage({ params }: { params: Promi
         <Link href="/service/tickets/inbox" className="text-sm text-gray-500 hover:text-gray-700">← Completed Ticket Review</Link>
         <div className="flex flex-wrap items-start justify-between gap-3 mt-2">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{wo?.site_number ?? 'Unmatched work order'}</h1>
+            <h1 className="rp-title">{wo?.site_number ?? 'Unmatched work order'}</h1>
             <p className="text-sm text-gray-500">
               {wo?.portal_wo_number && <span className="font-mono">{wo.portal_wo_number}</span>}
               {wo?.site_address && ` · ${wo.site_address}`}
@@ -62,7 +62,7 @@ export default async function WorkOrderDocReviewPage({ params }: { params: Promi
         <div className="lg:col-span-2 space-y-3">
           <h2 className="text-sm font-semibold text-gray-700">Attachment{attachments.length !== 1 ? 's' : ''}</h2>
           {attachments.map((a, i) => (
-            <div key={a.path} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3">
+            <div key={a.path} className="rp-card p-3">
               <p className="text-xs text-gray-500 mb-1">{a.name}</p>
               {urls[i] ? (
                 /^image\//.test(a.mime) ? (

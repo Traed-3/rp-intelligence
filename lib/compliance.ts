@@ -165,7 +165,7 @@ export const HEALTH_STYLE: Record<Health, { label: string; cls: string; dot: str
   no_date:      { label: 'On file',      cls: 'bg-blue-50 text-blue-700 border-blue-200',       dot: 'bg-blue-400' },
   in_progress:  { label: 'In progress',  cls: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-400' },
   missing:      { label: 'Missing',      cls: 'bg-gray-100 text-gray-600 border-gray-200',      dot: 'bg-gray-300' },
-  not_required: { label: 'N/A',          cls: 'bg-white text-gray-400 border-gray-200',         dot: 'bg-gray-200' },
+  not_required: { label: 'N/A',          cls: 'bg-card text-gray-400 border-gray-200',         dot: 'bg-gray-200' },
 }
 
 /** One item's standing today. `soonDays` = the widest notice window (e.g. 60). */

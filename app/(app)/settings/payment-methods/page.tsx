@@ -37,7 +37,7 @@ export default async function PaymentMethodsPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">← Settings</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Payment Methods</h1>
+        <h1 className="rp-title">Payment Methods</h1>
       </div>
 
       <p className="text-sm text-gray-500 mb-6">
@@ -46,7 +46,7 @@ export default async function PaymentMethodsPage() {
       </p>
 
       {/* Existing methods */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+      <div className="rp-card overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
           <h2 className="font-semibold text-sm text-gray-900">Current Codes</h2>
         </div>
@@ -78,7 +78,7 @@ export default async function PaymentMethodsPage() {
       </div>
 
       {/* Tech cards — card last-4 → whose card it is */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+      <div className="rp-card overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-sm text-gray-900">Cards (last 4 digits)</h2>
@@ -110,7 +110,7 @@ export default async function PaymentMethodsPage() {
                     {(people ?? []).map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                   </select>
                   {c.holder_label && <input type="hidden" name="holder_label" value={c.holder_label} />}
-                  <button type="submit" className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">Save</button>
+                  <button type="submit" className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90">Save</button>
                   <button formAction={deleteExpenseCard} name="id" value={c.id} className="text-xs px-2 py-1.5 rounded-lg text-gray-400 hover:text-red-600">Remove</button>
                 </form>
                 <p className="text-xs text-gray-400 mt-1">
@@ -132,12 +132,12 @@ export default async function PaymentMethodsPage() {
             <option value="">— Whose card? —</option>
             {(people ?? []).map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
           </select>
-          <button type="submit" className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">Add card</button>
+          <button type="submit" className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90">Add card</button>
         </form>
       </div>
 
       {/* Add new */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      <div className="rp-card p-5">
         <h2 className="font-semibold text-gray-900 mb-4">Add New Code</h2>
         <form action={addPaymentMethodDirect} className="flex gap-3">
           <input
@@ -151,7 +151,7 @@ export default async function PaymentMethodsPage() {
             className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Full name, e.g. Amazon Business Card"
           />
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+          <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
             Add
           </button>
         </form>

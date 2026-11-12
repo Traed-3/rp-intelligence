@@ -69,7 +69,7 @@ export function PasswordLoginForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
       >
         {isPending ? 'Signing in…' : 'Sign In'}
       </button>

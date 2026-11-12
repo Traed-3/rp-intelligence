@@ -61,7 +61,7 @@ export default async function MyTasksPage() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">My Tasks</h1>
+          <h1 className="rp-title">My Tasks</h1>
           <Link href="/shop/clock" className="text-sm text-blue-600">← Clock</Link>
         </div>
 
@@ -72,7 +72,7 @@ export default async function MyTasksPage() {
         )}
 
         {tickets.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+          <div className="rp-card p-8 text-center">
             <p className="text-gray-400 text-sm">No tickets assigned to you.</p>
           </div>
         ) : (
@@ -80,7 +80,7 @@ export default async function MyTasksPage() {
             {tickets.map((t) => {
               const isActiveOnThis = activeTicketId === t.id && hasActiveLaborEntry
               return (
-                <div key={t.id} className={`bg-white rounded-xl border transition-colors ${
+                <div key={t.id} className={`bg-card rounded-xl border transition-colors ${
                   isActiveOnThis ? 'border-green-400 ring-2 ring-green-300' : 'border-gray-200'
                 } p-4`}>
                   {/* Ticket info */}

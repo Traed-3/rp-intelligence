@@ -38,10 +38,10 @@ export function LocationStock({ locationId, rows, canWrite }: { locationId: stri
         </form>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         {shown.length === 0 ? <p className="p-6 text-sm text-gray-400">Nothing tracked here yet. Receive parts onto it, transfer some in, or set a min/max below.</p> : (
-          <div className="overflow-x-auto"><table className="w-full text-sm">
-            <thead><tr className="bg-gray-50 text-gray-500 text-xs"><th className="text-left px-4 py-2 font-medium">Part</th><th className="text-right px-4 py-2 font-medium">On hand</th>{mode === 'count' && <th className="text-right px-4 py-2 font-medium">Counted</th>}<th className="text-right px-4 py-2 font-medium">Min</th><th className="text-right px-4 py-2 font-medium">Max</th><th className="text-left px-4 py-2 font-medium hidden sm:table-cell">Bin</th></tr></thead>
+          <div className="overflow-x-auto"><table className="rp-table w-full text-sm">
+            <thead><tr className="bg-gray-50 text-gray-500 text-xs"><th className="text-left px-4 py-2">Part</th><th className="text-right px-4 py-2">On hand</th>{mode === 'count' && <th className="text-right px-4 py-2">Counted</th>}<th className="text-right px-4 py-2">Min</th><th className="text-right px-4 py-2">Max</th><th className="text-left px-4 py-2 hidden sm:table-cell">Bin</th></tr></thead>
             <tbody className="divide-y divide-gray-50">
               {shown.map(r => <Row key={r.part_id} r={r} locationId={locationId} canWrite={canWrite} counting={mode === 'count'} counted={counts[r.part_id] ?? ''} onCount={v => setCounts(c => ({ ...c, [r.part_id]: v }))} />)}
             </tbody></table></div>
@@ -82,7 +82,7 @@ function AddToLocation({ locationId }: { locationId: string }) {
   const [lvl, lvlAction, lvlPending] = useActionState(setStockLevel, {} as ActionState)
   const [adj, adjAction, adjPending] = useActionState(adjustStock, {} as ActionState)
   return (
-    <details className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+    <details className="rp-card">
       <summary className="px-5 py-4 cursor-pointer font-semibold text-gray-900">Add a part to this location / quick adjustment</summary>
       <div className="px-5 pb-5 space-y-4">
         <div>

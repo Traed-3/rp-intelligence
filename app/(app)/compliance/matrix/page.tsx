@@ -26,11 +26,11 @@ export default async function MatrixPage({ searchParams }: { searchParams: Promi
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
       <Link href="/compliance" className="text-sm text-gray-500 hover:text-gray-700">← DQF &amp; Certifications</Link>
-      <h1 className="text-2xl font-bold text-gray-900 tracking-tight mt-2 mb-4">Matrix</h1>
+      <h1 className="rp-title mt-2 mb-4">Matrix</h1>
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {TABS.map(t => (
           <Link key={t.value} href={`/compliance/matrix?cat=${t.value}`}
-            className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${cat === t.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}>{t.label}</Link>
+            className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${cat === t.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-600 border-gray-200 hover:border-blue-300'}`}>{t.label}</Link>
         ))}
         <span className="ml-auto flex flex-wrap gap-3 text-[11px] text-gray-500">
           {(['expired', 'due_soon', 'ok', 'no_date', 'missing'] as const).map(h => (
@@ -38,7 +38,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Promi
           ))}
         </span>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-auto max-h-[75vh]">
+      <div className="rp-card overflow-auto max-h-[75vh]">
         <table className="text-xs border-separate border-spacing-0">
           <thead>
             <tr>
@@ -55,7 +55,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Promi
               const byType = new Map(f.rows.map(r => [r.type.id, r]))
               return (
                 <tr key={f.employee.id}>
-                  <td className="sticky left-0 z-10 bg-white px-3 py-1.5 border-b border-r border-gray-100 font-medium text-gray-900 whitespace-nowrap">
+                  <td className="sticky left-0 z-10 bg-card px-3 py-1.5 border-b border-r border-gray-100 font-medium text-gray-900 whitespace-nowrap">
                     <Link href={`/compliance/employees/${f.employee.id}`} className="hover:text-blue-700">{f.employee.full_name}</Link>
                   </td>
                   {cols.map(c => {

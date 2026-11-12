@@ -76,7 +76,7 @@ export default async function SiteViewPage({ params }: { params: Promise<{ id: s
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-4">
         <Link href="/construction/permits/sites" className="text-sm text-gray-500 hover:text-gray-700">← Sites</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">{site.site_number}{site.name ? ` · ${site.name}` : ''}</h1>
+        <h1 className="rp-title mt-2">{site.site_number}{site.name ? ` · ${site.name}` : ''}</h1>
         <p className="text-sm text-gray-500">
           {[site.address, site.city, site.state].filter(Boolean).join(', ')}
           {jurisdiction && <> · <Link href={`/construction/permits/jurisdictions/${jurisdiction.id}`} className="text-blue-600 hover:underline">{jurisdiction.name}</Link></>}
@@ -108,7 +108,7 @@ export default async function SiteViewPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Linked job(s) — a permit with no job is a data gap, not a valid state */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+      <div className="rp-card overflow-hidden mb-5">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50"><h2 className="font-semibold text-gray-900 text-sm">Linked job</h2></div>
         <ul className="divide-y divide-gray-100">
           {projects.map(p => {
@@ -140,7 +140,7 @@ export default async function SiteViewPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Confirmed permits (Required + resolved Not-Required) */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+      <div className="rp-card overflow-hidden mb-5">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50"><h2 className="font-semibold text-gray-900 text-sm">Permits ({livePermits.length})</h2></div>
         <ul className="divide-y divide-gray-100">
           {livePermits.map(p => {
@@ -208,7 +208,7 @@ export default async function SiteViewPage({ params }: { params: Promise<{ id: s
       )}
 
       {/* Deliverables */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50"><h2 className="font-semibold text-gray-900 text-sm">Deliverables ({(deliverables ?? []).length})</h2></div>
         <ul className="divide-y divide-gray-100">
           {(deliverables ?? []).length === 0 && <li className="px-5 py-6 text-center text-sm text-gray-400">No deliverables yet.</li>}

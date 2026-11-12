@@ -16,7 +16,7 @@ export function SignInButton() {
     <button
       type="button"
       onClick={handleSignIn}
-      className="w-full flex items-center justify-center gap-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3 px-5 text-base transition-colors"
+      className="w-full flex items-center justify-center gap-3 rounded-xl bg-primary hover:bg-primary/90 active:bg-primary/90 text-primary-foreground font-semibold py-3 px-5 text-base transition-colors"
     >
       {/* Google G logo */}
       <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">

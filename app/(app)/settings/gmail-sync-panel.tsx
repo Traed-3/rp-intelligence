@@ -26,7 +26,7 @@ export function GmailSyncPanel() {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-2">
+    <div className="rp-card p-5 mb-2">
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2.5 rounded-lg bg-red-50 border border-red-100">
           <Mail className="w-5 h-5 text-red-600" />
@@ -41,7 +41,7 @@ export function GmailSyncPanel() {
         <button
           onClick={() => runSync(false)}
           disabled={syncing}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
         >
           <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
           {syncing ? 'Syncing…' : 'Sync Now'}
@@ -50,7 +50,7 @@ export function GmailSyncPanel() {
         <button
           onClick={() => runSync(true)}
           disabled={syncing}
-          className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-600/90 disabled:opacity-50 transition-colors"
         >
           <History className="w-4 h-4" />
           Import History (2024+)

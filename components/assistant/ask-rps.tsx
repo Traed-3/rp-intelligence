@@ -5,7 +5,7 @@ import { Sparkles, X, Send, FileText } from 'lucide-react'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 
-const NAVY = 'linear-gradient(135deg,#16243d,#2d4e7a)'
+const NAVY = 'var(--hero)'
 const SUGGESTIONS = [
   'How do I change a due date?',
   "What's overdue?",
@@ -74,7 +74,7 @@ export function AskRps() {
   }
 
   return (
-    <div className="fixed bottom-20 md:bottom-5 right-4 z-40 w-[min(92vw,380px)] h-[min(72vh,580px)] flex flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden">
+    <div className="rp-card fixed bottom-20 md:bottom-5 right-4 z-40 w-[min(92vw,380px)] h-[min(72vh,580px)] flex flex-col shadow-2xl overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 text-white" style={{ background: NAVY }}>
         <div className="flex items-center gap-2 font-semibold"><Sparkles className="w-4 h-4" /> Ask RPS</div>
         <button onClick={() => setOpen(false)} aria-label="Close"><X className="w-5 h-5" /></button>
@@ -103,27 +103,27 @@ export function AskRps() {
         )}
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-            <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
+            <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card border border-gray-200 text-gray-800'}`}>
               {m.content}
             </div>
           </div>
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="rounded-2xl px-3 py-2 text-sm bg-white border border-gray-200 text-gray-400">Thinking…</div>
+            <div className="rp-card px-3 py-2 text-sm text-gray-400">Thinking…</div>
           </div>
         )}
         <div ref={endRef} />
       </div>
 
-      <form onSubmit={(e) => { e.preventDefault(); send(input) }} className="flex items-center gap-2 p-2 border-t border-gray-100 bg-white">
+      <form onSubmit={(e) => { e.preventDefault(); send(input) }} className="flex items-center gap-2 p-2 border-t border-gray-100 bg-card">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask or tell me to do something…"
           className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button type="submit" disabled={loading || !input.trim()} className="p-2 rounded-lg bg-blue-600 text-white disabled:opacity-40" aria-label="Send">
+        <button type="submit" disabled={loading || !input.trim()} className="p-2 rounded-lg bg-primary text-primary-foreground disabled:opacity-40" aria-label="Send">
           <Send className="w-4 h-4" />
         </button>
       </form>

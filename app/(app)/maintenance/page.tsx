@@ -261,7 +261,7 @@ export default async function MaintenancePage({
 
       {/* Header */}
       <div>
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+        <h1 className="rp-title">
           Maintenance & Fleet
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
@@ -272,7 +272,7 @@ export default async function MaintenancePage({
       {/* Module tiles */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {tiles.map((t) => (
-          <Link key={t.href} href={t.href} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:border-blue-300 hover:shadow transition-all">
+          <Link key={t.href} href={t.href} className="rp-card rp-card-link p-4">
             <t.icon className="w-5 h-5 text-blue-600 mb-2" />
             <p className="text-sm font-semibold text-gray-900">{t.label}</p>
             {'sub' in t && t.sub && <p className="text-xs text-gray-400 mt-0.5">{t.sub}</p>}
@@ -305,7 +305,7 @@ export default async function MaintenancePage({
 
       {/* Completed + Oil Change + Parts */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
             <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wide">Tickets Completed</h3>
           </div>
@@ -323,7 +323,7 @@ export default async function MaintenancePage({
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
             <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wide">🔧 Oil Change Due</h3>
             <span className="text-xs font-bold text-amber-600">{oilChangeTickets?.length ?? 0}</span>
@@ -343,7 +343,7 @@ export default async function MaintenancePage({
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="px-4 py-2.5 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
             <h3 className="text-xs font-bold text-purple-700 uppercase tracking-wide">📦 Parts In – Schedule</h3>
             <span className="text-xs font-bold text-purple-600">{partsReceivedTickets?.length ?? 0}</span>
@@ -383,7 +383,7 @@ export default async function MaintenancePage({
               overdue:          { label: 'Overdue',        header: 'bg-red-600 text-white' },
               due_this_week:    { label: 'Due This Week',  header: 'bg-orange-500 text-white' },
               due_next_2_weeks: { label: 'Due in 2 Weeks', header: 'bg-yellow-400 text-gray-900' },
-              due_this_month:   { label: 'Due This Month', header: 'bg-blue-500 text-white' },
+              due_this_month:   { label: 'Due This Month', header: 'bg-primary text-primary-foreground' },
             }
             return (
               <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
@@ -396,7 +396,7 @@ export default async function MaintenancePage({
                         <span>{def.label}</span>
                         <span>{items.length}</span>
                       </div>
-                      <div className="divide-y divide-gray-50 bg-white max-h-48 overflow-y-auto">
+                      <div className="divide-y divide-gray-50 bg-card max-h-48 overflow-y-auto">
                         {items.map(t => (
                           <ClickableItem key={t.id} href={`/tickets/${t.id}`} className="px-3 py-2 flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -422,22 +422,22 @@ export default async function MaintenancePage({
           <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 before:content-[''] before:w-1.5 before:h-5 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Employee Status</h2>
           <div className="flex items-center gap-3">
             <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
-              <Link href="/maintenance?staff=shop" className={`px-3 py-1.5 transition-colors ${!showAll ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Shop View</Link>
-              <Link href="/maintenance?staff=all" className={`px-3 py-1.5 transition-colors ${showAll ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>All Staff</Link>
+              <Link href="/maintenance?staff=shop" className={`px-3 py-1.5 transition-colors ${!showAll ? 'bg-primary text-primary-foreground' : 'bg-card text-gray-600 hover:bg-gray-50'}`}>Shop View</Link>
+              <Link href="/maintenance?staff=all" className={`px-3 py-1.5 transition-colors ${showAll ? 'bg-primary text-primary-foreground' : 'bg-card text-gray-600 hover:bg-gray-50'}`}>All Staff</Link>
             </div>
             <Link href="/shop" className="text-sm text-blue-600 hover:text-blue-800 font-medium">Shop →</Link>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500">Employee</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500">Current Status</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500 hidden md:table-cell">Working On</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500 hidden lg:table-cell">Time on Status</th>
-                  <th className="text-right px-4 py-2.5 font-medium text-gray-500">Hours Today</th>
+                  <th className="text-left px-4 py-2.5">Employee</th>
+                  <th className="text-left px-4 py-2.5">Current Status</th>
+                  <th className="text-left px-4 py-2.5 hidden md:table-cell">Working On</th>
+                  <th className="text-left px-4 py-2.5 hidden lg:table-cell">Time on Status</th>
+                  <th className="text-right px-4 py-2.5">Hours Today</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -491,7 +491,7 @@ export default async function MaintenancePage({
       <section>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Coming Due</h2>
         {totalAlerts === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+          <div className="rp-card p-12 text-center">
             <div className="text-4xl mb-3">✅</div>
             <p className="font-semibold text-gray-900">All clear!</p>
             <p className="text-sm text-gray-500 mt-1">No maintenance items are overdue or coming due soon.</p>
@@ -510,7 +510,7 @@ export default async function MaintenancePage({
                   </div>
                   <div className="divide-y divide-white/60">
                     {items.map((item, i) => (
-                      <div key={i} className="flex items-center justify-between px-5 py-3 bg-white/60">
+                      <div key={i} className="flex items-center justify-between px-5 py-3 bg-card/60">
                         <div className="flex items-center gap-3 min-w-0">
                           <div>
                             <Link href={`/assets/${item.assetId}`} className="font-semibold text-gray-900 hover:text-blue-600 text-sm">{item.unitNumber}</Link>
@@ -538,7 +538,7 @@ export default async function MaintenancePage({
           <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 before:content-[''] before:w-1.5 before:h-5 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Assets Down</h2>
           <Link href="/assets?status=down" className="text-sm text-blue-600 hover:text-blue-800 font-medium">Assets →</Link>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           {!downAssets?.length
             ? <p className="px-5 py-6 text-center text-sm text-gray-400">No assets currently down. ✅</p>
             : <div className="divide-y divide-gray-50">
@@ -562,7 +562,7 @@ export default async function MaintenancePage({
           <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 before:content-[''] before:w-1.5 before:h-5 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Open Tickets</h2>
           <Link href="/tickets" className="text-sm text-blue-600 hover:text-blue-800 font-medium">{openCount ?? 0} total — view all →</Link>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           {!recentTickets?.length ? (
             <p className="px-4 py-6 text-center text-sm text-gray-400">No open tickets. 🎉</p>
           ) : (

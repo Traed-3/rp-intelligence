@@ -27,7 +27,7 @@ export default async function InventoryHubPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-6">
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+        <h1 className="rp-title">
           Inventory
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">Price book, truck and office stock, and every part that moves.</p>
@@ -37,7 +37,7 @@ export default async function InventoryHubPage() {
         {tiles.map(t => {
           const Icon = t.icon
           const inner = (
-            <div className={`h-full rounded-2xl border p-5 shadow-sm ${t.live ? 'bg-white border-gray-200 hover:border-blue-300 hover:shadow' : 'bg-gray-50 border-dashed border-gray-300'}`}>
+            <div className={`h-full rounded-2xl border p-5 shadow-sm ${t.live ? 'bg-card border-gray-200 hover:border-blue-300 hover:shadow' : 'bg-gray-50 border-dashed border-gray-300'}`}>
               <div className="flex items-start gap-3">
                 <span className={`inline-flex w-10 h-10 items-center justify-center rounded-xl ${t.live ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'}`}><Icon className="w-5 h-5" /></span>
                 <div className="min-w-0">

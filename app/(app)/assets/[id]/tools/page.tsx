@@ -95,7 +95,7 @@ export default async function AssetToolsPage({ params }: { params: Promise<{ id:
       <Link href={`/assets/${id}`} className="text-sm text-gray-500 hover:text-gray-700">
         ← Back to {asset.unit_number}
       </Link>
-      <h1 className="text-2xl font-bold text-gray-900 mt-2">Tools &amp; Supplies — {asset.unit_number}</h1>
+      <h1 className="rp-title mt-2">Tools &amp; Supplies — {asset.unit_number}</h1>
       {vehicleLabel && <p className="text-gray-500 text-sm mt-0.5">{vehicleLabel}</p>}
 
       <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -106,7 +106,7 @@ export default async function AssetToolsPage({ params }: { params: Promise<{ id:
           ['Tools on truck', String(onTruck)],
           ['Fluid cost per mile', fluidPerMile != null ? `$${fluidPerMile.toFixed(4)}` : 'needs 2+ fill-ups with mileage'],
         ].map(([label, value]) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+          <div key={label} className="rp-card px-4 py-3">
             <p className="text-xs text-gray-500">{label}</p>
             <p className="text-lg font-semibold text-gray-900 mt-0.5">{value}</p>
           </div>
@@ -120,22 +120,22 @@ export default async function AssetToolsPage({ params }: { params: Promise<{ id:
         </div>
       )}
 
-      <div className="mt-5 bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      <div className="rp-card mt-5 p-5">
         <h2 className="font-semibold text-gray-900 mb-3">Purchases</h2>
         {items.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-4">Nothing logged for this truck yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
-                  <th className="py-2 pr-3 font-medium">Date</th>
-                  <th className="py-2 pr-3 font-medium">Item</th>
-                  <th className="py-2 pr-3 font-medium text-right">Qty</th>
-                  <th className="py-2 pr-3 font-medium text-right">Cost</th>
-                  <th className="py-2 pr-3 font-medium">Vendor</th>
-                  <th className="py-2 pr-3 font-medium">Status</th>
-                  <th className="py-2 pr-3 font-medium">Receipt</th>
+                  <th className="py-2 pr-3">Date</th>
+                  <th className="py-2 pr-3">Item</th>
+                  <th className="py-2 pr-3 text-right">Qty</th>
+                  <th className="py-2 pr-3 text-right">Cost</th>
+                  <th className="py-2 pr-3">Vendor</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-3">Receipt</th>
                   <th className="py-2" />
                 </tr>
               </thead>
@@ -196,7 +196,7 @@ export default async function AssetToolsPage({ params }: { params: Promise<{ id:
       </div>
 
       {canWrite && (
-        <div className="mt-5 bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card mt-5 p-5">
           <h2 className="font-semibold text-gray-900 mb-3">Add a tool or supply</h2>
           <ToolForm action={addToolItem.bind(null, id)} types={types} today={today} />
         </div>

@@ -57,8 +57,8 @@ export function StatusSelector({
               'flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all text-left',
               disabled && 'opacity-40 cursor-not-allowed',
               selected === opt.value
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
+                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                : 'bg-card text-gray-700 border-gray-200 hover:border-gray-400'
             )}
           >
             <span className="text-lg leading-none">{opt.icon}</span>
@@ -101,7 +101,7 @@ export function StatusSelector({
       <button
         onClick={handleSave}
         disabled={isPending || disabled}
-        className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+        className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-bold text-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
       >
         {isPending ? 'Saving…' : saved ? '✓ Status Updated' : 'Save Status'}
       </button>
