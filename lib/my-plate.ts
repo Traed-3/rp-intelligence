@@ -31,7 +31,23 @@ export type TaskRow = {
   source_key: string | null
   created_at: string
   done_at: string | null
+  owner_id?: string
+  /** Whose plate the row was on before someone clicked it over (null = it was put here directly). */
+  handed_from?: string | null
+  handed_at?: string | null
 }
+
+/**
+ * Plate partners (Trae 11/12/26): Trae and Starsky both work out of econstruction, so the routines sometimes put
+ * Starsky's work on Trae's plate. A partner gets a one-click "<name>'s" button on every card and can see, close or
+ * take back what is on the other plate. Keyed by login email.
+ */
+export const PLATE_PARTNERS: Record<string, string> = {
+  'finance.trae@proton.me': 'sdodson.rp@gmail.com',
+  'dodson3.trae@gmail.com': 'sdodson.rp@gmail.com',
+  'sdodson.rp@gmail.com': 'finance.trae@proton.me',
+}
+export const firstName = (full: string | null | undefined) => (full ?? '').trim().split(/[\s-]+/)[0] || 'Partner'
 
 export const KIND_LABEL: Record<TaskKind, string> = {
   quote: 'Quote', price: 'Price needed', order: 'Order', bid: 'Bid', survey: 'Survey', followup: 'Follow-up', admin: 'Admin',

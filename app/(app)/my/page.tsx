@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
-import { buildPlate, buildSignals, businessDaysSince, dueDelta, isYesNo, KIND_CLASS, KIND_LABEL, type TaskRow, type TaskKind } from '@/lib/my-plate'
+import { buildPlate, buildSignals, businessDaysSince, dueDelta, isYesNo, firstName, KIND_CLASS, KIND_LABEL, PLATE_PARTNERS, type TaskRow, type TaskKind } from '@/lib/my-plate'
 import { packingSlipSiteKey } from '@/lib/construction-dashboard'
-import { addTask, completeTask, completeTasks, dropTask, reopenTask, setDue, setPriority, snoozeTask, waitTask, answerTask, resolvePriceLine, draftOrderEmail, markOrderSent } from './actions'
+import { addTask, completeTask, completeTasks, dropTask, reopenTask, setDue, setPriority, snoozeTask, waitTask, answerTask, resolvePriceLine, draftOrderEmail, markOrderSent, handToPartner, takeFromPartner, completePartnerTask } from './actions'
 import { ORDER_VENDORS, mailtoHref, type OrderDraft, type OrderVendorKey } from '@/lib/order-email'
 import { CopyButton } from '@/components/plate/copy-button'
 import { BulkBar } from '@/components/plate/bulk-bar'
@@ -37,14 +37,28 @@ const filterHref = (f: Filters) => {
   return s ? `/my?${s}` : '/my'
 }
 
-export default async function MyPlatePage({ searchParams }: { searchParams: Promise<{ kind?: string; from?: string; due?: string }> }) {
-  const { kind: kindParam, from: fromParam, due: dueParam } = await searchParams
+export default async function MyPlatePage({ searchParams }: { searchParams: Promise<{ kind?: string; from?: string; due?: string; who?: string }> }) {
+  const { kind: kindParam, from: fromParam, due: dueParam, who: whoParam } = await searchParams
   const kindFilter = kindParam && kindParam in KIND_LABEL ? kindParam as TaskKind : null
   const filters: Filters = { kind: kindFilter, sd: fromParam === 'sd', over: dueParam === 'over' }
   const profile = await requireConstruction()
   const admin = createAdminClient()
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
   const since120 = new Date(Date.now() - 120 * 86_400_000).toISOString()
+
+  // Plate partner (Trae <-> Starsky): their open rows are one chip away, and every card gets a "<name>'s" button.
+  const { data: meRow } = await admin.from('profiles').select('email').eq('id', profile.id).single()
+  const partnerEmail = PLATE_PARTNERS[(meRow?.email ?? '').toLowerCase()]
+  const { data: partnerRow } = partnerEmail
+    ? await admin.from('profiles').select('id, full_name').eq('company_id', profile.company_id).eq('email', partnerEmail).maybeSingle()
+    : { data: null }
+  const partner = partnerRow ? { id: partnerRow.id as string, name: firstName(partnerRow.full_name) } : null
+  const { data: partnerRows } = partner
+    ? await admin.from('con_tasks').select('*').eq('owner_id', partner.id).neq('status', 'dropped').or(`status.neq.done,done_at.gte.${today}T00:00:00`).order('created_at')
+    : { data: [] }
+  const partnerTasks = (partnerRows ?? []) as TaskRow[]
+  const partnerLive = partnerTasks.filter(t => t.status === 'open' || t.status === 'waiting').length
+  if (partner && whoParam === 'partner') return <PartnerPlate partner={partner} meId={profile.id} tasks={partnerTasks} today={today} />
 
   const [{ data: rows }, { data: needed }, { data: bids }, { data: stale }, { data: quoting }, { data: quoted }, { data: slips }] = await Promise.all([
     admin.from('con_tasks').select('*').eq('owner_id', profile.id).neq('status', 'dropped').or(`status.neq.done,done_at.gte.${today}T00:00:00`).order('created_at'),
@@ -106,6 +120,8 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
         </div>
       </header>
 
+      {partner && <PlateSwitch partner={partner} count={partnerLive} mine />}
+
       <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Filter">
         <Link href={filterHref({ ...filters, sd: false, over: false })} className={chip(!filters.sd && !filters.over)}>Everything open</Link>
         <Link href={filterHref({ ...filters, sd: !filters.sd })} className={chip(filters.sd)}>From Starsky <span className="tabular-nums opacity-70">{sdCount}</span></Link>
@@ -126,22 +142,22 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-7 min-w-0">
           <Lane title="Your move" hint="needs an answer or action from you" count={openCount} empty="Nothing on you right now. Add what is on your mind.">
-            {plate.now.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} />)}
+            {plate.now.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} partner={partner} />)}
             {plate.now.length > 0 && plate.next.length > 0 && (
               <li className="flex items-center gap-3 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground" aria-hidden>
                 <span>Then, in order</span><span className="h-px flex-1 bg-border" />
               </li>
             )}
-            {plate.next.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} />)}
+            {plate.next.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} partner={partner} />)}
           </Lane>
 
           <Lane title="Waiting on" hint="we sent it, no answer yet · longest wait first" count={plate.waiting.length} empty="Nobody owes you anything right now.">
-            {plate.waiting.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} waiting />)}
+            {plate.waiting.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} partner={partner} waiting />)}
           </Lane>
 
           {plate.snoozed.length > 0 && (
             <Folded title="Snoozed" count={plate.snoozed.length}>
-              {plate.snoozed.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} />)}
+              {plate.snoozed.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} partner={partner} />)}
             </Folded>
           )}
 
@@ -267,7 +283,9 @@ function stripe(t: TaskRow, today: string, waiting: boolean) {
 
 const ghost = 'px-2 py-1 rounded-md border border-border bg-card text-gray-600 hover:bg-gray-50'
 
-function TaskCard({ t, today, urls, waiting = false }: { t: TaskRow; today: string; urls: TicketUrls; waiting?: boolean }) {
+type Partner = { id: string; name: string }
+
+function TaskCard({ t, today, urls, partner = null, waiting = false }: { t: TaskRow; today: string; urls: TicketUrls; partner?: Partner | null; waiting?: boolean }) {
   const d = dueDelta(t, today)
   const waitDays = waiting && t.waiting_since ? businessDaysSince(t.waiting_since, today) : 0
   const a = (t.action ?? {}) as { type?: string }
@@ -288,6 +306,7 @@ function TaskCard({ t, today, urls, waiting = false }: { t: TaskRow; today: stri
           <span className={`px-2 py-0.5 rounded-full border text-xs ${KIND_CLASS[t.kind]}`}>{KIND_LABEL[t.kind]}</span>
           {t.priority === 1 && <Pill tone="over">Hot</Pill>}
           {fromStarsky(t) && <Pill tone="sd">Starsky</Pill>}
+          {partner && t.handed_from === partner.id && <Pill tone="plain" title="Moved here from the other plate">from {partner.name}&apos;s plate</Pill>}
           {waiting && t.waiting_on && <Pill tone="plain">{t.waiting_on}</Pill>}
           {waiting && t.waiting_since && <Pill tone={waitDays >= 5 ? 'over' : 'plain'} title={`since ${fmt(t.waiting_since)}`}>{waitDays === 0 ? 'today' : `${waitDays} business day${waitDays === 1 ? '' : 's'}`}{waitDays >= 5 ? ' · nudge' : ''}</Pill>}
           {d !== null && (d > 0
@@ -328,8 +347,75 @@ function TaskCard({ t, today, urls, waiting = false }: { t: TaskRow; today: stri
           </div>
         )}
         <form action={completeTask.bind(null, t.id)}><button className="px-4 py-2 sm:py-1.5 rounded-md bg-emerald-600 border border-emerald-700 text-white text-[13px] font-semibold hover:bg-emerald-600/90">Done</button></form>
+        {partner && <form action={handToPartner.bind(null, t.id)}><button title={`Not mine. Move it to ${partner.name}'s plate`} className="px-3 py-2 sm:py-1.5 rounded-md bg-violet-50 border border-violet-300 text-violet-800 text-[13px] font-semibold whitespace-nowrap hover:bg-violet-100">{partner.name}&apos;s</button></form>}
       </div>
     </li>
+  )
+}
+
+/** My plate / partner's plate switch. */
+function PlateSwitch({ partner, count, mine }: { partner: Partner; count: number; mine: boolean }) {
+  const tab = (on: boolean) => `px-3.5 py-1.5 text-[13px] font-semibold ${on ? 'bg-violet-700 text-white' : 'bg-card text-foreground hover:bg-violet-50'}`
+  return (
+    <div className="mb-4 inline-flex overflow-hidden rounded-md border border-violet-300" role="group" aria-label="Whose plate">
+      <Link href="/my" className={tab(mine)}>My plate</Link>
+      <Link href="/my?who=partner" className={`${tab(!mine)} border-l border-violet-300`}>{partner.name}&apos;s plate <span className="tabular-nums opacity-70">{count}</span></Link>
+    </div>
+  )
+}
+
+/** What is on the partner's plate. They may not be in the app yet, so I can close a row for them or pull it back. */
+function PartnerPlate({ partner, meId, tasks, today }: { partner: Partner; meId: string; tasks: TaskRow[]; today: string }) {
+  const plate = buildPlate(tasks, today)
+  const open = [...plate.now, ...plate.next, ...plate.snoozed]
+  const card = (t: TaskRow, waiting = false) => (
+    <li key={t.id} className="rounded-lg border border-border border-l-[6px] border-l-violet-500 bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)] px-3 py-2.5 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5">
+      <div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+          {t.site_number && <SiteTag site={t.site_number} />}
+          <span className="font-semibold text-[15px] leading-snug text-foreground min-w-0 [overflow-wrap:anywhere]">{t.title}</span>
+        </div>
+        {t.detail && <div className="text-[13.5px] leading-snug text-muted-foreground whitespace-pre-line [overflow-wrap:anywhere]">{t.detail}</div>}
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <span className={`px-2 py-0.5 rounded-full border text-xs ${KIND_CLASS[t.kind]}`}>{KIND_LABEL[t.kind]}</span>
+          {t.handed_from === meId && <Pill tone="sd">you moved it{t.handed_at ? ` ${fmt(t.handed_at.slice(0, 10))}` : ''}</Pill>}
+          {waiting && t.waiting_on && <Pill tone="plain">{t.waiting_on}</Pill>}
+          {t.due_date && <Pill tone={(dueDelta(t, today) ?? 0) > 0 ? 'over' : 'due'}>Due {fmt(t.due_date)}</Pill>}
+          {t.job_id && <Link href={`/construction/jobs/${t.job_id}`} className="text-xs text-blue-700 hover:underline">Job</Link>}
+        </div>
+      </div>
+      <div className="flex flex-wrap sm:flex-col items-center sm:items-end gap-2 sm:col-start-2 sm:row-start-1">
+        <form action={takeFromPartner.bind(null, t.id)}><button title="This one is mine after all. Move it back to my plate" className="px-4 py-2 sm:py-1.5 rounded-md bg-blue-700 border border-blue-800 text-white text-[13px] font-semibold hover:bg-blue-700/90">Mine</button></form>
+        <form action={completePartnerTask.bind(null, t.id)}><button title={`${partner.name} finished it`} className="px-4 py-2 sm:py-1.5 rounded-md bg-card border border-emerald-600 text-emerald-700 text-[13px] font-semibold hover:bg-emerald-50">Done</button></form>
+      </div>
+    </li>
+  )
+  return (
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto overflow-x-hidden">
+      <header className="mb-5">
+        <h1 className="rp-title">{partner.name}&apos;s Plate</h1>
+        <p className="rp-subtitle">What is on {partner.name}, kept current from econstruction mail and the master schedule</p>
+      </header>
+      <PlateSwitch partner={partner} count={open.length + plate.waiting.length} mine={false} />
+      <div className="space-y-7">
+        <Lane title={`${partner.name}'s move`} hint="his to handle" count={open.length} empty={`Nothing on ${partner.name} right now.`}>
+          {open.map(t => card(t))}
+        </Lane>
+        <Lane title="Waiting on" hint="sent, no answer yet" count={plate.waiting.length} empty="Nothing waiting.">
+          {plate.waiting.map(t => card(t, true))}
+        </Lane>
+        {plate.doneToday.length > 0 && (
+          <Folded title="Done today" count={plate.doneToday.length}>
+            {plate.doneToday.map(t => (
+              <li key={t.id} className="rounded-lg border border-border border-l-[6px] border-l-emerald-600 bg-card px-3 py-2.5 flex flex-wrap items-center gap-2 opacity-70">
+                {t.site_number && <SiteTag site={t.site_number} />}
+                <span className="font-semibold text-sm text-foreground min-w-0">{t.title}</span>
+              </li>
+            ))}
+          </Folded>
+        )}
+      </div>
+    </div>
   )
 }
 

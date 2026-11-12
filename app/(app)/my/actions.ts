@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { applyQuoteLinePrice } from '@/lib/quote-line-price'
 import { buildOrderDraft, type OrderVendorKey } from '@/lib/order-email'
+import { PLATE_PARTNERS } from '@/lib/my-plate'
 
 const KINDS = new Set(['quote', 'price', 'order', 'bid', 'survey', 'followup', 'admin'])
 
@@ -13,9 +14,9 @@ async function me() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not signed in')
   const admin = createAdminClient()
-  const { data: profile } = await admin.from('profiles').select('id, company_id').eq('id', user.id).single()
+  const { data: profile } = await admin.from('profiles').select('id, company_id, email').eq('id', user.id).single()
   if (!profile) throw new Error('No profile')
-  return { admin, id: profile.id as string, company_id: profile.company_id as string }
+  return { admin, id: profile.id as string, company_id: profile.company_id as string, email: (profile.email as string | null)?.toLowerCase() ?? '' }
 }
 
 function today() { return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) }
@@ -111,6 +112,44 @@ export async function setPriority(id: string, formData: FormData): Promise<void>
 export async function setDue(id: string, formData: FormData): Promise<void> {
   const { admin, id: owner } = await me(); await mine(admin, id, owner)
   await admin.from('con_tasks').update({ due_date: str(formData.get('due_date')), updated_at: new Date().toISOString() }).eq('id', id)
+  revalidatePath('/my')
+}
+
+// ── plate partner: "that's Starsky's" ─────────────────────────────────────────
+
+async function partnerId(admin: ReturnType<typeof createAdminClient>, email: string, company_id: string) {
+  const partnerEmail = PLATE_PARTNERS[email]
+  if (!partnerEmail) throw new Error('No plate partner is set up for you')
+  const { data } = await admin.from('profiles').select('id').eq('company_id', company_id).eq('email', partnerEmail).maybeSingle()
+  if (!data) throw new Error('Plate partner has no login yet')
+  return data.id as string
+}
+
+/** One click: this row is my partner's, not mine. It moves to their plate as it is; handed_from remembers the click. */
+export async function handToPartner(id: string): Promise<void> {
+  const { admin, id: owner, company_id, email } = await me(); await mine(admin, id, owner)
+  const partner = await partnerId(admin, email, company_id)
+  const now = new Date().toISOString()
+  const { error } = await admin.from('con_tasks').update({ owner_id: partner, handed_from: owner, handed_at: now, snoozed_until: null, updated_at: now }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/my')
+}
+
+/** From the partner's plate: "Mine" pulls a row back to me, "Done" closes it for them (Starsky is not in the app yet). */
+export async function takeFromPartner(id: string): Promise<void> {
+  const { admin, id: owner, company_id, email } = await me()
+  const partner = await partnerId(admin, email, company_id); await mine(admin, id, partner)
+  const now = new Date().toISOString()
+  const { error } = await admin.from('con_tasks').update({ owner_id: owner, handed_from: partner, handed_at: now, updated_at: now }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/my')
+}
+
+export async function completePartnerTask(id: string): Promise<void> {
+  const { admin, company_id, email } = await me()
+  const partner = await partnerId(admin, email, company_id); await mine(admin, id, partner)
+  const now = new Date().toISOString()
+  await admin.from('con_tasks').update({ status: 'done', done_at: now, updated_at: now }).eq('id', id)
   revalidatePath('/my')
 }
 
