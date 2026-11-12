@@ -20,6 +20,8 @@ Desktop shots are a 1440 x 900 window; phone shots are 375 x 812.
 
 ## My Plate
 
+The dark shots were taken before the header was switched to the shared style; the light shots show the current header.
+
 **Desktop**
 
 | Before | After (light) | After (dark) |

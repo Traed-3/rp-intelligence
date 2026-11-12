@@ -92,10 +92,10 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto overflow-x-hidden">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b-[3px] border-blue-700 pb-3 mb-5">
+      <header className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold uppercase tracking-wide text-blue-700 leading-none">My Plate</h1>
-          <p className="text-sm text-muted-foreground mt-1.5">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })} · top card is the next thing to do</p>
+          <h1 className="rp-title">My Plate</h1>
+          <p className="rp-subtitle">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })} · top card is the next thing to do</p>
         </div>
         <div className="flex flex-wrap gap-2 font-mono text-xs">
           <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{openCount}</b> your move</span>
