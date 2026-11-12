@@ -1,0 +1,110 @@
+import {
+  LayoutDashboard, Truck, Wrench, ClipboardList, Users, BarChart3, Settings, Receipt, FileText, Home, HardHat,
+  CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, type LucideIcon,
+} from 'lucide-react'
+import { canReadConstruction } from '@/lib/construction'
+import { canUseFieldSurveys, isSurveyOnly } from '@/lib/field-surveys'
+import { BILLING_READ_ROLES } from '@/lib/billing'
+import { canReadCompliance } from '@/lib/compliance'
+
+/**
+ * The one place that decides which menu entries a person is allowed to see.
+ * Used by the sidebar / phone bar (components/app-nav.tsx) and by
+ * Settings → Personalize, so the two can never disagree.
+ */
+export type NavItem = { key: string; href: string; label: string; short?: string; icon: LucideIcon; match?: string[]; construction?: boolean; billing?: boolean; compliance?: boolean; module?: string }
+
+const item = (i: Omit<NavItem, 'key'>): NavItem => ({ key: i.href, ...i })
+
+const navItems: NavItem[] = [
+  item({ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }),
+  item({ href: '/my', label: 'My Plate', short: 'Plate', icon: ListChecks, construction: true }),
+  // Maintenance is a module hub: Assets, Tickets and Shop live inside it
+  // (they keep their own URLs, so the module stays highlighted while you're in any of them).
+  // Shop/Tickets can be blocked separately from Maintenance itself (see lib/modules.ts),
+  // so this hub link only disappears if the Maintenance & Assets module specifically is blocked.
+  item({ href: '/maintenance', label: 'Maintenance', short: 'Maint.', icon: Wrench, match: ['/maintenance', '/assets', '/tickets', '/shop'], module: 'maintenance' }),
+  // `construction: true` marks a link as gated to the Construction roles.
+  item({ href: '/construction', label: 'Construction', short: 'Build', icon: HardHat, construction: true, module: 'construction' }),
+  // 7-Eleven / Wawa / Sunoco service calls, synced from rpdispatcher + rpinvoicing.
+  item({ href: '/service', label: 'Service Dispatch', short: 'Service', icon: Fuel, module: 'service_dispatch' }),
+  item({ href: '/billing', label: 'Quotes & Invoices', short: 'Quotes', icon: FileText, billing: true, module: 'billing' }),
+  item({ href: '/inventory', label: 'Inventory', short: 'Stock', icon: Package, module: 'inventory' }),
+  item({ href: '/compliance', label: 'DQF & Certs', short: 'DQF', icon: ShieldCheck, compliance: true, module: 'compliance' }),
+  // Company-wide calendar that overlays Maintenance and Construction items.
+  item({ href: '/calendar', label: 'Calendar', icon: CalendarDays }),
+  item({ href: '/expenses', label: 'Expenses', icon: Receipt }),
+  item({ href: '/reports', label: 'Reports', icon: BarChart3, module: 'reports_payroll' }),
+  item({ href: '/settings', label: 'Settings', icon: Settings }),
+]
+
+const surveysLink = item({ href: '/construction/surveys', label: 'Field Surveys', short: 'Surveys', icon: ClipboardCheck })
+
+export type NavWho = { role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean }
+
+export function buildNav({ role, userId, blockedModules, complianceGranted }: NavWho) {
+  const canSeeConstruction = canReadConstruction({ id: userId, role })
+  const blocked = new Set(blockedModules ?? [])
+  const surveyOnly = isSurveyOnly(role)
+  // Crew who can run surveys but do not have the Construction module (construction techs) get a Field Surveys link of their own.
+  const needsSurveysLink = canUseFieldSurveys({ id: userId, role }) && !canSeeConstruction
+  // Construction and My Plate show for the construction roles (Settings → role); billing for its own roles too.
+  const canSeeBilling = canSeeConstruction || (BILLING_READ_ROLES as readonly string[]).includes(role ?? '')
+
+  /** Sidebar entries this person may see, in the default order. */
+  const sidebar: NavItem[] = surveyOnly ? [surveysLink] : [
+    ...(needsSurveysLink ? [navItems[0], surveysLink, ...navItems.slice(1)] : navItems),
+  ].filter(i =>
+    (canSeeConstruction || !i.construction) &&
+    (canSeeBilling || !i.billing) &&
+    (canReadCompliance({ id: userId, role }, !!complianceGranted) || !i.compliance) &&
+    !(i.module && blocked.has(i.module))
+  )
+
+  /** The phone bottom bar when the person has not picked their own tabs. */
+  const defaultTabs: NavItem[] = surveyOnly ? [{ ...surveysLink, label: 'Surveys' }] : [
+    item({ href: '/mobile',    label: 'Home',      icon: Home }),
+    item({ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }),
+    ...(canSeeConstruction ? [item({ href: '/my', label: 'Plate', icon: ListChecks })] : []),
+    item({ href: '/assets',    label: 'Assets',    icon: Truck }),
+    item({ href: '/tickets',   label: 'Tickets',   icon: ClipboardList }),
+    item({ href: '/shop',      label: 'Shop',      icon: Users }),
+    ...(canSeeConstruction ? [item({ href: '/construction', label: 'Build', icon: HardHat })] : []),
+    ...(needsSurveysLink ? [item({ href: '/construction/surveys', label: 'Surveys', icon: ClipboardCheck })] : []),
+  ]
+
+  /** Everything this person could put on the phone bar: the default tabs plus every sidebar entry, short labels. */
+  const tabChoices: NavItem[] = surveyOnly ? defaultTabs : [
+    ...defaultTabs,
+    ...sidebar.filter(s => !defaultTabs.some(t => t.href === s.href)).map(s => ({ ...s, label: s.short ?? s.label })),
+  ]
+
+  return { sidebar, defaultTabs, tabChoices, surveyOnly }
+}
+
+/** Dashboard cards, in default order. `who` decides which of them a person is allowed to have. */
+export const DASHBOARD_CARDS = [
+  { key: 'maintenance',  label: 'Maintenance & Fleet', desc: 'Open tickets, critical / safety, vehicles down' },
+  { key: 'service',      label: 'Service Dispatch',    desc: 'Open work orders, return trips, stale calls, rejected invoices' },
+  { key: 'construction', label: 'Construction',        desc: 'Active jobs, documents to review, invoiced this year' },
+  { key: 'my_plate',     label: 'My Plate',            desc: 'What is on you and what you are waiting on' },
+  { key: 'billing',      label: 'Quotes & Invoices',   desc: 'Open quotes, draft invoices, invoiced this year' },
+  { key: 'inventory',    label: 'Inventory',           desc: 'Parts that need a price, paperwork waiting to be received' },
+  { key: 'compliance',   label: 'DQF & Certs',         desc: 'DOT items expired or due soon, incomplete driver files' },
+] as const
+export type DashboardCardKey = typeof DASHBOARD_CARDS[number]['key']
+
+export function allowedDashboardCards({ role, userId, blockedModules, complianceGranted }: NavWho) {
+  const blocked = new Set(blockedModules ?? [])
+  const con = canReadConstruction({ id: userId, role })
+  const allow: Record<DashboardCardKey, boolean> = {
+    maintenance: !blocked.has('maintenance'),
+    service: !blocked.has('service_dispatch'),
+    construction: con && !blocked.has('construction'),
+    my_plate: con,
+    billing: (con || (BILLING_READ_ROLES as readonly string[]).includes(role ?? '')) && !blocked.has('billing'),
+    inventory: !blocked.has('inventory'),
+    compliance: canReadCompliance({ id: userId, role }, !!complianceGranted) && !blocked.has('compliance'),
+  }
+  return DASHBOARD_CARDS.filter(c => allow[c.key])
+}
