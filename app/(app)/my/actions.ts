@@ -68,7 +68,12 @@ export async function completeTasks(formData: FormData): Promise<void> {
 
 export async function reopenTask(id: string): Promise<void> {
   const { admin, id: owner } = await me(); await mine(admin, id, owner)
-  await admin.from('con_tasks').update({ status: 'open', done_at: null, waiting_on: null, waiting_since: null, snoozed_until: null, updated_at: new Date().toISOString() }).eq('id', id)
+  // Reopening takes the answer back too (a wrong tap on Yes / No must not reach the morning job routine).
+  const { data: row } = await admin.from('con_tasks').select('detail, answer').eq('id', id).single()
+  const undo = row?.answer
+    ? { answer: null, answered_at: null, detail: (row.detail ?? '').split('\n').filter((l: string, i: number, all: string[]) => !(i === all.length - 1 && /^Answer \(\d{4}-\d{2}-\d{2}\): /.test(l))).join('\n') || null }
+    : {}
+  await admin.from('con_tasks').update({ ...undo, status: 'open', done_at: null, waiting_on: null, waiting_since: null, snoozed_until: null, updated_at: new Date().toISOString() }).eq('id', id)
   revalidatePath('/my')
 }
 

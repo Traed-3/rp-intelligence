@@ -5,7 +5,8 @@
  *
  * items.json is a list in the /rps-project-intake open_items shape:
  *   { site_key, item, category, owner, due, asked_on, status, answer }
- * plus optional overrides: title, kind, priority, waiting_on, done (true), detail.
+ * plus optional overrides: title, kind, priority, waiting_on, done (true), detail,
+ * and yes_no (true = My Plate shows Yes / No buttons on the row, false = never; leave it out and the page reads the question).
  * Dedupe key = site_key + first 12 hex of sha1(item), so re-running never duplicates a row.
  * Owner names other than the plate owner ("Starsky", "Claude", "ICON") become status = waiting.
  */
@@ -16,7 +17,7 @@ import { createClient } from '@supabase/supabase-js'
 
 for (const l of readFileSync(resolve(__dirname, '..', '.env.local'), 'utf-8').split('\n')) { const m = l.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^"|"$/g, '') }
 
-type Item = { site_key?: string; item: string; category?: string; owner?: string; due?: string | null; asked_on?: string; status?: string; answer?: string; title?: string; kind?: string; priority?: number; waiting_on?: string; done?: boolean; detail?: string }
+type Item = { site_key?: string; item: string; category?: string; owner?: string; due?: string | null; asked_on?: string; status?: string; answer?: string; title?: string; kind?: string; priority?: number; waiting_on?: string; done?: boolean; detail?: string; yes_no?: boolean }
 
 const KIND: Record<string, string> = { price: 'price', concrete: 'price', disposal: 'price', vendor_quote: 'price', hours: 'quote', permit: 'admin', drawing: 'survey', internal_question: 'followup', customer_question: 'followup', bid: 'bid', order: 'order', quote: 'quote', admin: 'admin', survey: 'survey', followup: 'followup' }
 
@@ -44,6 +45,7 @@ async function main() {
       priority: it.priority ?? 2, due_date: it.due || null,
       status: done ? 'done' : waits ? 'waiting' : 'open', waiting_on: !done && waits ? who : null, waiting_since: !done && waits ? (it.asked_on ?? null) : null,
       source: 'intake', source_key: key, done_at: done ? new Date().toISOString() : null,
+      ...(typeof it.yes_no === 'boolean' ? { action: { yes_no: it.yes_no } } : {}),
     }
   })
   for (const r of rows) console.log(`${r.status.padEnd(7)} ${(r.site_number ?? '-').padEnd(9)} ${r.kind.padEnd(8)} ${r.due_date ?? '      '}  ${r.title.slice(0, 90)}${r.waiting_on ? `  [waiting on ${r.waiting_on}]` : ''}`)
