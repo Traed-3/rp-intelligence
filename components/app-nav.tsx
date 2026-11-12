@@ -4,97 +4,30 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import {
-  LayoutDashboard,
-  Truck,
-  Wrench,
-  ClipboardList,
-  Users,
-  BarChart3,
-  Settings,
-  LogOut,
-  Receipt,
-  FileText,
-  Home,
-  HardHat,
-  CalendarDays,
-  Fuel,
-  Package,
-  type LucideIcon, ListChecks, ClipboardCheck, ShieldCheck, Menu, X,
-} from 'lucide-react'
+import { LogOut, Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { canReadConstruction } from '@/lib/construction'
-import { canUseFieldSurveys, isSurveyOnly } from '@/lib/field-surveys'
-import { BILLING_READ_ROLES } from '@/lib/billing'
-import { canReadCompliance } from '@/lib/compliance'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { buildNav, type NavItem } from '@/lib/nav-items'
+import { visible, MAX_TABS, type UiPrefs } from '@/lib/ui-prefs'
 
-type NavItem = { href: string; label: string; icon: LucideIcon; match?: string[]; construction?: boolean; billing?: boolean; compliance?: boolean; module?: string }
-
-const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/my', label: 'My Plate', icon: ListChecks, construction: true },
-  // Maintenance is now a module hub: Assets, Tickets and Shop live inside it
-  // (they keep their own URLs, so the module stays highlighted while you're in any of them).
-  // No `module` here on purpose — Shop/Tickets can be blocked separately from
-  // Maintenance itself (see lib/modules.ts), so this hub link only disappears
-  // if the Maintenance & Assets module specifically is blocked, checked below.
-  { href: '/maintenance', label: 'Maintenance', icon: Wrench, match: ['/maintenance', '/assets', '/tickets', '/shop'], module: 'maintenance' },
-  // `construction: true` marks this link as gated to the Construction
-  // allowlist (see CON_ALLOWED_USER_IDS) while the module is being refined.
-  { href: '/construction', label: 'Construction', icon: HardHat, construction: true, module: 'construction' },
-  // 7-Eleven / Wawa / Sunoco service calls, synced from rpdispatcher + rpinvoicing.
-  { href: '/service', label: 'Service Dispatch', icon: Fuel, module: 'service_dispatch' },
-  { href: '/billing', label: 'Quotes & Invoices', icon: FileText, billing: true, module: 'billing' },
-  { href: '/inventory', label: 'Inventory', icon: Package, module: 'inventory' },
-  { href: '/compliance', label: 'DQF & Certs', icon: ShieldCheck, compliance: true, module: 'compliance' },
-  // Company-wide calendar that overlays Maintenance and Construction items.
-  { href: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '/expenses', label: 'Expenses', icon: Receipt },
-  { href: '/reports', label: 'Reports', icon: BarChart3, module: 'reports_payroll' },
-  { href: '/settings', label: 'Settings', icon: Settings },
-]
-
-export default function AppNav({ email, role, userId, blockedModules, complianceGranted }: { email: string; role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean }) {
+export default function AppNav({ email, role, userId, blockedModules, complianceGranted, prefs }: { email: string; role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean; prefs?: UiPrefs }) {
   const pathname = usePathname()
   const router = useRouter()
-  const isAdmin = ['owner', 'manager'].includes(role ?? '')
-  const canSeeConstruction = canReadConstruction({ id: userId, role })
-  const blocked = new Set(blockedModules ?? [])
-  const surveyOnly = isSurveyOnly(role)
-  // Crew who can run surveys but do not have the Construction module (construction techs) get a Field Surveys link of their own.
-  const surveysLink: NavItem = { href: '/construction/surveys', label: 'Field Surveys', icon: ClipboardCheck }
-  const needsSurveysLink = canUseFieldSurveys({ id: userId, role }) && !canSeeConstruction
+  const { sidebar, defaultTabs, tabChoices, surveyOnly } = buildNav({ role, userId, blockedModules, complianceGranted })
 
-  // Construction and My Plate show for the construction roles (Settings → role); billing for its own roles too.
-  const canSeeBilling = canSeeConstruction || (BILLING_READ_ROLES as readonly string[]).includes(role ?? '')
-  const visibleNavItems = surveyOnly ? [surveysLink] : [
-    ...(needsSurveysLink ? [navItems[0], surveysLink, ...navItems.slice(1)] : navItems),
-  ].filter(i =>
-    (canSeeConstruction || !('construction' in i)) &&
-    (canSeeBilling || !('billing' in i)) &&
-    (canReadCompliance({ id: userId, role }, !!complianceGranted) || !('compliance' in i)) &&
-    !(i.module && blocked.has(i.module))
-  )
+  // The person's own order and hidden entries (Settings → Personalize). Settings itself can never be hidden.
+  const visibleNavItems = surveyOnly ? sidebar : visible(sidebar, prefs?.nav, ['/settings'])
 
-  // Mobile bottom-bar items — owners/managers get Settings so they can reach
-  // user management, company info, alerts, etc. from a phone or the iPad app.
-  const mobileItems = surveyOnly ? [{ href: '/construction/surveys', label: 'Surveys', icon: ClipboardCheck }] : [
-    { href: '/mobile',    label: 'Home',      icon: Home },
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    ...(canSeeConstruction ? [{ href: '/my', label: 'Plate', icon: ListChecks }] : []),
-    { href: '/assets',    label: 'Assets',    icon: Truck },
-    { href: '/tickets',   label: 'Tickets',   icon: ClipboardList },
-    { href: '/shop',      label: 'Shop',      icon: Users },
-    ...(canSeeConstruction ? [{ href: '/construction', label: 'Build', icon: HardHat }] : []),
-    ...(needsSurveysLink ? [{ href: '/construction/surveys', label: 'Surveys', icon: ClipboardCheck }] : []),
-  ]
-  // Everything else the sidebar shows (DQF & Certs, Quotes & Invoices, Inventory, Expenses…)
-  // lives behind a "More" tab so the phone bar stays readable.
-  const moreItems = surveyOnly ? [] : visibleNavItems.filter(i => !mobileItems.some(m => m.href === i.href))
-    .filter(i => i.href !== '/settings' || isAdmin)
+  // Phone bottom bar: the tabs they picked, or the standard set.
+  const picked = (prefs?.tabs ?? []).map(href => tabChoices.find(t => t.href === href)).filter((t): t is NavItem => !!t).slice(0, MAX_TABS)
+  const mobileItems = surveyOnly || picked.length === 0 ? defaultTabs : picked
+  // Everything else lives behind "More": the rest of the sidebar, plus any standard tab they took off the bar.
+  const moreItems = surveyOnly ? [] : [
+    ...visibleNavItems,
+    ...(picked.length ? defaultTabs.filter(t => !visibleNavItems.some(v => v.href === t.href)) : []),
+  ].filter(i => !mobileItems.some(m => m.href === i.href))
   const [moreOpen, setMoreOpen] = useState(false)
   const moreActive = moreItems.some(i => (i.match ?? [i.href]).some(m => pathname === m || pathname.startsWith(m + '/')))
 
