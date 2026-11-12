@@ -6,6 +6,7 @@ import { NotificationBell } from '@/components/notifications/notification-bell'
 import { AskRps } from '@/components/assistant/ask-rps'
 import { hasComplianceGrant } from '@/lib/compliance-guard'
 import { isSurveyOnly, DEFAULT_NEW_USER_ROLE } from '@/lib/field-surveys'
+import { loadUiPrefs } from '@/lib/ui-prefs'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -41,10 +42,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: blocks } = await admin.from('profile_module_blocks').select('module').eq('profile_id', user.id)
   const blockedModules = (blocks ?? []).map(b => b.module)
   const complianceGranted = await hasComplianceGrant(admin, profile?.company_id, user.id)
+  const prefs = await loadUiPrefs(admin, user.id)   // the person's own menu order / hidden entries / phone tabs
 
   return (
     <div className="flex min-h-screen bg-surface">
-      <AppNav email={user.email ?? ''} role={profile?.role ?? DEFAULT_NEW_USER_ROLE} userId={user.id} blockedModules={blockedModules} complianceGranted={complianceGranted} />
+      <AppNav email={user.email ?? ''} role={profile?.role ?? DEFAULT_NEW_USER_ROLE} userId={user.id} blockedModules={blockedModules} complianceGranted={complianceGranted} prefs={prefs} />
 
       {/* Notification bell — top right on desktop */}
       {!surveyOnly && <div className="fixed top-3.5 right-4 z-20 hidden md:block print:hidden">
