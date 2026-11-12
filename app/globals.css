@@ -14,9 +14,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: var(--font-barlow), "Arial Narrow", Arial, sans-serif;
+  --font-display: var(--font-barlow), "Arial Narrow", Arial, sans-serif;
+  --color-amber-brand: var(--amber);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -101,8 +103,8 @@
   --color-blue-300: #7595b7;
   --color-blue-400: #4d6f9e;
   --color-blue-500: #2d4e7a;
-  --color-blue-600: #1e3558;
-  --color-blue-700: #16243d;
+  --color-blue-600: #1b3d70;
+  --color-blue-700: #14305a;
   --color-blue-800: #0d1727;
   --color-blue-900: #080e18;
   --color-blue-950: #040810;
@@ -115,29 +117,32 @@
 
 :root {
   color-scheme: light;
-  --radius: 0.5rem;
+  --radius: 0.375rem;
 
   --background: oklch(1 0 0);
-  --surface: oklch(0.981 0.003 258);
+  --surface: #f3f5f8;
   --raised: oklch(0.97 0.004 258);
-  --foreground: oklch(0.2 0.03 258);
+  --foreground: #152237;
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
   --popover-foreground: var(--foreground);
-  --primary: oklch(0.262 0.052 262);        /* #16243d brand navy */
+  --primary: #14305a;                       /* Action Board navy */
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.962 0.005 258);
   --secondary-foreground: oklch(0.27 0.028 258);
   --muted: oklch(0.962 0.005 258);
-  --muted-foreground: oklch(0.52 0.019 258);
+  --muted-foreground: #5b6678;
   --accent: oklch(0.962 0.005 258);
   --accent-foreground: oklch(0.27 0.028 258);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0.008 258);
+  --border: #d9dee7;
   --hairline: oklch(0.95 0.006 258);
   --input: oklch(0.868 0.011 258);
-  --ring: oklch(0.56 0.15 256);
+  --ring: #e8a317;
+  --amber: #e8a317;
+  --heading: #14305a;
+  --sidebar-navy: #12294d;
   --brand: oklch(0.53 0.15 256);
   --brand-soft: oklch(0.955 0.022 256);
   --ink: oklch(0.2 0.03 258);
@@ -190,25 +195,28 @@
 .dark {
   color-scheme: dark;
 
-  --background: oklch(0.165 0.018 258);
-  --surface: oklch(0.165 0.018 258);
+  --background: #0f1622;
+  --surface: #0f1622;
   --raised: oklch(0.235 0.02 258);
-  --foreground: oklch(0.955 0.005 258);
-  --card: oklch(0.205 0.02 258);
+  --foreground: #e6ebf3;
+  --card: #172131;
   --popover: oklch(0.225 0.021 258);
   --primary: oklch(0.52 0.13 258);          /* navy lifted so it reads on a dark page */
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.255 0.02 258);
   --secondary-foreground: oklch(0.955 0.005 258);
   --muted: oklch(0.255 0.02 258);
-  --muted-foreground: oklch(0.69 0.018 258);
+  --muted-foreground: #9aa6b8;
   --accent: oklch(0.255 0.02 258);
   --accent-foreground: oklch(0.955 0.005 258);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.3 0.022 258);
+  --border: #2a3647;
   --hairline: oklch(0.255 0.02 258);
   --input: oklch(0.37 0.024 258);
-  --ring: oklch(0.7 0.13 256);
+  --ring: #f0b43a;
+  --amber: #f0b43a;
+  --heading: #8fb4ee;
+  --sidebar-navy: #0d1a30;
   --brand: oklch(0.74 0.12 256);
   --brand-soft: oklch(0.27 0.05 256);
   --ink: oklch(0.13 0.015 258);
@@ -267,7 +275,7 @@
   }
   /* One focus ring everywhere, keyboard only */
   :where(a, button, summary, [role="button"], [tabindex]):focus-visible {
-    outline: 2px solid var(--ring);
+    outline: 3px solid var(--ring);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }
@@ -292,27 +300,29 @@
   .rp-page { padding: 1rem; margin-inline: auto; max-width: 80rem; }
   @media (min-width: 640px) { .rp-page { padding: 1.5rem; } }
   @media (min-width: 1024px) { .rp-page { padding: 2rem; } }
-  .rp-title { font-size: 1.5rem; line-height: 1.2; font-weight: 650; letter-spacing: -0.022em; color: var(--foreground); text-wrap: balance; }
-  @media (min-width: 640px) { .rp-title { font-size: 1.7rem; } }
-  .rp-subtitle { font-size: 0.875rem; line-height: 1.45; color: var(--muted-foreground); margin-top: 0.25rem; }
+  .rp-title { font-family: var(--font-display); font-size: 1.85rem; line-height: 1; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--heading); text-wrap: balance; }
+  @media (min-width: 640px) { .rp-title { font-size: 2.25rem; } }
+  .rp-subtitle { font-size: 0.8125rem; line-height: 1.45; color: var(--muted-foreground); margin-top: 0.375rem; }
   .rp-label { font-size: 0.6875rem; line-height: 1.2; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted-foreground); }
   .rp-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; font-size: 0.8125rem; color: var(--muted-foreground); margin-bottom: 0.375rem; }
   .rp-crumbs a:hover { color: var(--foreground); }
 
   /* The notification bell floats top-right on desktop; keep each page's header row clear of it. */
   @media (min-width: 768px) { .rp-main > .rp-page-in > div > :first-child:not([data-hero]) { padding-right: 3rem; } }
+  /* The Action Board header: a heavy navy rule under the row that holds the page title. */
+  .rp-main > .rp-page-in > div > :is(h1, :has(h1)):not([data-hero], :has(.rp-card, table, form, [data-hero])) { border-bottom: 3px solid var(--heading); padding-bottom: 0.625rem; margin-bottom: 1.25rem; }
 
   /* Cards */
-  .rp-card { background: var(--card); color: var(--card-foreground); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow-1); }
+  .rp-card { background: var(--card); color: var(--card-foreground); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-1); }
   .rp-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--hairline); }
-  .rp-card-title { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; color: var(--foreground); }
+  .rp-card-title { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.1; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--foreground); }
   .rp-card-link { transition: border-color 150ms, box-shadow 150ms, transform 150ms; }
   .rp-card-link:hover { border-color: color-mix(in oklab, var(--brand) 45%, var(--border)); box-shadow: var(--shadow-2); }
   .rp-card-link:active { transform: translateY(1px); box-shadow: var(--shadow-1); }
 
   /* List item card (the My Plate card): its own card, a colored left stripe
      for status, room for a site tag, muted detail, pills and one action. */
-  .rp-item { --stripe: var(--color-gray-300); background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--stripe); border-radius: var(--radius-lg); padding: 0.75rem 0.875rem; box-shadow: var(--shadow-1); transition: box-shadow 150ms, border-color 150ms; }
+  .rp-item { --stripe: var(--color-gray-300); background: var(--card); border: 1px solid var(--border); border-left: 6px solid var(--stripe); border-radius: var(--radius-lg); padding: 0.75rem 0.875rem; box-shadow: var(--shadow-1); transition: box-shadow 150ms, border-color 150ms; }
   .rp-item:hover { box-shadow: var(--shadow-2); }
   .rp-item[data-tone="danger"]  { --stripe: var(--danger); }
   .rp-item[data-tone="warning"] { --stripe: var(--warning); }
@@ -324,7 +334,7 @@
   .rp-item-detail { font-size: 0.8125rem; line-height: 1.45; color: var(--muted-foreground); }
 
   /* Site / store tag: mono, light blue */
-  .rp-site-tag { display: inline-flex; align-items: center; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1; font-weight: 500; padding: 0.25rem 0.4375rem; border-radius: var(--radius-sm); background: var(--color-blue-50); color: var(--color-blue-600); border: 1px solid var(--color-blue-100); white-space: nowrap; }
+  .rp-site-tag { display: inline-flex; align-items: center; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1; font-weight: 500; padding: 0.25rem 0.4375rem; border-radius: var(--radius-sm); background: var(--color-blue-50); color: var(--foreground); border: 1px solid transparent; white-space: nowrap; }
 
   /* Status pill: color means something (danger / warning / success / info) or nothing (neutral) */
   .rp-pill { display: inline-flex; align-items: center; gap: 0.3125rem; font-size: 0.71875rem; line-height: 1; font-weight: 600; padding: 0.28125rem 0.5rem; border-radius: 999px; white-space: nowrap; background: var(--muted); color: var(--color-gray-600); border: 1px solid var(--border); }
@@ -350,7 +360,7 @@
   .rp-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
   /* Stat tile */
-  .rp-stat-value { font-size: 1.625rem; line-height: 1.1; font-weight: 650; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; color: var(--foreground); }
+  .rp-stat-value { font-family: var(--font-display); font-size: 2.125rem; line-height: 1; font-weight: 700; letter-spacing: 0.01em; font-variant-numeric: tabular-nums; color: var(--foreground); }
   .rp-stat-label { font-size: 0.75rem; color: var(--muted-foreground); margin-top: 0.25rem; }
 
   /* Form control */
@@ -385,6 +395,17 @@
 }
 
 @keyframes rp-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* ── Navy sidebar. It carries class "dark" so everything inside reads light-on-navy;
+   unlayered and after .dark so these values win. ── */
+.rp-sidebar { background: var(--sidebar-navy); --sidebar-accent: oklch(1 0 0 / 0.1); --sidebar-border: oklch(1 0 0 / 0.1); --border: oklch(1 0 0 / 0.12); --muted: oklch(1 0 0 / 0.07); --card: oklch(1 0 0 / 0.16); --brand: var(--amber); }
+
+/* ── Section headings: condensed caps, like the Action Board lanes. Unlayered on
+   purpose so it wins over the per-page text-size utilities. ── */
+.rp-main h1:not([data-hero] *) { font-family: var(--font-display); font-size: 1.85rem; line-height: 1; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--heading); }
+@media (min-width: 640px) { .rp-main h1:not([data-hero] *) { font-size: 2.25rem; } }
+.rp-main :is(h2, summary > h2, details > summary.rp-fold) { font-family: var(--font-display); font-size: 1.15rem; line-height: 1.1; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.rp-main h2 small { font-family: var(--font-sans); letter-spacing: 0; text-transform: none; }
 
 /* ── Motion ─────────────────────────────────────────────────────────────────
    One small, consistent set: page rise, ring loader, sign-in logo reveal,
