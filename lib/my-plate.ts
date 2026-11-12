@@ -131,3 +131,38 @@ export function buildSignals(input: {
   if (input.unmatchedSlips > 0) out.push({ key: 'slips|unmatched', kind: 'followup', title: `${input.unmatchedSlips} packing slip${input.unmatchedSlips === 1 ? '' : 's'} nobody has placed`, href: '/inventory/receive/queue' })
   return out.filter(s => !input.existingKeys.has(s.key))
 }
+
+// ── Yes / No questions (Trae 11/12/26: "anytime my plate asks a yes or no question I want a button") ──
+
+const YN_AUX = /^(?:is|are|was|were|am|do|does|did|can|could|should|shall|will|would|has|have|had|may|must)(?:n['’]t)?\b/i
+/** "Bill 2 men instead?" is short for "should I bill 2 men?": a bare verb the routines use when they ask for a go-ahead. */
+const YN_VERB = /^(?:bill|add|send|order|close|mark|move|keep|drop|use|include|charge|invoice|file|schedule|remove|split|combine|want|need|ok|okay)\b/i
+const YN_OPEN = /\b(?:which|what|who|whose|how)\b/i
+
+/**
+ * True when the text ends in one plain yes-or-no question.
+ * Careful on purpose: an either/or ("this job or a separate one?"), a which/what/how question,
+ * two questions in one row, or a question followed by more text all keep the typed answer box.
+ */
+export function readsAsYesNo(text: string | null | undefined): boolean {
+  if (!text) return false
+  let s = text
+  for (let i = 0; i < 3; i++) s = s.replace(/\([^()]*\)/g, ' ')   // notes in brackets are not the question
+  s = s.replace(/\s+/g, ' ').trim()
+  if (!s.endsWith('?') || s.indexOf('?') !== s.length - 1) return false
+  const clause = (s.slice(0, -1).split(/(?:[.!;:] | [-–—] )/).pop() ?? '').trim()
+    .replace(/^(?:and|so|but|then|also)[, ]+/i, '').replace(/,? or not$/i, '')
+  if (!clause || /\bor\b/i.test(clause) || YN_OPEN.test(clause)) return false
+  return YN_AUX.test(clause) || YN_VERB.test(clause)
+}
+
+/**
+ * Does this row get Yes / No buttons?
+ * Whoever creates the row can say so outright with action.yes_no = true or false, and that always wins.
+ * With no flag, the title is read (or the detail, when the title asks nothing).
+ */
+export function isYesNo(t: Pick<TaskRow, 'title' | 'detail' | 'action'>): boolean {
+  const flag = (t.action as { yes_no?: unknown } | null)?.yes_no
+  if (typeof flag === 'boolean') return flag
+  return t.title.includes('?') ? readsAsYesNo(t.title) : readsAsYesNo(t.detail)
+}

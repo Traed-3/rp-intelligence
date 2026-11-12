@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
-import { buildPlate, buildSignals, businessDaysSince, dueDelta, KIND_CLASS, KIND_LABEL, type TaskRow, type TaskKind } from '@/lib/my-plate'
+import { buildPlate, buildSignals, businessDaysSince, dueDelta, isYesNo, KIND_CLASS, KIND_LABEL, type TaskRow, type TaskKind } from '@/lib/my-plate'
 import { packingSlipSiteKey } from '@/lib/construction-dashboard'
 import { addTask, completeTask, completeTasks, dropTask, reopenTask, setDue, setPriority, snoozeTask, waitTask, answerTask, resolvePriceLine, draftOrderEmail, markOrderSent } from './actions'
 import { ORDER_VENDORS, mailtoHref, type OrderDraft, type OrderVendorKey } from '@/lib/order-email'
@@ -272,6 +272,8 @@ function TaskCard({ t, today, urls, waiting = false }: { t: TaskRow; today: stri
   const a = (t.action ?? {}) as { type?: string }
   const richResolver = !waiting && t.status === 'open' && (a.type === 'quote_line_price' || a.type === 'order_email' || t.kind === 'order')
   const plainAnswer = !waiting && t.status === 'open' && !richResolver
+  // A yes-or-no question is answered with one click; the typed answer box stays under "more" for anything longer.
+  const yesNo = plainAnswer && isYesNo(t)
   return (
     <li className={`rounded-lg border border-border border-l-[6px] ${stripe(t, today, waiting)} bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)] px-3 py-2.5 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5`}>
       <div className="min-w-0 space-y-1">
@@ -316,8 +318,14 @@ function TaskCard({ t, today, urls, waiting = false }: { t: TaskRow; today: stri
           </div>
         </details>
       </div>
-      <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:col-start-2 sm:row-start-1">
-        <form action={completeTask.bind(null, t.id)}><button className="px-4 py-1.5 rounded-md bg-emerald-600 border border-emerald-700 text-white text-[13px] font-semibold hover:bg-emerald-600/90">Done</button></form>
+      <div className="flex flex-wrap sm:flex-col items-center sm:items-end gap-2 sm:col-start-2 sm:row-start-1">
+        {yesNo && (
+          <div className="flex items-center gap-2" role="group" aria-label="Answer yes or no">
+            <form action={answerTask.bind(null, t.id)}><input type="hidden" name="answer" value="Yes" /><button title="Answer Yes and close" className="min-w-[4.25rem] px-4 py-2 sm:py-1.5 rounded-md bg-blue-700 border border-blue-800 text-white text-[13px] font-semibold hover:bg-blue-700/90">Yes</button></form>
+            <form action={answerTask.bind(null, t.id)}><input type="hidden" name="answer" value="No" /><button title="Answer No and close" className="min-w-[4.25rem] px-4 py-2 sm:py-1.5 rounded-md bg-card border border-gray-400 text-foreground text-[13px] font-semibold hover:bg-gray-100">No</button></form>
+          </div>
+        )}
+        <form action={completeTask.bind(null, t.id)}><button className="px-4 py-2 sm:py-1.5 rounded-md bg-emerald-600 border border-emerald-700 text-white text-[13px] font-semibold hover:bg-emerald-600/90">Done</button></form>
       </div>
     </li>
   )
