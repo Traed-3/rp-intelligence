@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { buildPlate, buildSignals, businessDaysSince, dueDelta, isYesNo, firstName, KIND_CLASS, KIND_LABEL, PLATE_PARTNERS, type TaskRow, type TaskKind } from '@/lib/my-plate'
 import { packingSlipSiteKey } from '@/lib/construction-dashboard'
-import { addTask, completeTask, completeTasks, dropTask, reopenTask, setDue, setPriority, snoozeTask, waitTask, answerTask, resolvePriceLine, draftOrderEmail, markOrderSent, assignTask, takeFromPartner, completePartnerTask } from './actions'
+import { addTask, completeTask, completeTasks, dropTask, reopenTask, setDue, setPriority, snoozeTask, waitTask, answerTask, resolvePriceLine, draftOrderEmail, markOrderSent, assignTask, saveNote, takeFromPartner, completePartnerTask } from './actions'
 import { AssignTo } from './assign-to'
 import { ORDER_VENDORS, mailtoHref, type OrderDraft, type OrderVendorKey } from '@/lib/order-email'
 import { CopyButton } from '@/components/plate/copy-button'
@@ -317,6 +317,11 @@ function TaskCard({ t, today, urls, partner = null, waiting = false }: { t: Task
           {t.job_id && <Link href={`/construction/jobs/${t.job_id}`} className="text-xs text-blue-700 hover:underline">Job</Link>}
           {t.quote_id && <Link href={`/billing/quotes/${t.quote_id}`} className="text-xs text-blue-700 hover:underline">Quote</Link>}
         </div>
+        {t.my_note && (
+          <div className="rounded-md border border-amber-200 bg-amber-50/70 px-2 py-1.5 text-[13px] leading-snug text-foreground whitespace-pre-line [overflow-wrap:anywhere]">
+            <span className="font-semibold text-amber-900">My note{t.my_note_at ? ` (${fmt(new Date(t.my_note_at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }))})` : ''}: </span>{t.my_note}
+          </div>
+        )}
         <MaterialLists lists={materialLists(t.action)} />
         <Tickets refs={ticketRefs(t)} urls={urls} />
         {richResolver && <Resolver t={t} />}
@@ -349,11 +354,18 @@ function TaskCard({ t, today, urls, partner = null, waiting = false }: { t: Task
         )}
         <form action={completeTask.bind(null, t.id)}><button className="px-4 py-2 sm:py-1.5 rounded-md bg-emerald-600 border border-emerald-700 text-white text-[13px] font-semibold hover:bg-emerald-600/90">Done</button></form>
       </div>
-      {partner && (
-        <div className="sm:col-span-2 border-t border-border pt-1.5">
-          <AssignTo action={assignTask.bind(null, t.id)} people={[partner]} />
-        </div>
-      )}
+      <div className="sm:col-span-2 border-t border-border pt-1.5 flex flex-wrap items-start gap-x-4 gap-y-1.5">
+        {partner && <AssignTo action={assignTask.bind(null, t.id)} people={[partner]} />}
+        <details key={t.my_note_at ?? 'none'} className="group/note min-w-0 flex-1 text-xs">
+          <summary className="cursor-pointer list-none select-none inline-flex items-center gap-1 py-0.5 font-semibold text-blue-700 hover:underline">
+            <span className="inline-block transition-transform group-open/note:rotate-90">▸</span>{t.my_note ? 'Update my note' : 'Add a note'}
+          </summary>
+          <form action={saveNote.bind(null, t.id)} className="mt-1.5 flex flex-col gap-1.5">
+            <textarea name="note" rows={3} defaultValue={t.my_note ?? ''} placeholder="Where I am with it, what is next…" aria-label="My note" className="w-full rounded-md border border-gray-300 bg-card px-2 py-1.5 text-[13px] text-foreground" />
+            <div><button className={ghost}>Save note</button></div>
+          </form>
+        </details>
+      </div>
     </li>
   )
 }
@@ -388,6 +400,7 @@ function PartnerPlate({ partner, meId, tasks, today }: { partner: Partner; meId:
           {t.due_date && <Pill tone={(dueDelta(t, today) ?? 0) > 0 ? 'over' : 'due'}>Due {fmt(t.due_date)}</Pill>}
           {t.job_id && <Link href={`/construction/jobs/${t.job_id}`} className="text-xs text-blue-700 hover:underline">Job</Link>}
         </div>
+        {t.my_note && <div className="rounded-md border border-amber-200 bg-amber-50/70 px-2 py-1.5 text-[13px] leading-snug whitespace-pre-line [overflow-wrap:anywhere]"><span className="font-semibold text-amber-900">Note: </span>{t.my_note}</div>}
       </div>
       <div className="flex flex-wrap sm:flex-col items-center sm:items-end gap-2 sm:col-start-2 sm:row-start-1">
         <form action={takeFromPartner.bind(null, t.id)}><button title="This one is mine after all. Move it back to my plate" className="px-4 py-2 sm:py-1.5 rounded-md bg-blue-700 border border-blue-800 text-white text-[13px] font-semibold hover:bg-blue-700/90">Mine</button></form>

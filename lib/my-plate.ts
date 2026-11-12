@@ -35,6 +35,9 @@ export type TaskRow = {
   /** Whose plate the row was on before someone clicked it over (null = it was put here directly). */
   handed_from?: string | null
   handed_at?: string | null
+  /** The owner's own "where I am with it" note. Only a person writes it. */
+  my_note?: string | null
+  my_note_at?: string | null
 }
 
 /**

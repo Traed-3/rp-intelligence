@@ -115,6 +115,16 @@ export async function setDue(id: string, formData: FormData): Promise<void> {
   revalidatePath('/my')
 }
 
+/** My note: where I am with it. Saving an empty box clears the note. The card stays open. */
+export async function saveNote(id: string, formData: FormData): Promise<void> {
+  const { admin, id: owner } = await me(); await mine(admin, id, owner)
+  const note = str(formData.get('note'))
+  const now = new Date().toISOString()
+  const { error } = await admin.from('con_tasks').update({ my_note: note, my_note_at: note ? now : null, updated_at: now }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/my')
+}
+
 // ── plate partner: "that's Starsky's" ─────────────────────────────────────────
 
 async function partnerId(admin: ReturnType<typeof createAdminClient>, email: string, company_id: string) {
