@@ -43,18 +43,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const complianceGranted = await hasComplianceGrant(admin, profile?.company_id, user.id)
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-surface">
       <AppNav email={user.email ?? ''} role={profile?.role ?? DEFAULT_NEW_USER_ROLE} userId={user.id} blockedModules={blockedModules} complianceGranted={complianceGranted} />
 
       {/* Notification bell — top right on desktop */}
-      {!surveyOnly && <div className="fixed top-3 right-4 z-20 hidden md:block">
+      {!surveyOnly && <div className="fixed top-3.5 right-4 z-20 hidden md:block print:hidden">
         <NotificationBell
           initialNotifications={(filteredNotifications ?? []) as any[]}
           unreadCount={unreadCount}
         />
       </div>}
 
-      <main className="flex-1 min-w-0 pb-16 md:pb-0 overflow-y-auto overflow-x-hidden">
+      <main className="rp-main flex-1 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0 overflow-y-auto overflow-x-hidden">
         {children}
       </main>
 
