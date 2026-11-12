@@ -20,9 +20,26 @@ export const dynamic = 'force-dynamic'
 
 const fmt = (iso: string | null) => iso ? new Date(iso + (iso.length === 10 ? 'T12:00:00Z' : '')).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) : ''
 
-export default async function MyPlatePage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
-  const { kind: kindParam } = await searchParams
+/** Starsky's asks come in with a detail that starts "SD " (Action Board convention, 11/12/26). */
+const fromStarsky = (t: TaskRow) => /^SD\b/.test(t.detail ?? '')
+const isOverdue = (t: TaskRow, today: string) => t.status !== 'done' && (dueDelta(t, today) ?? 0) > 0
+const isPermit = (t: TaskRow) => /\bpermit|\bTCP\b|\bPNF\b/i.test(t.title)
+
+type Filters = { kind: TaskKind | null; sd: boolean; over: boolean }
+/** Chip link that keeps the other filters as they are. */
+const filterHref = (f: Filters) => {
+  const q = new URLSearchParams()
+  if (f.kind) q.set('kind', f.kind)
+  if (f.sd) q.set('from', 'sd')
+  if (f.over) q.set('due', 'over')
+  const s = q.toString()
+  return s ? `/my?${s}` : '/my'
+}
+
+export default async function MyPlatePage({ searchParams }: { searchParams: Promise<{ kind?: string; from?: string; due?: string }> }) {
+  const { kind: kindParam, from: fromParam, due: dueParam } = await searchParams
   const kindFilter = kindParam && kindParam in KIND_LABEL ? kindParam as TaskKind : null
+  const filters: Filters = { kind: kindFilter, sd: fromParam === 'sd', over: dueParam === 'over' }
   const profile = await requireConstruction()
   const admin = createAdminClient()
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
@@ -40,9 +57,14 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
 
   const tasks = (rows ?? []) as TaskRow[]
   // Type filter (Trae 10/30): chips above the lists; counts are open + waiting rows of each kind.
+  // "From Starsky" and "Overdue" (Trae 11/12, like the Action Board) narrow the list; the type chips count inside that view.
+  const live = tasks.filter(t => t.status === 'open' || t.status === 'waiting')
+  const sdCount = live.filter(fromStarsky).length
+  const overCount = live.filter(t => isOverdue(t, today)).length
+  const scoped = tasks.filter(t => (!filters.sd || fromStarsky(t)) && (!filters.over || isOverdue(t, today)))
   const kindCounts = new Map<TaskKind, number>()
-  for (const t of tasks) if (t.status === 'open' || t.status === 'waiting') kindCounts.set(t.kind, (kindCounts.get(t.kind) ?? 0) + 1)
-  const plate = buildPlate(kindFilter ? tasks.filter(t => t.kind === kindFilter) : tasks, today)
+  for (const t of scoped) if (t.status === 'open' || t.status === 'waiting') kindCounts.set(t.kind, (kindCounts.get(t.kind) ?? 0) + 1)
+  const plate = buildPlate(kindFilter ? scoped.filter(t => t.kind === kindFilter) : scoped, today)
   // Crew ticket scans the daily job routine attached to a row (action.tickets) -> signed links, one batch call.
   const ticketPaths = [...new Set(tasks.filter(t => t.status !== 'done').flatMap(t => ticketRefs(t).flatMap(r => r.paths)))]
   const { data: signed } = ticketPaths.length
@@ -65,147 +87,237 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
   }, today)
 
   const openCount = plate.now.length + plate.next.length
+  const allCount = [...kindCounts.values()].reduce((a, b) => a + b, 0)
+  const chip = (on: boolean) => `px-3 py-1.5 rounded-full border text-[13px] font-semibold transition-colors ${on ? 'bg-blue-700 border-blue-700 text-white' : 'bg-card border-border text-foreground hover:bg-blue-50'}`
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto overflow-x-hidden">
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b-[3px] border-blue-700 pb-3 mb-5">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">My Plate</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{openCount} open · {plate.waiting.length} waiting on someone · {plate.doneToday.length} done today. Top row is the next thing to do.</p>
+          <h1 className="text-3xl sm:text-4xl font-bold uppercase tracking-wide text-blue-700 leading-none">My Plate</h1>
+          <p className="text-sm text-muted-foreground mt-1.5">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })} · top card is the next thing to do</p>
         </div>
-        <span className="text-xs text-gray-400">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })}</span>
+        <div className="flex flex-wrap gap-2 font-mono text-xs">
+          <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{openCount}</b> your move</span>
+          <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{plate.waiting.length}</b> waiting</span>
+          {overCount > 0 && <span className="px-2 py-1 rounded border border-red-200 bg-red-50 text-red-700"><b className="tabular-nums">{overCount}</b> overdue</span>}
+          <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{plate.doneToday.length}</b> done today</span>
+        </div>
+      </header>
+
+      <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Filter">
+        <Link href={filterHref({ ...filters, sd: false, over: false })} className={chip(!filters.sd && !filters.over)}>Everything open</Link>
+        <Link href={filterHref({ ...filters, sd: !filters.sd })} className={chip(filters.sd)}>From Starsky <span className="tabular-nums opacity-70">{sdCount}</span></Link>
+        <Link href={filterHref({ ...filters, over: !filters.over })} className={chip(filters.over)}>Overdue <span className="tabular-nums opacity-70">{overCount}</span></Link>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <div className="flex flex-wrap gap-1.5 text-xs">
-          <Link href="/my" className={`px-2.5 py-1 rounded-full border ${!kindFilter ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>All {[...kindCounts.values()].reduce((a, b) => a + b, 0)}</Link>
+          <Link href={filterHref({ ...filters, kind: null })} className={`px-2.5 py-1 rounded-full border ${!kindFilter ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 text-gray-600 bg-card hover:bg-gray-50'}`}>All types {allCount}</Link>
           {(Object.keys(KIND_LABEL) as TaskKind[]).filter(k => kindCounts.get(k)).map(k => (
-            <Link key={k} href={`/my?kind=${k}`} className={`px-2.5 py-1 rounded-full border ${kindFilter === k ? 'ring-2 ring-offset-1 ring-gray-900 ' : ''}${KIND_CLASS[k]}`}>{KIND_LABEL[k]} {kindCounts.get(k)}</Link>
+            <Link key={k} href={filterHref({ ...filters, kind: k })} className={`px-2.5 py-1 rounded-full border ${kindFilter === k ? 'ring-2 ring-offset-1 ring-gray-900 ' : ''}${KIND_CLASS[k]}`}>{KIND_LABEL[k]} {kindCounts.get(k)}</Link>
           ))}
         </div>
         <form id="plate-bulk" action={completeTasks} />
         <BulkBar formId="plate-bulk" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4 min-w-0">
-          <Section title="Do now" hint="Overdue, due today, hot, or due within 3 days" tone="bg-[#C00000] text-white" count={plate.now.length} empty="Nothing pressing. Work the Next list.">
-            {plate.now.map(t => <TaskLine key={t.id} t={t} today={today} urls={ticketUrls} />)}
-          </Section>
-          <Section title="Next" hint="In order: soonest due, then priority, then oldest" tone="bg-[#FFC000] text-black" count={plate.next.length} empty="Empty. Add what is on your mind below.">
-            {plate.next.map(t => <TaskLine key={t.id} t={t} today={today} urls={ticketUrls} />)}
-          </Section>
-          <Section title="Waiting on someone" hint="Longest wait first. Five business days is a nudge." tone="bg-[#5B9BD5] text-white" count={plate.waiting.length} empty="Nobody owes you anything right now.">
-            {plate.waiting.map(t => <TaskLine key={t.id} t={t} today={today} urls={ticketUrls} waiting />)}
-          </Section>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-7 min-w-0">
+          <Lane title="Your move" hint="needs an answer or action from you" count={openCount} empty="Nothing on you right now. Add what is on your mind.">
+            {plate.now.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} />)}
+            {plate.now.length > 0 && plate.next.length > 0 && (
+              <li className="flex items-center gap-3 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground" aria-hidden>
+                <span>Then, in order</span><span className="h-px flex-1 bg-border" />
+              </li>
+            )}
+            {plate.next.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} />)}
+          </Lane>
+
+          <Lane title="Waiting on" hint="we sent it, no answer yet · longest wait first" count={plate.waiting.length} empty="Nobody owes you anything right now.">
+            {plate.waiting.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} waiting />)}
+          </Lane>
+
           {plate.snoozed.length > 0 && (
-            <Section title="Snoozed" hint="Back on the list on the date shown" tone="bg-gray-200 text-gray-700" count={plate.snoozed.length} empty="">
-              {plate.snoozed.map(t => <TaskLine key={t.id} t={t} today={today} urls={ticketUrls} />)}
-            </Section>
+            <Folded title="Snoozed" count={plate.snoozed.length}>
+              {plate.snoozed.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} />)}
+            </Folded>
           )}
+
           {plate.doneToday.length > 0 && (
-            <Section title="Done today" hint="" tone="bg-[#70AD47] text-white" count={plate.doneToday.length} empty="">
+            <Folded title="Done today" count={plate.doneToday.length}>
               {plate.doneToday.map(t => (
-                <li key={t.id} className="px-3 py-2 flex items-center gap-2 text-sm text-gray-500 line-through">
-                  <span className="truncate min-w-0 flex-1">{t.site_number ? `${t.site_number} · ` : ''}{t.title}</span>
-                  <form action={reopenTask.bind(null, t.id)}><button className="text-xs text-blue-600 hover:underline no-underline" style={{ textDecoration: 'none' }}>Reopen</button></form>
+                <li key={t.id} className="rounded-lg border border-border border-l-[6px] border-l-emerald-600 bg-card px-3 py-2.5 flex items-center gap-3 opacity-70">
+                  <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {t.site_number && <SiteTag site={t.site_number} />}
+                    <span className="font-semibold text-sm text-foreground min-w-0">{t.title}</span>
+                    <Pill tone="done">Done{t.done_at ? ` ${new Date(t.done_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })}` : ''}</Pill>
+                  </div>
+                  <form action={reopenTask.bind(null, t.id)}><button className="px-3 py-1.5 rounded-md border border-border bg-gray-50 text-[13px] font-semibold text-foreground hover:bg-gray-100">Reopen</button></form>
                 </li>
               ))}
-            </Section>
+            </Folded>
           )}
         </div>
 
-        <div className="space-y-4 min-w-0">
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide bg-gray-900 text-white">Add to my plate</div>
-            <form action={addTask} className="p-3 space-y-2 text-sm">
+        <aside className="space-y-6 min-w-0">
+          <section className="space-y-2.5">
+            <LaneHeading title="Add to my plate" />
+            <form action={addTask} className="rounded-lg border border-border border-l-[6px] border-l-blue-700 bg-card p-3 space-y-2 text-sm">
               <input name="title" required placeholder="What needs doing" className="w-full rounded-md border border-gray-300 px-2.5 py-1.5" />
               <div className="grid grid-cols-2 gap-2">
-                <input name="site_number" placeholder="Site (40013, SU-8605)" className="rounded-md border border-gray-300 px-2.5 py-1.5" />
-                <input name="due_date" type="date" className="rounded-md border border-gray-300 px-2.5 py-1.5" />
-                <select name="kind" defaultValue="followup" className="rounded-md border border-gray-300 px-2 py-1.5">
+                <input name="site_number" placeholder="Site (40013, SU-8605)" className="min-w-0 rounded-md border border-gray-300 px-2.5 py-1.5" />
+                <input name="due_date" type="date" className="min-w-0 rounded-md border border-gray-300 px-2.5 py-1.5" />
+                <select name="kind" defaultValue="followup" className="min-w-0 rounded-md border border-gray-300 px-2 py-1.5">
                   {(Object.keys(KIND_LABEL) as TaskKind[]).map(k => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
                 </select>
-                <select name="priority" defaultValue="2" className="rounded-md border border-gray-300 px-2 py-1.5">
+                <select name="priority" defaultValue="2" className="min-w-0 rounded-md border border-gray-300 px-2 py-1.5">
                   <option value="1">Hot</option><option value="2">Normal</option><option value="3">Low</option>
                 </select>
               </div>
-              <textarea name="detail" rows={2} placeholder="Detail, numbers, who to call" className="w-full rounded-md border border-gray-300 px-2.5 py-1.5" />
-              <button className="w-full rounded-md bg-blue-600 text-white py-1.5 text-sm font-medium hover:bg-blue-700">Add</button>
+              <textarea name="detail" rows={2} placeholder="Detail, numbers, who to call (start with SD if Starsky asked)" className="w-full rounded-md border border-gray-300 px-2.5 py-1.5" />
+              <button className="w-full rounded-md bg-blue-700 text-white py-1.5 text-sm font-semibold hover:bg-blue-800">Add</button>
             </form>
-          </div>
+          </section>
 
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide bg-[#7030A0] text-white flex items-center justify-between"><span>Signals from the data</span><span className="tabular-nums">{signals.length}</span></div>
-            {signals.length === 0 ? <p className="p-3 text-xs text-gray-400">Nothing the data can see that is not already on the plate.</p> : (
-              <ul className="divide-y divide-gray-100">
+          <section className="space-y-2.5">
+            <LaneHeading title="Signals" count={signals.length} hint="the data says you owe these" />
+            {signals.length === 0 ? <p className="rounded-lg border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">Nothing the data can see that is not already on the plate.</p> : (
+              <ul className="flex flex-col gap-2">
                 {signals.map(s => (
-                  <li key={s.key} className="px-3 py-2 text-xs flex items-start gap-2">
-                    <span className={`shrink-0 mt-0.5 px-1.5 py-0.5 rounded-full border text-[10px] ${KIND_CLASS[s.kind]}`}>{KIND_LABEL[s.kind]}</span>
-                    <span className="min-w-0 flex-1 text-gray-700">{s.href ? <Link href={s.href} className="hover:underline">{s.title}</Link> : s.title}</span>
+                  <li key={s.key} className="rounded-lg border border-border border-l-[6px] border-l-purple-500 bg-card px-3 py-2 text-xs flex items-start gap-2">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {s.site_number && <SiteTag site={s.site_number} />}
+                        <span className={`px-1.5 py-0.5 rounded-full border text-[10px] ${KIND_CLASS[s.kind]}`}>{KIND_LABEL[s.kind]}</span>
+                      </div>
+                      <div className="text-foreground">{s.href ? <Link href={s.href} className="hover:underline">{s.title}</Link> : s.title}</div>
+                    </div>
                     <form action={addTask} className="shrink-0">
                       <input type="hidden" name="title" value={s.title} /><input type="hidden" name="kind" value={s.kind} /><input type="hidden" name="site_number" value={s.site_number ?? ''} /><input type="hidden" name="source_key" value={s.key} /><input type="hidden" name="detail" value={s.href ? `See ${s.href}` : ''} />{s.action && <input type="hidden" name="action" value={JSON.stringify(s.action)} />}
-                      <button className="text-blue-600 hover:underline whitespace-nowrap">+ plate</button>
+                      <button className="px-2 py-1 rounded-md border border-border bg-gray-50 font-semibold text-blue-700 hover:bg-blue-50 whitespace-nowrap">+ plate</button>
                     </form>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
     </div>
   )
 }
 
-function Section({ title, hint, tone, count, empty, children }: { title: string; hint: string; tone: string; count: number; empty: string; children: React.ReactNode }) {
+function LaneHeading({ title, count, hint }: { title: string; count?: number; hint?: string }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-      <div className={`px-3 py-2 flex items-center justify-between ${tone}`}>
-        <div className="text-xs font-semibold uppercase tracking-wide">{title}{hint && <span className="ml-2 font-normal normal-case tracking-normal opacity-80">{hint}</span>}</div>
-        <span className="text-sm font-bold tabular-nums">{count}</span>
-      </div>
-      {count === 0 ? <p className="p-3 text-xs text-gray-400">{empty}</p> : <ul className="divide-y divide-gray-100">{children}</ul>}
-    </div>
+    <h2 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-lg font-bold uppercase tracking-wide text-blue-700">
+      {title}
+      {count !== undefined && <span className="rounded-md bg-blue-50 px-2 text-sm tabular-nums">{count}</span>}
+      {hint && <small className="text-xs font-medium normal-case tracking-normal text-muted-foreground">{hint}</small>}
+    </h2>
   )
 }
 
-function TaskLine({ t, today, urls, waiting = false }: { t: TaskRow; today: string; urls: TicketUrls; waiting?: boolean }) {
+/** A lane: blue heading with its count, then a stack of cards with space between them. */
+function Lane({ title, hint, count, empty, children }: { title: string; hint: string; count: number; empty: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-2.5">
+      <LaneHeading title={title} count={count} hint={hint} />
+      {count === 0 ? <p className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">{empty}</p> : <ul className="flex flex-col gap-2.5">{children}</ul>}
+    </section>
+  )
+}
+
+/** A lane that starts closed (Snoozed, Done today). */
+function Folded({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  return (
+    <details className="group">
+      <summary className="cursor-pointer list-none select-none flex items-baseline gap-2.5 text-lg font-bold uppercase tracking-wide text-muted-foreground hover:text-blue-700">
+        <span className="inline-block w-3 text-sm transition-transform group-open:rotate-90">▸</span>{title}
+        <span className="rounded-md bg-gray-200/70 px-2 text-sm tabular-nums">{count}</span>
+      </summary>
+      <ul className="mt-2.5 flex flex-col gap-2.5">{children}</ul>
+    </details>
+  )
+}
+
+function SiteTag({ site }: { site: string }) {
+  return <span className="font-mono text-[12.5px] leading-5 px-1.5 rounded bg-blue-50 text-blue-700 border border-blue-100 whitespace-nowrap">{site}</span>
+}
+
+const PILL = {
+  over: 'bg-red-50 text-red-700 border-red-200',
+  today: 'bg-amber-50 text-amber-800 border-amber-200',
+  due: 'bg-blue-50 text-blue-700 border-blue-100',
+  plain: 'bg-gray-50 text-muted-foreground border-border',
+  sd: 'bg-violet-50 text-violet-700 border-violet-200',
+  done: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+} as const
+function Pill({ tone, title, children }: { tone: keyof typeof PILL; title?: string; children: React.ReactNode }) {
+  return <span title={title} className={`px-2 py-0.5 rounded-full border text-xs font-semibold whitespace-nowrap ${PILL[tone]}`}>{children}</span>
+}
+
+/** Left stripe: red = hot or overdue, navy = waiting or a permit, amber = everything else. */
+function stripe(t: TaskRow, today: string, waiting: boolean) {
+  if (waiting || isPermit(t)) return 'border-l-blue-700'
+  if (t.priority === 1 || isOverdue(t, today)) return 'border-l-red-600'
+  return 'border-l-amber-400'
+}
+
+const ghost = 'px-2 py-1 rounded-md border border-border bg-card text-gray-600 hover:bg-gray-50'
+
+function TaskCard({ t, today, urls, waiting = false }: { t: TaskRow; today: string; urls: TicketUrls; waiting?: boolean }) {
   const d = dueDelta(t, today)
-  const dueText = d === null ? '' : d > 0 ? `${d}d overdue` : d === 0 ? 'due today' : `due ${fmt(t.due_date)}`
-  const dueClass = d === null ? 'text-gray-400' : d > 0 ? 'text-red-600 font-semibold' : d === 0 ? 'text-amber-700 font-semibold' : 'text-gray-500'
   const waitDays = waiting && t.waiting_since ? businessDaysSince(t.waiting_since, today) : 0
+  const a = (t.action ?? {}) as { type?: string }
+  const richResolver = !waiting && t.status === 'open' && (a.type === 'quote_line_price' || a.type === 'order_email' || t.kind === 'order')
+  const plainAnswer = !waiting && t.status === 'open' && !richResolver
   return (
-    <li className="px-3 py-2.5">
-      <div className="flex items-start gap-2">
-        <input type="checkbox" name="ids" value={t.id} form="plate-bulk" aria-label="Select to complete" className="shrink-0 mt-1" />
-        <span className={`shrink-0 mt-0.5 px-1.5 py-0.5 rounded-full border text-[10px] ${KIND_CLASS[t.kind]}`}>{KIND_LABEL[t.kind]}</span>
-        <div className="min-w-0 flex-1">
-          <div className="text-sm text-gray-900 leading-snug">{t.priority === 1 && <span className="text-red-600 mr-1" title="Hot">●</span>}{t.site_number && <span className="font-mono text-xs text-gray-500 mr-1.5">{t.site_number}</span>}{t.title}</div>
-          {t.detail && <div className="text-xs text-gray-500 mt-0.5 whitespace-pre-line">{t.detail}</div>}
-          <Tickets refs={ticketRefs(t)} urls={urls} />
-          {!waiting && t.status === 'open' && <Resolver t={t} />}
-          <div className="text-[11px] mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-            {waiting ? <span className={waitDays >= 5 ? 'text-red-600 font-semibold' : 'text-blue-700'}>waiting on {t.waiting_on}{t.waiting_since ? ` since ${fmt(t.waiting_since)} · ${waitDays} business day${waitDays === 1 ? '' : 's'}` : ''}{waitDays >= 5 ? ' · nudge' : ''}</span> : <span className={dueClass}>{dueText}</span>}
-            {t.snoozed_until && t.snoozed_until > today && <span className="text-gray-400">snoozed to {fmt(t.snoozed_until)}</span>}
-            {t.job_id && <Link href={`/construction/jobs/${t.job_id}`} className="text-blue-600 hover:underline">job</Link>}
-            {t.quote_id && <Link href={`/billing/quotes/${t.quote_id}`} className="text-blue-600 hover:underline">quote</Link>}
-            <span className="text-gray-300">{t.source}</span>
-          </div>
+    <li className={`rounded-lg border border-border border-l-[6px] ${stripe(t, today, waiting)} bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)] px-3 py-2.5 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5`}>
+      <div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+          <input type="checkbox" name="ids" value={t.id} form="plate-bulk" aria-label="Select to complete" className="shrink-0" />
+          {t.site_number && <SiteTag site={t.site_number} />}
+          <span className="font-semibold text-[15px] leading-snug text-foreground min-w-0 [overflow-wrap:anywhere]">{t.title}</span>
         </div>
-        <div className="shrink-0 flex flex-col items-end gap-1 text-[11px]">
-          <form action={completeTask.bind(null, t.id)}><button className="px-2 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Done</button></form>
-          {waiting
-            ? <form action={reopenTask.bind(null, t.id)}><button className="px-2 py-0.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50">Back to me</button></form>
-            : <form action={waitTask.bind(null, t.id)} className="flex gap-1"><input name="who" placeholder="waiting on…" className="w-24 rounded border border-gray-300 px-1.5 py-0.5" /><button className="px-1.5 py-0.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50">Hand off</button></form>}
-          <div className="flex gap-1">
-            <form action={snoozeTask.bind(null, t.id)}><input type="hidden" name="days" value="1" /><button className="px-1.5 py-0.5 rounded border border-gray-200 text-gray-500 hover:bg-gray-50" title="Snooze 1 day">+1d</button></form>
-            <form action={snoozeTask.bind(null, t.id)}><input type="hidden" name="days" value="7" /><button className="px-1.5 py-0.5 rounded border border-gray-200 text-gray-500 hover:bg-gray-50" title="Snooze a week">+1w</button></form>
-            <form action={setPriority.bind(null, t.id)}><input type="hidden" name="priority" value={t.priority === 1 ? '2' : '1'} /><button className="px-1.5 py-0.5 rounded border border-gray-200 text-gray-500 hover:bg-gray-50" title="Toggle hot">{t.priority === 1 ? 'cool' : 'hot'}</button></form>
-            <form action={setDue.bind(null, t.id)} className="flex gap-0.5"><input name="due_date" type="date" defaultValue={t.due_date ?? ''} className="w-[7.5rem] rounded border border-gray-200 px-1 py-0.5 text-[10px]" /><button className="px-1.5 py-0.5 rounded border border-gray-200 text-gray-500 hover:bg-gray-50">set</button></form>
-            <form action={dropTask.bind(null, t.id)}><button className="px-1.5 py-0.5 rounded border border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50" title="Drop it">✕</button></form>
-          </div>
+        {t.detail && <div className="text-[13.5px] leading-snug text-muted-foreground whitespace-pre-line [overflow-wrap:anywhere]">{t.detail}</div>}
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <span className={`px-2 py-0.5 rounded-full border text-xs ${KIND_CLASS[t.kind]}`}>{KIND_LABEL[t.kind]}</span>
+          {t.priority === 1 && <Pill tone="over">Hot</Pill>}
+          {fromStarsky(t) && <Pill tone="sd">Starsky</Pill>}
+          {waiting && t.waiting_on && <Pill tone="plain">{t.waiting_on}</Pill>}
+          {waiting && t.waiting_since && <Pill tone={waitDays >= 5 ? 'over' : 'plain'} title={`since ${fmt(t.waiting_since)}`}>{waitDays === 0 ? 'today' : `${waitDays} business day${waitDays === 1 ? '' : 's'}`}{waitDays >= 5 ? ' · nudge' : ''}</Pill>}
+          {d !== null && (d > 0
+            ? <Pill tone="over">Follow up now ({fmt(t.due_date)})</Pill>
+            : d === 0 ? <Pill tone="today">Due today</Pill> : <Pill tone="due">Due {fmt(t.due_date)}</Pill>)}
+          {t.snoozed_until && t.snoozed_until > today && <Pill tone="plain">Snoozed to {fmt(t.snoozed_until)}</Pill>}
+          {t.job_id && <Link href={`/construction/jobs/${t.job_id}`} className="text-xs text-blue-700 hover:underline">Job</Link>}
+          {t.quote_id && <Link href={`/billing/quotes/${t.quote_id}`} className="text-xs text-blue-700 hover:underline">Quote</Link>}
         </div>
+        <Tickets refs={ticketRefs(t)} urls={urls} />
+        {richResolver && <Resolver t={t} />}
+        <details className="group/more pt-0.5">
+          <summary className="cursor-pointer list-none select-none inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:underline">
+            <span className="inline-block transition-transform group-open/more:rotate-90">▸</span>{plainAnswer ? 'Answer · snooze · more' : 'Snooze · more'}
+          </summary>
+          <div className="mt-2 space-y-2 rounded-md border border-border bg-gray-50/70 p-2 text-xs">
+            {plainAnswer && <Resolver t={t} />}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {waiting
+                ? <form action={reopenTask.bind(null, t.id)}><button className={ghost}>Back to me</button></form>
+                : <form action={waitTask.bind(null, t.id)} className="flex gap-1"><input name="who" placeholder="waiting on…" className="w-28 rounded-md border border-gray-300 bg-card px-1.5 py-1" /><button className={ghost}>Hand off</button></form>}
+              <form action={snoozeTask.bind(null, t.id)}><input type="hidden" name="days" value="1" /><button className={ghost} title="Snooze 1 day">+1 day</button></form>
+              <form action={snoozeTask.bind(null, t.id)}><input type="hidden" name="days" value="7" /><button className={ghost} title="Snooze a week">+1 week</button></form>
+              <form action={setPriority.bind(null, t.id)}><input type="hidden" name="priority" value={t.priority === 1 ? '2' : '1'} /><button className={ghost} title="Toggle hot">{t.priority === 1 ? 'Not hot' : 'Make hot'}</button></form>
+              <form action={setDue.bind(null, t.id)} className="flex gap-1"><input name="due_date" type="date" defaultValue={t.due_date ?? ''} aria-label="Due date" className="w-[8.5rem] rounded-md border border-gray-300 bg-card px-1 py-0.5" /><button className={ghost}>Set due</button></form>
+              <form action={dropTask.bind(null, t.id)}><button className="px-2 py-1 rounded-md border border-border bg-card text-gray-500 hover:text-red-700 hover:bg-red-50" title="Drop it, not needed">Drop</button></form>
+              <span className="text-[11px] text-gray-400">from {t.source}</span>
+            </div>
+          </div>
+        </details>
+      </div>
+      <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:col-start-2 sm:row-start-1">
+        <form action={completeTask.bind(null, t.id)}><button className="px-4 py-1.5 rounded-md bg-emerald-700 border border-emerald-700 text-white text-[13px] font-semibold hover:bg-emerald-800">Done</button></form>
       </div>
     </li>
   )
