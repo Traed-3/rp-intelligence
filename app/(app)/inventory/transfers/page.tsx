@@ -25,23 +25,23 @@ export default async function TransfersPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Transfers</h1>
+          <h1 className="rp-title">Transfers</h1>
           <p className="text-sm text-gray-500 mt-0.5">Office to truck, truck to truck. Stock moves when the truck marks it received, so nothing is lost in between.</p>
         </div>
         <Link href="/inventory" className="text-sm text-gray-500 hover:text-gray-700">← Inventory</Link>
       </div>
 
       {canWrite && (
-        <details className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-5" open={(transfers ?? []).length === 0}>
+        <details className="rp-card mb-5" open={(transfers ?? []).length === 0}>
           <summary className="px-5 py-4 cursor-pointer font-semibold text-gray-900 flex items-center gap-2"><Plus className="w-4 h-4 text-blue-600" />New transfer</summary>
           <div className="px-5 pb-5"><TransferForm locations={locations ?? []} shortages={shortages} /></div>
         </details>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         {(transfers ?? []).length === 0 ? <p className="p-8 text-center text-sm text-gray-400">No transfers yet.</p> : (
-          <div className="overflow-x-auto"><table className="w-full text-sm">
-            <thead><tr className="bg-gray-50 text-gray-500 text-xs"><th className="text-left px-4 py-2 font-medium">Created</th><th className="text-left px-4 py-2 font-medium">From → To</th><th className="text-left px-4 py-2 font-medium">Parts</th><th className="text-left px-4 py-2 font-medium">Status</th><th className="px-4 py-2" /></tr></thead>
+          <div className="overflow-x-auto"><table className="rp-table w-full text-sm">
+            <thead><tr className="bg-gray-50 text-gray-500 text-xs"><th className="text-left px-4 py-2">Created</th><th className="text-left px-4 py-2">From → To</th><th className="text-left px-4 py-2">Parts</th><th className="text-left px-4 py-2">Status</th><th className="px-4 py-2" /></tr></thead>
             <tbody className="divide-y divide-gray-50">
               {(transfers ?? []).map(t => { const x = t as unknown as { from: { name: string } | null; to: { name: string } | null; stock_transfer_lines: { qty: number; parts: { part_number: string | null; description: string } | null }[]; profiles: { full_name: string } | null }; return (
                 <tr key={t.id} className="align-top">

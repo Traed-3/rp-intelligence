@@ -21,10 +21,10 @@ export default async function MobileDailyUpdatePage() {
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-sm mx-auto">
           <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-xl font-bold text-gray-900">Daily Update</h1>
+            <h1 className="rp-title">Daily Update</h1>
             <Link href="/mobile" className="text-sm text-blue-600">← Home</Link>
           </div>
-          <p className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 text-sm text-gray-500">
+          <p className="rp-card p-5 text-sm text-gray-500">
             You don&apos;t have access to construction jobs. Ask the office to turn it on for you.
           </p>
         </div>
@@ -49,11 +49,11 @@ export default async function MobileDailyUpdatePage() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Daily Update</h1>
+          <h1 className="rp-title">Daily Update</h1>
           <Link href="/mobile" className="text-sm text-blue-600">← Home</Link>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           {options.length === 0 ? (
             <p className="text-sm text-gray-500">
               No active jobs right now. A job shows up here once the office moves it to

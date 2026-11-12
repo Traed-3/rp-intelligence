@@ -35,7 +35,7 @@ export default async function PermitSitesPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Sites
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{rows.length} sites</p>
@@ -43,12 +43,12 @@ export default async function PermitSitesPage() {
         <Link href="/construction/permits" className="text-sm text-gray-500 hover:text-gray-700">← Permit Board</Link>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+      <div className="rp-card overflow-hidden mb-5">
         {rows.length === 0 ? (
           <div className="p-12 text-center"><LayoutList className="w-8 h-8 text-gray-300 mx-auto mb-3" /><p className="text-gray-400 text-sm">No sites yet.</p></div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className={th}>Site</th>
@@ -84,7 +84,7 @@ export default async function PermitSitesPage() {
       </div>
 
       {canWrite && (
-        <details className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+        <details className="rp-card">
           <summary className="px-5 py-4 cursor-pointer font-semibold text-gray-900 flex items-center gap-2"><Plus className="w-4 h-4 text-blue-600" />New Project</summary>
           <div className="px-5 pb-5">
             <PermitProjectForm action={createPermitProject} jurisdictions={jurisdictions} />

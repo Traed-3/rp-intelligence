@@ -32,7 +32,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
       <div className="mb-5">
         <Link href="/inventory/parts" className="text-sm text-gray-500 hover:text-gray-700">← Parts catalog</Link>
         <div className="flex flex-wrap items-center gap-3 mt-2">
-          <h1 className="text-2xl font-bold text-gray-900">{p.description}</h1>
+          <h1 className="rp-title">{p.description}</h1>
           <span className={`text-xs px-2 py-0.5 rounded-full border ${st.className}`}>{st.label}</span>
         </div>
         <p className="text-sm text-gray-500 mt-1 font-mono">{p.part_number ?? 'no part number'} · {categoryLabel(p.category)}{p.subcategory ? ` · ${p.subcategory}` : ''}</p>
@@ -46,13 +46,13 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <section className="rp-card overflow-hidden">
           <h2 className="px-5 py-3 font-semibold text-gray-900 border-b border-gray-100">Price history</h2>
           {(history ?? []).length === 0 ? (
             <p className="p-5 text-sm text-gray-400">No prices recorded yet.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead><tr className="bg-gray-50 text-gray-500"><th className="text-left px-4 py-2 font-medium">Date</th><th className="text-left px-4 py-2 font-medium">Kind</th><th className="text-right px-4 py-2 font-medium">Price</th><th className="text-left px-4 py-2 font-medium hidden sm:table-cell">Reference</th></tr></thead>
+            <table className="rp-table w-full text-sm">
+              <thead><tr className="bg-gray-50 text-gray-500"><th className="text-left px-4 py-2">Date</th><th className="text-left px-4 py-2">Kind</th><th className="text-right px-4 py-2">Price</th><th className="text-left px-4 py-2 hidden sm:table-cell">Reference</th></tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {(history ?? []).map(h => (
                   <tr key={h.id}>
@@ -67,13 +67,13 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           )}
         </section>
 
-        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <section className="rp-card overflow-hidden">
           <h2 className="px-5 py-3 font-semibold text-gray-900 border-b border-gray-100">On hand by location</h2>
           {(stock ?? []).length === 0 ? (
             <p className="p-5 text-sm text-gray-400">{p.is_stocked ? 'No stock movements posted yet.' : 'Not tracked as stock. Tick “Tracked in inventory” below to count it on trucks and shelves.'}</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead><tr className="bg-gray-50 text-gray-500"><th className="text-left px-4 py-2 font-medium">Location</th><th className="text-right px-4 py-2 font-medium">On hand</th><th className="text-right px-4 py-2 font-medium">Min / Max</th></tr></thead>
+            <table className="rp-table w-full text-sm">
+              <thead><tr className="bg-gray-50 text-gray-500"><th className="text-left px-4 py-2">Location</th><th className="text-right px-4 py-2">On hand</th><th className="text-right px-4 py-2">Min / Max</th></tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {(stock ?? []).map(s => (
                   <tr key={s.location_name}>
@@ -92,7 +92,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 mb-5"><span className="text-xs uppercase tracking-wide text-gray-400 mr-2">Source note</span>{p.notes}</div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-5">
+      <div className="rp-card p-5 mb-5">
         <h2 className="font-semibold text-gray-900 mb-4">{canWrite ? 'Edit part' : 'Details'}</h2>
         {canWrite ? <PartForm action={savePart.bind(null, id)} part={p} /> : <p className="text-sm text-gray-500">You can view the catalog. Ask a manager to change prices.</p>}
       </div>
@@ -104,7 +104,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
+    <div className="rp-card px-4 py-3">
       <div className="text-xs uppercase tracking-wide text-gray-400">{label}</div>
       <div className="text-lg font-semibold text-gray-900 tabular-nums">{value}</div>
       {sub && <div className="text-xs text-gray-500 truncate">{sub}</div>}

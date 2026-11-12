@@ -18,7 +18,7 @@ export async function BillingInboxPanel({ companyId }: { companyId: string }) {
   const connected = inboxes.filter(i => i.connected).length
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-2">
+    <div className="rp-card p-5 mb-2">
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100"><Inbox className="w-5 h-5 text-blue-600" /></div>
         <div>

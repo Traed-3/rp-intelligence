@@ -4,9 +4,9 @@ import { useState, useTransition } from 'react'
 import { Trash2, Check } from 'lucide-react'
 import { type ItemRow, type TestState, type ItemKind, ITEM_KINDS, METHODS, INSTALL_TYPES, isBucket, itemTitle, fillRule, thresholdFor, computeChange } from '@/lib/containment-test'
 
-const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white disabled:bg-gray-50'
+const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-card disabled:bg-gray-50'
 const lbl = 'block text-xs font-medium text-gray-600 mb-1'
-const chip = (on: boolean, tone: 'blue' | 'green' | 'red' = 'blue') => `px-3 py-2 rounded-lg border text-sm font-medium ${on ? (tone === 'green' ? 'bg-emerald-600 text-white border-emerald-600' : tone === 'red' ? 'bg-red-600 text-white border-red-600' : 'bg-blue-600 text-white border-blue-600') : 'bg-white text-gray-700 border-gray-300'}`
+const chip = (on: boolean, tone: 'blue' | 'green' | 'red' = 'blue') => `px-3 py-2 rounded-lg border text-sm font-medium ${on ? (tone === 'green' ? 'bg-emerald-600 text-white border-emerald-600' : tone === 'red' ? 'bg-red-600 text-white border-red-600' : 'bg-primary text-primary-foreground border-primary') : 'bg-card text-gray-700 border-gray-300'}`
 
 type Props = { item: ItemRow; state: TestState; lowLevel: boolean; locked: boolean; saveAction: (fd: FormData) => Promise<void>; deleteAction: () => Promise<void> }
 
@@ -56,7 +56,7 @@ export function ContainmentItemCard({ item, state, lowLevel, locked, saveAction,
   const nowTime = () => new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
   return (
-    <div className={`rounded-2xl border bg-white shadow-sm overflow-hidden ${result === 'fail' ? 'border-red-300' : result === 'pass' ? 'border-emerald-300' : 'border-gray-200'}`}>
+    <div className={`rounded-2xl border bg-card shadow-sm overflow-hidden ${result === 'fail' ? 'border-red-300' : result === 'pass' ? 'border-emerald-300' : 'border-gray-200'}`}>
       <form action={fd => start(async () => { setErr(null); try { await saveAction(fd); setDirty(false); setSaved(true) } catch (e) { setErr(e instanceof Error ? e.message : 'Save failed') } })} className="p-4 space-y-4">
         <input type="hidden" name="kind" value={kind} />
         <div className="flex flex-wrap items-end gap-2">

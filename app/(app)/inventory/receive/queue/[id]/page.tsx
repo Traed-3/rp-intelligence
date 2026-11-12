@@ -39,19 +39,19 @@ export default async function ReceiveQueueDocumentPage({ params }: { params: Pro
         <Link href="/inventory/receive/queue" className="text-sm text-gray-500 hover:text-gray-700">← Receive queue</Link>
         <div className="flex flex-wrap items-start justify-between gap-3 mt-2">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{KIND_LABEL[doc.kind] ?? doc.kind}{doc.reference ? <span className="font-mono text-gray-500 text-lg ml-2">#{doc.reference}</span> : null}</h1>
+            <h1 className="rp-title">{KIND_LABEL[doc.kind] ?? doc.kind}{doc.reference ? <span className="font-mono text-gray-500 text-lg ml-2">#{doc.reference}</span> : null}</h1>
             <p className="text-sm text-gray-500">{doc.vendor ?? doc.sender}{doc.document_date ? ` · dated ${fmtDate(doc.document_date)}` : ''} · arrived {fmtDate(doc.received_at)} in {doc.inbox}</p>
           </div>
           <div className="text-right text-xs text-gray-500">
             {doc.status !== 'new' && <div>{doc.status.replace('_', ' ')} {doc.processed_at ? fmtDate(doc.processed_at) : ''}{who ? ` by ${who.full_name}` : ''}{loc ? ` → ${loc.name}` : ''}</div>}
             {ex?.total != null && <div>Document total {money(ex.total)}{ex.tax != null ? ` · tax ${money(ex.tax)}` : ''}{ex.freight != null ? ` · freight ${money(ex.freight)}` : ''}</div>}
             {doc.kind === 'receipt' && filedExpense && (
-              <Link href={`/expenses/${filedExpense.id}`} className="inline-block mt-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-gray-400">
+              <Link href={`/expenses/${filedExpense.id}`} className="inline-block mt-2 rounded-lg border border-gray-200 bg-card px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-gray-400">
                 View expense ({doc.sender || doc.sender_email})
               </Link>
             )}
             {doc.kind === 'receipt' && !filedExpense && canWrite && (
-              <Link href={`/expenses/new?doc=${doc.id}`} className="inline-block mt-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-gray-400">
+              <Link href={`/expenses/new?doc=${doc.id}`} className="inline-block mt-2 rounded-lg border border-gray-200 bg-card px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-gray-400">
                 Record as expense ({doc.sender || doc.sender_email})
               </Link>
             )}
@@ -72,9 +72,9 @@ export default async function ReceiveQueueDocumentPage({ params }: { params: Pro
             locations={locations ?? []} defaultLocation={office?.id ?? null} canWrite={canWrite} extractStatus={doc.extract_status} extractError={doc.extract_error} />
 
           {(posted ?? []).length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="rp-card overflow-hidden">
               <h2 className="px-5 py-3 font-semibold text-gray-900 border-b border-gray-100">Posted to the ledger</h2>
-              <table className="w-full text-sm"><tbody className="divide-y divide-gray-50">
+              <table className="rp-table w-full text-sm"><tbody className="divide-y divide-gray-50">
                 {(posted ?? []).map(t => { const p = (t as unknown as { parts: { part_number: string | null; description: string } | null }).parts; const l = (t as unknown as { stock_locations: { name: string } | null }).stock_locations; return (
                   <tr key={t.id}><td className="px-5 py-2"><div className="text-gray-900">{p?.description}</div><div className="text-xs font-mono text-gray-400">{p?.part_number ?? ''}</div></td><td className="px-4 py-2 text-right tabular-nums text-green-700 font-medium">+{Number(t.qty)}</td><td className="px-4 py-2 text-right tabular-nums text-gray-600">{t.unit_cost != null ? money(Number(t.unit_cost)) : '—'}</td><td className="px-4 py-2 text-gray-600">{l?.name}</td></tr>) })}
               </tbody></table>
@@ -83,7 +83,7 @@ export default async function ReceiveQueueDocumentPage({ params }: { params: Pro
         </div>
 
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="rp-card overflow-hidden">
             <h2 className="px-5 py-3 font-semibold text-gray-900 border-b border-gray-100">Attachments</h2>
             <ul className="divide-y divide-gray-50">
               {attachments.map((a, i) => (
@@ -98,7 +98,7 @@ export default async function ReceiveQueueDocumentPage({ params }: { params: Pro
               ))}
             </ul>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 text-sm">
+          <div className="rp-card p-5 text-sm">
             <div className="font-semibold text-gray-900 mb-1">{doc.subject}</div>
             <div className="text-xs text-gray-400 mb-3">{doc.sender} &lt;{doc.sender_email}&gt;</div>
             <p className="text-gray-600 whitespace-pre-line text-xs leading-relaxed">{doc.body_preview}</p>

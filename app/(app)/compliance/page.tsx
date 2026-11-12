@@ -21,7 +21,7 @@ const VIEWS = [
 type AttnRow = { f: EmployeeFile; r: Row }
 function AttentionTable({ title, note, empty, tone, rows }: { title: string; note: string; empty: string; tone: 'red' | 'gray'; rows: AttnRow[] }) {
   return (
-    <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden mb-6 ${tone === 'red' ? 'border-red-200' : 'border-gray-200'}`}>
+    <div className={`bg-card rounded-2xl border shadow-sm overflow-hidden mb-6 ${tone === 'red' ? 'border-red-200' : 'border-gray-200'}`}>
       <div className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2 ${tone === 'red' ? 'border-red-100 bg-red-50/50' : 'border-gray-100'}`}>
         <h2 className={`font-semibold ${tone === 'red' ? 'text-red-900' : 'text-gray-700'}`}>{title}</h2>
         <span className="text-xs text-gray-500">{note}</span>
@@ -30,13 +30,13 @@ function AttentionTable({ title, note, empty, tone, rows }: { title: string; not
         <p className="px-4 py-5 text-sm text-gray-400">{empty}</p>
       ) : (
         <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <thead className="sticky top-0 bg-gray-50">
               <tr className="border-b border-gray-100">
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Employee</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Item</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Expires</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Status</th>
+                <th className="text-left px-4 py-2.5">Employee</th>
+                <th className="text-left px-4 py-2.5">Item</th>
+                <th className="text-left px-4 py-2.5">Expires</th>
+                <th className="text-left px-4 py-2.5">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -85,7 +85,7 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
   const incompleteDqf = drivers.filter(f => f.rows.some(r => r.required && r.type.category === 'dqf' && r.health === 'missing')).length
   const windowMax = Math.max(...settings.dqf_notice_days)
 
-  const kpi = 'bg-white rounded-2xl border border-gray-200 shadow-sm p-4'
+  const kpi = 'rp-card p-4'
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
@@ -100,9 +100,9 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/compliance/audit" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-sm font-semibold text-blue-700 hover:border-blue-400"><ClipboardCheck className="w-4 h-4" />DOT file audit</Link>
-          <Link href="/compliance/matrix" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-300"><Grid3x3 className="w-4 h-4" />Matrix</Link>
-          <Link href="/compliance/settings" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-300"><Settings className="w-4 h-4" />Notices &amp; settings</Link>
-          {me.canWrite && <Link href="/compliance/employees/new" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"><UserPlus className="w-4 h-4" />Add employee</Link>}
+          <Link href="/compliance/matrix" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-card text-sm font-medium text-gray-700 hover:border-blue-300"><Grid3x3 className="w-4 h-4" />Matrix</Link>
+          <Link href="/compliance/settings" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-card text-sm font-medium text-gray-700 hover:border-blue-300"><Settings className="w-4 h-4" />Notices &amp; settings</Link>
+          {me.canWrite && <Link href="/compliance/employees/new" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90"><UserPlus className="w-4 h-4" />Add employee</Link>}
         </div>
       </div>
 
@@ -139,7 +139,7 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
       <div className="flex flex-wrap items-center gap-2 mb-3">
         {VIEWS.map(v => (
           <Link key={v.value} href={v.value ? `/compliance?view=${v.value}` : '/compliance'}
-            className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${view === v.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}>
+            className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${view === v.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-600 border-gray-200 hover:border-blue-300'}`}>
             {v.label}
           </Link>
         ))}
@@ -148,20 +148,20 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
           <input name="q" defaultValue={sp.q ?? ''} placeholder="Search name…" className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </form>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         {!files.length ? (
           <p className="px-4 py-8 text-sm text-gray-400">No employees match.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Employee</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Department</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Driver file</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Certifications</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Next expiry</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Standing</th>
+                  <th className="text-left px-4 py-3">Employee</th>
+                  <th className="text-left px-4 py-3 hidden md:table-cell">Department</th>
+                  <th className="text-left px-4 py-3">Driver file</th>
+                  <th className="text-left px-4 py-3">Certifications</th>
+                  <th className="text-left px-4 py-3 hidden lg:table-cell">Next expiry</th>
+                  <th className="text-left px-4 py-3">Standing</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>

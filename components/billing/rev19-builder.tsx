@@ -187,11 +187,11 @@ export function Rev19Builder({ action, header, initialLines, customers, jobs, ra
       {state?.error && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{state.error}</div>}
 
       {/* ── HEADER BLOCK ─────────────────────────────────────── */}
-      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      <section className="rp-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 className="font-semibold text-gray-900">{isQuote ? 'Quote header' : 'Invoice header'}</h2>
           <div className="flex items-center gap-1 rounded-lg border border-gray-200 p-0.5 text-xs">
-            {(['construction', 'service'] as const).map(d => <button key={d} type="button" onClick={() => setDept(d)} className={`px-3 py-1 rounded-md capitalize ${dept === d ? 'bg-blue-600 text-white' : 'text-gray-600'}`}>{d}</button>)}
+            {(['construction', 'service'] as const).map(d => <button key={d} type="button" onClick={() => setDept(d)} className={`px-3 py-1 rounded-md capitalize ${dept === d ? 'bg-primary text-primary-foreground' : 'text-gray-600'}`}>{d}</button>)}
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -241,7 +241,7 @@ export function Rev19Builder({ action, header, initialLines, customers, jobs, ra
       </section>
 
       {/* ── INPUTS BLOCK ─────────────────────────────────────── */}
-      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      <section className="rp-card p-5">
         <h2 className="font-semibold text-gray-900 mb-1">Inputs</h2>
         <p className="text-xs text-gray-500 mb-3">Change these and every line re-prices. Tax lives on the material line (categories 1–4) and is recovered through markup, so the quote-level sales tax stays 0.00%.</p>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
@@ -263,7 +263,7 @@ export function Rev19Builder({ action, header, initialLines, customers, jobs, ra
       </section>
 
       {/* ── SCOPE ────────────────────────────────────────────── */}
-      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      <section className="rp-card p-5">
         <div className="flex items-center justify-between mb-3"><h2 className="font-semibold text-gray-900">Scope of work</h2><button type="button" onClick={() => setScope(s => [...s, { scope: '', description: '' }])} className="text-sm text-blue-600">+ Row</button></div>
         <div className="space-y-2">
           {scope.map((r, i) => (
@@ -280,7 +280,7 @@ export function Rev19Builder({ action, header, initialLines, customers, jobs, ra
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
         <div className="xl:col-span-2 space-y-5">
           {/* Basic installation: every category is on the page, grouped the way the face rolls up. */}
-          <section className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+          <section className="rp-card">
             <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3">
               <h2 className="font-semibold text-gray-900">Basic installation</h2>
               {/* One search across the whole catalog: the part lands in whichever category it is filed under. */}
@@ -323,7 +323,7 @@ export function Rev19Builder({ action, header, initialLines, customers, jobs, ra
           </section>
 
           {/* Additional scope (change order): opt-in, only the categories you add. */}
-          <section className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+          <section className="rp-card">
             <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-semibold text-gray-900">Additional scope of work <span className="text-sm font-normal text-gray-400">(change order — leave empty on a normal quote)</span></h2>
               <AddMenu onAdd={c => add('additional', c)} />
@@ -357,7 +357,7 @@ export function Rev19Builder({ action, header, initialLines, customers, jobs, ra
             </div>
           </section>
 
-          <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <section className="rp-card p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div><label className={lbl} htmlFor="b-excl">Exclusions and clarifications</label><textarea id="b-excl" name="exclusions" rows={4} defaultValue={header.exclusions ?? ''} className={inp} placeholder="Price does not include… Dewatering priced per day… Third-party testing by others…" /></div>
             <div><label className={lbl} htmlFor="b-warr">Warranty line</label><textarea id="b-warr" name="warranty_line" rows={4} defaultValue={header.warranty_line ?? ''} className={inp} placeholder="Work warranty 1 year." /></div>
           </section>
@@ -365,18 +365,18 @@ export function Rev19Builder({ action, header, initialLines, customers, jobs, ra
 
         {/* ── LIVE FACE ──────────────────────────────────────── */}
         <aside className="xl:sticky xl:top-4 space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="rp-card overflow-hidden">
             <h2 className="px-4 py-3 font-semibold text-gray-900 border-b border-gray-100 text-sm">{isQuote ? 'Quote face' : 'Invoice face'}</h2>
             {(['basic', 'additional'] as const).map(s => totals[s].rows.length > 0 && (
               <div key={s}>
                 <div className="px-4 py-1.5 bg-gray-50 text-[11px] font-semibold text-gray-600 uppercase">{s === 'basic' ? 'Basic installation' : 'Additional scope'}</div>
-                <table className="w-full text-xs"><tbody>
+                <table className="rp-table w-full text-xs"><tbody>
                   {totals[s].rows.map(r => <tr key={r.n} className="border-b border-gray-50"><td className="px-4 py-1 text-gray-400 w-6">{r.n}</td><td className="py-1 text-gray-800">{categoryMeta(r.n).short}{r.n === 7 && r.labor_hours ? <span className="text-gray-400"> · {r.labor_hours} hrs @ {money(r.labor_rate)}</span> : null}</td><td className="px-4 py-1 text-right tabular-nums">{money(r.total)}</td></tr>)}
                   <tr className="bg-gray-50 font-medium"><td /><td className="py-1 text-gray-700">Material {money(totals[s].subtotal_material)} · Labor {money(totals[s].subtotal_labor)}</td><td className="px-4 py-1 text-right tabular-nums">{money(totals[s].total)}</td></tr>
                 </tbody></table>
               </div>
             ))}
-            <table className="w-full text-xs"><tbody>
+            <table className="rp-table w-full text-xs"><tbody>
               <tr><td className="px-4 py-1 text-gray-500">Taxable materials (1–4)</td><td className="px-4 py-1 text-right tabular-nums">{money(totals.taxable_material_total)}</td></tr>
               <tr><td className="px-4 py-1 text-gray-500">Concrete, equipment, subs, disposal, permits (5+9+10+11+12)</td><td className="px-4 py-1 text-right tabular-nums">{money(totals.concrete_equipment_total)}</td></tr>
               <tr><td className="px-4 py-1 text-gray-500">Labor, mobilization, lodging (6+7+8)</td><td className="px-4 py-1 text-right tabular-nums">{money(totals.labor_mobilization_total)}</td></tr>
@@ -416,7 +416,7 @@ function AddBar({ category, kind, picks, techDays, crewSize, onPick, onBlank, on
   onPick: (p: PickedPart) => void; onBlank: () => void; onLaborDay: (crew: 'construction' | 'service') => void; onTrip: (crew: 'construction' | 'service') => void
 }) {
   const [q, setQ] = useState('')
-  const btn = 'inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50'
+  const btn = 'inline-flex items-center gap-1 rounded-md border border-gray-300 bg-card px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50'
   if (kind === 'labor') return (
     <div className="flex flex-wrap items-center gap-2 px-1">
       <button type="button" onClick={() => onLaborDay('construction')} className={btn}><Plus className="w-3 h-3" />Construction day</button>
@@ -470,7 +470,7 @@ function PickList({ picks, label, onPick }: { picks: QuickPick[]; label: string;
         <Plus className="w-3 h-3" />{label}<ChevronDown className="w-3 h-3" /><span className="text-blue-400">({picks.length})</span>
       </button>
       {open && (
-        <div className="absolute z-20 mt-1 w-[440px] max-w-[90vw] rounded-lg border border-gray-200 bg-white shadow-lg">
+        <div className="absolute z-20 mt-1 w-[440px] max-w-[90vw] rounded-lg border border-gray-200 bg-card shadow-lg">
           <div className="p-2 border-b border-gray-100"><input value={filter} onChange={e => setFilter(e.target.value)} autoFocus className={inp} placeholder="Filter this list…" aria-label="Filter" /></div>
           <div className="max-h-80 overflow-y-auto py-1">
             {Object.entries(groups).map(([g, ps]) => (
@@ -513,7 +513,7 @@ function CategoryTable({ kind, category, rows, upd, del, ext, inputs }: TablePro
   const remove = (r: Rev19Row) => <button type="button" onClick={() => del(r.key)} className="text-gray-300 hover:text-red-600" aria-label="Remove line"><Trash2 className="w-4 h-4" /></button>
 
   if (kind === 'material') return (
-    <div className="overflow-x-auto"><table className="w-full min-w-[880px] text-sm">
+    <div className="overflow-x-auto"><table className="rp-table w-full min-w-[880px] text-sm">
       <thead><tr><th className={`${th} min-w-[260px]`}>Part # / description</th><th className={thr}>Cost</th><th className={thr}>Tax %</th><th className={thr}>Markup %</th><th className={thr}>Freight</th><th className={thr}>Sell</th><th className={thr}>Qty</th><th className={thr}>Extended</th><th className={th}>Source</th><th /><th /></tr></thead>
       <tbody>{rows.map(r => { const c = ext(r.key); return (
         <tr key={r.key} className="align-top">
@@ -530,7 +530,7 @@ function CategoryTable({ kind, category, rows, upd, del, ext, inputs }: TablePro
     </table></div>
   )
   if (kind === 'labor') return (
-    <div className="overflow-x-auto"><table className="w-full min-w-[880px] text-sm">
+    <div className="overflow-x-auto"><table className="rp-table w-full min-w-[880px] text-sm">
       <thead><tr><th className={th}>Day</th><th className={`${th} min-w-[260px]`}>Scope of work for that day</th><th className={th}>Crew</th><th className={thr}>Rate</th><th className={thr}>Men</th><th className={thr}>Hrs each</th><th className={thr}>Hours</th><th className={thr}>Extended</th><th className={th}>Note</th><th /><th /></tr></thead>
       <tbody>{rows.map((r, i) => { const c = ext(r.key); return (
         <tr key={r.key} className="align-top">
@@ -547,7 +547,7 @@ function CategoryTable({ kind, category, rows, upd, del, ext, inputs }: TablePro
     </table></div>
   )
   if (kind === 'trip') return (
-    <div className="overflow-x-auto"><table className="w-full min-w-[880px] text-sm">
+    <div className="overflow-x-auto"><table className="rp-table w-full min-w-[880px] text-sm">
       <thead><tr><th className={th}>Trip</th><th className={`${th} min-w-[220px]`}>Description</th><th className={th}>Crew</th><th className={thr}>Rate</th><th className={thr}>Travel days</th><th className={thr}>Techs</th><th className={thr}>Tech-travel-days</th><th className={thr}>Extended</th><th /></tr></thead>
       <tbody>{rows.map((r, i) => { const c = ext(r.key); return (
         <tr key={r.key} className="align-top">
@@ -566,7 +566,7 @@ function CategoryTable({ kind, category, rows, upd, del, ext, inputs }: TablePro
   // costplus (5, 9, 10, 12), sub (11), lodging (6)
   const isSub = kind === 'sub', isLodging = kind === 'lodging'
   return (
-    <div className="overflow-x-auto"><table className="w-full min-w-[880px] text-sm">
+    <div className="overflow-x-auto"><table className="rp-table w-full min-w-[880px] text-sm">
       <thead><tr><th className={`${th} min-w-[260px]`}>Item / description</th><th className={thr}>{isLodging ? 'Rate' : 'Cost'}</th>{!isSub && !isLodging && <th className={th}>Markup?</th>}<th className={thr}>Sell</th><th className={thr}>{isLodging ? 'Tech-nights' : 'Qty'}</th><th className={thr}>Extended</th><th className={th}>Source</th><th /><th /></tr></thead>
       <tbody>{rows.map(r => { const c = ext(r.key); return (
         <tr key={r.key} className="align-top">

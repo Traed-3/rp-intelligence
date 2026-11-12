@@ -14,8 +14,8 @@ export function DocBreakdown({ doc, items }: { doc: BillingDoc; items: Rev19Line
   const sections = (['basic', 'additional'] as const).flatMap(section => REV19_CATEGORIES.map(c => ({ section, c, ls: lines.filter(l => l.section === section && l.category === c.n) })).filter(x => x.ls.length))
   if (!sections.length) return null
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      <h3 className="px-4 py-2.5 bg-[#16243d] text-white text-sm font-semibold flex items-center justify-between"><span>MATERIAL AND LABOR BREAKDOWN</span><span className="text-xs font-normal text-white/70">what the breakdown PDF prints</span></h3>
+    <div className="rp-card overflow-hidden">
+      <h3 className="px-4 py-2.5 bg-blue-700 text-white text-sm font-semibold flex items-center justify-between"><span>MATERIAL AND LABOR BREAKDOWN</span><span className="text-xs font-normal text-white/70">what the breakdown PDF prints</span></h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 text-xs border-b border-gray-100">
         <div className="md:col-span-2 rounded-lg border border-gray-200 p-3">
           <div className="text-[10px] font-semibold text-gray-400 uppercase">Inputs</div>
@@ -32,8 +32,8 @@ export function DocBreakdown({ doc, items }: { doc: BillingDoc; items: Rev19Line
         const kind = c.kind
         return (
           <div key={`${section}-${c.n}`} className="border-b border-gray-100 last:border-b-0">
-            <div className="px-4 py-2 bg-[#FBE5D6] text-sm font-semibold text-gray-900">CATEGORY {c.n} — {c.name}{section === 'additional' ? <span className="ml-2 text-xs font-normal text-gray-600">(ADDITIONAL SCOPE)</span> : null}</div>
-            <div className="overflow-x-auto"><table className="w-full text-xs">
+            <div className="px-4 py-2 bg-orange-100 text-sm font-semibold text-gray-900">CATEGORY {c.n} — {c.name}{section === 'additional' ? <span className="ml-2 text-xs font-normal text-gray-600">(ADDITIONAL SCOPE)</span> : null}</div>
+            <div className="overflow-x-auto"><table className="rp-table w-full text-xs">
               <thead className="bg-gray-50"><tr>
                 {kind === 'material' && <><th className={`${th} text-left`}>Part #</th><th className={`${th} text-left w-full`}>Description</th><th className={`${th} text-right`}>Unit cost</th><th className={`${th} text-right`}>Tax</th><th className={`${th} text-right`}>Markup</th><th className={`${th} text-right`}>Freight</th><th className={`${th} text-right`}>Sell/unit</th><th className={`${th} text-right`}>Qty</th><th className={`${th} text-right`}>Extended</th><th className={`${th} text-left min-w-[180px]`}>Source</th></>}
                 {kind === 'labor' && <><th className={`${th} text-left`}>Day</th><th className={`${th} text-left w-full`}>Scope of work for that day</th><th className={`${th} text-right`}>Rate/hr</th><th className={`${th} text-right`}>Men</th><th className={`${th} text-right`}>Hrs each</th><th className={`${th} text-right`}>Hours</th><th className={`${th} text-right`}>Extended</th><th className={`${th} text-left min-w-[180px]`}>Note</th></>}

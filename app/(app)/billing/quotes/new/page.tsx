@@ -23,10 +23,10 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
       .eq('company_id', company_id).eq('is_active', true).order('category').order('name')
     return (
       <div className="p-6 max-w-3xl mx-auto">
-        <div className="mb-6"><Link href="/billing/quotes" className="text-sm text-gray-500 hover:text-gray-700">← Quotes</Link><h1 className="text-2xl font-bold text-gray-900 mt-2">Start a Quote</h1><p className="text-sm text-gray-500 mt-1">Start from a template that already has the scope and a checklist of typical line items, or start blank.</p></div>
+        <div className="mb-6"><Link href="/billing/quotes" className="text-sm text-gray-500 hover:text-gray-700">← Quotes</Link><h1 className="rp-title mt-2">Start a Quote</h1><p className="text-sm text-gray-500 mt-1">Start from a template that already has the scope and a checklist of typical line items, or start blank.</p></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           {(templates ?? []).map(t => (
-            <Link key={t.id} href={`/billing/quotes/new?template=${t.id}`} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:border-blue-300 hover:shadow transition-all flex items-start gap-3">
+            <Link key={t.id} href={`/billing/quotes/new?template=${t.id}`} className="rp-card rp-card-link p-4 flex items-start gap-3">
               <LayoutTemplate className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="font-semibold text-gray-900 text-sm">{t.name}</p>
@@ -68,7 +68,7 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-5">
         <Link href="/billing/quotes/new" className="text-sm text-gray-500 hover:text-gray-700">← {templateName ? 'Change template' : 'Quotes'}</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-1">{templateName ? `New quote — ${templateName}` : 'New starting quote'}</h1>
+        <h1 className="rp-title mt-1">{templateName ? `New quote — ${templateName}` : 'New starting quote'}</h1>
         <p className="text-sm text-gray-500">Twelve REV19 categories. Quantities and costs come from the catalog with their source and date; the face and breakdown print from what you enter here.</p>
       </div>
       {templateBrandNotes && (

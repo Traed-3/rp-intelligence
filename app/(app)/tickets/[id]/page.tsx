@@ -122,7 +122,7 @@ export default async function TicketDetailPage({
               <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full border border-amber-200">🔧 Parts Needed</span>
             )}
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 leading-tight">{ticket.title}</h1>
+          <h1 className="rp-title leading-tight">{ticket.title}</h1>
           {(ticket as any).assets && (
             <Link href={`/assets/${(ticket as any).assets.id}`} className="text-sm text-blue-600 hover:underline mt-0.5 inline-block">
               {(ticket as any).assets.unit_number}
@@ -148,7 +148,7 @@ export default async function TicketDetailPage({
         <div className="lg:col-span-2 space-y-5">
           {/* Description */}
           {ticket.description && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+            <div className="rp-card p-5">
               <h2 className="font-semibold text-gray-900 mb-2">Description</h2>
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
             </div>
@@ -156,7 +156,7 @@ export default async function TicketDetailPage({
 
           {/* Parts info */}
           {(ticket.parts_needed || ticket.parts_notes) && (
-            <div className="bg-white rounded-xl border border-amber-200 p-5">
+            <div className="bg-card rounded-xl border border-amber-200 p-5">
               <h2 className="font-semibold text-gray-900 mb-2">Parts</h2>
               <div className="flex flex-wrap gap-2 mb-2">
                 {ticket.parts_needed    && <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded border border-amber-200">Parts Needed</span>}
@@ -169,7 +169,7 @@ export default async function TicketDetailPage({
 
           {/* Completion notes */}
           {ticket.completion_notes && (
-            <div className="bg-white rounded-xl border border-green-200 p-5">
+            <div className="bg-card rounded-xl border border-green-200 p-5">
               <h2 className="font-semibold text-gray-900 mb-2">Completion Notes</h2>
               <p className="text-sm text-gray-700">{ticket.completion_notes}</p>
             </div>
@@ -181,7 +181,7 @@ export default async function TicketDetailPage({
             if (photos.length === 0 && !canUpload) return null
             const isImage = (p: any) => !p.file_type || /^image\//i.test(p.file_type)
             return (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+              <div className="rp-card p-5">
                 <h2 className="font-semibold text-gray-900 mb-1">Photos &amp; Attachments</h2>
                 <p className="text-xs text-gray-500 mb-3">Email photos/files attach here automatically. You can also add up to {MAX_PHOTOS} completion photos.</p>
 
@@ -227,7 +227,7 @@ export default async function TicketDetailPage({
           />
 
           {/* Comments */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-4">
               Comments {comments?.length ? `(${comments.length})` : ''}
             </h2>
@@ -259,7 +259,7 @@ export default async function TicketDetailPage({
 
         {/* Right column — meta */}
         <div className="space-y-5">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-3">Details</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -334,7 +334,7 @@ export default async function TicketDetailPage({
           </div>
 
           {canDelete && (
-            <div className="bg-white rounded-xl border border-red-200 p-5">
+            <div className="bg-card rounded-xl border border-red-200 p-5">
               <h2 className="font-semibold text-gray-900 mb-1">Danger Zone</h2>
               <p className="text-xs text-gray-500 mb-3">Permanently delete this ticket. Owners and managers only.</p>
               <DeleteTicketButton id={id} ticketNumber={ticket.ticket_number} />

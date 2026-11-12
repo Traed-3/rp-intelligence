@@ -51,7 +51,7 @@ export function ModulesButton({ userId, fullName, blockedKeys }: { userId: strin
           <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setOpen(false)} />
 
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="bg-card rounded-2xl shadow-xl w-full max-w-sm p-6">
               <h2 className="text-base font-bold text-gray-900">Module access</h2>
               <p className="text-xs text-gray-500 mt-1 mb-4">
                 {fullName} can use everything their role normally allows, except whatever's unchecked below.
@@ -75,7 +75,7 @@ export function ModulesButton({ userId, fullName, blockedKeys }: { userId: strin
                 <button
                   onClick={handleSave}
                   disabled={isPending}
-                  className="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
                   {isPending ? 'Saving…' : 'Save Changes'}
                 </button>

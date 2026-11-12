@@ -35,11 +35,11 @@ export default async function MobileServiceTicketsPage() {
     <div className="min-h-screen bg-gray-50 p-5">
       <div className="max-w-sm mx-auto space-y-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Service Tickets</h1>
+          <h1 className="rp-title">Service Tickets</h1>
           <Link href="/mobile" className="text-sm text-blue-600">← Home</Link>
         </div>
 
-        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <section className="rp-card overflow-hidden">
           <h2 className="px-4 py-3 font-semibold text-gray-900 border-b border-gray-100">My open tickets</h2>
           {(mine ?? []).length === 0 ? <p className="px-4 py-4 text-sm text-gray-400">Nothing in progress.</p> : (
             <ul className="divide-y divide-gray-100">
@@ -57,14 +57,14 @@ export default async function MobileServiceTicketsPage() {
         {canWrite && (
           <>
             {[{ title: 'Dispatched to me', rows: myWos }, { title: 'Other open work orders', rows: otherWos }].map(g => g.rows.length > 0 && (
-              <section key={g.title} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <section key={g.title} className="rp-card overflow-hidden">
                 <h2 className="px-4 py-3 font-semibold text-gray-900 border-b border-gray-100">{g.title}</h2>
                 <ul className="divide-y divide-gray-100">
                   {g.rows.map(w => (
                     <li key={w.id} className="px-4 py-3">
                       <div className="flex items-start justify-between gap-2">
                         <span className="min-w-0"><div className="font-medium text-gray-900 truncate">{w.client_name ?? 'Customer'} · {w.site_number ?? '—'}</div><div className="text-xs text-gray-500 truncate">{w.portal_wo_number} · {w.priority_raw ?? ''}{w.site_city ? ` · ${w.site_city}` : ''}</div></span>
-                        <form action={createServiceTicket}><input type="hidden" name="work_order_id" value={w.id} /><input type="hidden" name="from" value="mobile" /><button type="submit" className="shrink-0 rounded-lg bg-blue-600 text-white text-xs font-semibold px-3 py-1.5">Start ticket</button></form>
+                        <form action={createServiceTicket}><input type="hidden" name="work_order_id" value={w.id} /><input type="hidden" name="from" value="mobile" /><button type="submit" className="shrink-0 rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5">Start ticket</button></form>
                       </div>
                     </li>
                   ))}
@@ -72,7 +72,7 @@ export default async function MobileServiceTicketsPage() {
               </section>
             ))}
 
-            <details className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+            <details className="rp-card">
               <summary className="px-4 py-3 cursor-pointer font-semibold text-gray-900">Blank ticket (no dispatch)</summary>
               <form action={createServiceTicket} className="px-4 pb-4 space-y-3">
                 <input type="hidden" name="from" value="mobile" />
@@ -80,7 +80,7 @@ export default async function MobileServiceTicketsPage() {
                   <select id="nt-brand" name="brand" className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm" defaultValue="7-Eleven">{BRANDS.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                 <div><label className="block text-xs font-medium text-gray-600 mb-1" htmlFor="nt-store">Store #</label><input id="nt-store" name="store_number" className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm" placeholder="41617" /></div>
                 <div><label className="block text-xs font-medium text-gray-600 mb-1" htmlFor="nt-problem">Problem reported</label><input id="nt-problem" name="problem_reported" className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm" placeholder="PUL spill bucket sensor alarm" /></div>
-                <button type="submit" className="w-full rounded-xl bg-blue-600 text-white text-sm font-semibold py-2.5">Start ticket</button>
+                <button type="submit" className="w-full rounded-xl bg-primary text-primary-foreground text-sm font-semibold py-2.5">Start ticket</button>
               </form>
             </details>
           </>

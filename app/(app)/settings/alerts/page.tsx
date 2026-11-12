@@ -78,7 +78,7 @@ export default async function AlertsPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">← Settings</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Alerts &amp; Notifications</h1>
+        <h1 className="rp-title">Alerts &amp; Notifications</h1>
       </div>
 
       <p className="text-sm text-gray-500 mb-8">
@@ -87,7 +87,7 @@ export default async function AlertsPage() {
 
       {/* Preferences table */}
       <form action={saveAlertPreferences}>
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           {/* Column headers */}
           <div className="flex items-center px-5 py-3 border-b border-gray-100 bg-gray-50">
             <div className="flex-1" />
@@ -141,7 +141,7 @@ export default async function AlertsPage() {
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   />
                   {!hasPhone && (
-                    <span className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+                    <span className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap bg-foreground text-background text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
                       Add phone number below
                     </span>
                   )}
@@ -163,7 +163,7 @@ export default async function AlertsPage() {
 
         <button
           type="submit"
-          className="mt-4 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+          className="mt-4 px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg transition-colors"
         >
           Save Preferences
         </button>
@@ -196,7 +196,7 @@ export default async function AlertsPage() {
           />
           <button
             type="submit"
-            className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold rounded-lg transition-colors whitespace-nowrap"
+            className="px-4 py-2 bg-foreground hover:bg-foreground/85 text-background text-sm font-semibold rounded-lg transition-colors whitespace-nowrap"
           >
             Save
           </button>
@@ -217,7 +217,7 @@ export default async function AlertsPage() {
               <li>In Resend, click <strong>API Keys → Create API Key</strong> and copy it.</li>
               <li>In Vercel → your project → <strong>Settings → Environment Variables</strong>, add:</li>
             </ol>
-            <div className="mt-2 bg-gray-900 text-green-400 text-xs font-mono rounded-lg p-3 space-y-1">
+            <div className="mt-2 bg-ink text-green-400 text-xs font-mono rounded-lg p-3 space-y-1">
               <p>RESEND_API_KEY=re_xxxxxxxxxxxx</p>
               <p>RESEND_FROM_EMAIL=RP Intelligence &lt;alerts@yourdomain.com&gt;</p>
               <p>NEXT_PUBLIC_APP_URL=https://rpintelligence.app</p>
@@ -232,7 +232,7 @@ export default async function AlertsPage() {
               <li>Copy the <code>publicKey</code> and <code>privateKey</code> values from the output.</li>
               <li>In Vercel → Environment Variables, add:</li>
             </ol>
-            <div className="mt-2 bg-gray-900 text-green-400 text-xs font-mono rounded-lg p-3 space-y-1">
+            <div className="mt-2 bg-ink text-green-400 text-xs font-mono rounded-lg p-3 space-y-1">
               <p>NEXT_PUBLIC_VAPID_PUBLIC_KEY=Bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</p>
               <p>VAPID_PRIVATE_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</p>
               <p>VAPID_EMAIL=admin@yourdomain.com</p>

@@ -58,10 +58,10 @@ export default async function NotificationFormPage({ params }: { params: Promise
         <PrintButton />
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 print:border-0 print:shadow-none">
+      <div className="rp-card p-8 print:border-0 print:shadow-none">
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Project Notification</h1>
+            <h1 className="rp-title">Project Notification</h1>
             <p className="text-sm text-gray-500">RPS — Rappahannock Petroleum</p>
           </div>
           <div className="text-right text-xs text-gray-500">
@@ -96,7 +96,7 @@ export default async function NotificationFormPage({ params }: { params: Promise
               const checked = w.kw.test(blob)
               return (
                 <div key={w.label} className="flex items-center gap-2 text-sm">
-                  <span className={`inline-flex items-center justify-center w-4 h-4 border border-gray-400 rounded-sm text-[11px] ${checked ? 'bg-gray-900 text-white border-gray-900' : 'text-transparent'}`}>✓</span>
+                  <span className={`inline-flex items-center justify-center w-4 h-4 border border-gray-400 rounded-sm text-[11px] ${checked ? 'bg-foreground text-background border-foreground' : 'text-transparent'}`}>✓</span>
                   <span className={checked ? 'text-gray-900 font-medium' : 'text-gray-600'}>{w.label}</span>
                 </div>
               )

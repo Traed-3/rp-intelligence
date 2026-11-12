@@ -69,7 +69,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
     <div className={view === 'kanban' ? 'p-6' : 'p-6 max-w-7xl mx-auto'}>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Jobs
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{list.length} job{list.length !== 1 ? 's' : ''}{view === 'table' && sp.stage ? ` · ${stageMeta(sp.stage).label}` : ''}</p>
@@ -77,8 +77,8 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
         <div className="flex items-center gap-2">
           <Link href="/construction" className="text-sm text-gray-500 hover:text-gray-700 mr-1">← Construction</Link>
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-            <Link href={qs({ view: 'table' })} className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${view === 'table' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}><List className="w-3.5 h-3.5" />Table</Link>
-            <Link href={qs({ view: 'kanban' })} className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${view === 'kanban' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}><LayoutGrid className="w-3.5 h-3.5" />Board</Link>
+            <Link href={qs({ view: 'table' })} className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${view === 'table' ? 'bg-primary text-primary-foreground' : 'bg-card text-gray-600'}`}><List className="w-3.5 h-3.5" />Table</Link>
+            <Link href={qs({ view: 'kanban' })} className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${view === 'kanban' ? 'bg-primary text-primary-foreground' : 'bg-card text-gray-600'}`}><LayoutGrid className="w-3.5 h-3.5" />Board</Link>
           </div>
           {canWrite && <Link href="/construction/jobs/new"><Button className="gap-2"><Plus className="w-4 h-4" />New Job</Button></Link>}
         </div>
@@ -90,17 +90,17 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
         <div className="flex-1 min-w-[180px]">
           <input name="q" defaultValue={sp.q ?? ''} placeholder="Search site #, WO #, scope…" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
-        <select name="customer" defaultValue={sp.customer ?? ''} className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white">
+        <select name="customer" defaultValue={sp.customer ?? ''} className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-card">
           <option value="">All customers</option>
           {customers?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         {view === 'table' && (
-          <select name="stage" defaultValue={sp.stage ?? ''} className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white">
+          <select name="stage" defaultValue={sp.stage ?? ''} className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-card">
             <option value="">All stages</option>
             {CON_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         )}
-        <select name="priority" defaultValue={sp.priority ?? ''} className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white">
+        <select name="priority" defaultValue={sp.priority ?? ''} className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-card">
           <option value="">Any priority</option>
           <option value="urgent">Urgent</option>
           <option value="high">High</option>
@@ -113,7 +113,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
       </form>
 
       {list.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+        <div className="rp-card p-12 text-center">
           <p className="text-gray-400 text-sm">No jobs match.</p>
         </div>
       ) : view === 'kanban' ? (
@@ -130,7 +130,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
                   </div>
                   <div className="space-y-2">
                     {col.map(j => (
-                      <Link key={j.id} href={`/construction/jobs/${j.id}`} className="block bg-white rounded-xl border border-gray-200 shadow-sm p-3 hover:border-blue-300 hover:shadow transition-all min-w-0">
+                      <Link key={j.id} href={`/construction/jobs/${j.id}`} className="rp-card rp-card-link block p-3 min-w-0">
                         <div className="flex items-center justify-between gap-2 min-w-0">
                           <span className="font-semibold text-sm text-gray-900 truncate">{j.job_number ?? j.site_number ?? "—"}</span>
                           <ConPriorityBadge priority={j.priority} />
@@ -153,18 +153,18 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Site #</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Customer</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">WO #</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Stage</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Priority</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Program</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden xl:table-cell">Received</th>
+                  <th className="text-left px-4 py-3">Site #</th>
+                  <th className="text-left px-4 py-3 hidden md:table-cell">Customer</th>
+                  <th className="text-left px-4 py-3 hidden lg:table-cell">WO #</th>
+                  <th className="text-left px-4 py-3">Stage</th>
+                  <th className="text-left px-4 py-3 hidden sm:table-cell">Priority</th>
+                  <th className="text-left px-4 py-3 hidden lg:table-cell">Program</th>
+                  <th className="text-left px-4 py-3 hidden xl:table-cell">Received</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>

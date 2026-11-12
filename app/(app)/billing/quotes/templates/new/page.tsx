@@ -12,9 +12,9 @@ export default async function NewQuoteTemplatePage() {
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-6">
         <Link href="/billing/quotes/templates" className="text-sm text-gray-500 hover:text-gray-700">← Templates</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">New Quote Template</h1>
+        <h1 className="rp-title mt-2">New Quote Template</h1>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="rp-card p-6">
         <QuoteTemplateForm action={saveQuoteTemplate.bind(null, null)} />
       </div>
     </div>

@@ -66,7 +66,7 @@ export function EditUserButton({ user }: { user: User }) {
 
           {/* Modal */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="bg-card rounded-2xl shadow-xl w-full max-w-sm p-6">
               <h2 className="text-base font-bold text-gray-900 mb-4">Edit User</h2>
 
               {error && (
@@ -118,7 +118,7 @@ export function EditUserButton({ user }: { user: User }) {
                 <button
                   onClick={handleSave}
                   disabled={isPending}
-                  className="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
                   {isPending ? 'Saving…' : 'Save Changes'}
                 </button>

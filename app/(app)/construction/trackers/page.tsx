@@ -45,7 +45,7 @@ export default async function TrackersPage({ searchParams }: { searchParams: Pro
     <div className="p-4 sm:p-6 max-w-[1400px] mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Sunoco Trackers
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{rows.length} {tab.label.toLowerCase()} site{rows.length !== 1 ? 's' : ''}</p>
@@ -57,11 +57,11 @@ export default async function TrackersPage({ searchParams }: { searchParams: Pro
       <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm font-medium mb-4">
         {TABS.map(t => (
           <Link key={t.key} href={`/construction/trackers?type=${t.slug}`}
-            className={`px-4 py-2 ${t.key === tab.key ? 'bg-gray-900 text-white' : 'hover:bg-gray-50 text-gray-600'}`}>{t.label}</Link>
+            className={`px-4 py-2 ${t.key === tab.key ? 'bg-foreground text-background' : 'hover:bg-gray-50 text-gray-600'}`}>{t.label}</Link>
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
+      <div className="rp-card overflow-x-auto">
         <table className="w-full">
           <thead className="border-b border-gray-200 bg-gray-50">
             <tr>

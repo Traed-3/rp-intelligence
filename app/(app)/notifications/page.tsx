@@ -43,7 +43,7 @@ export default async function NotificationsPage() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Notifications</h1>
+          <h1 className="rp-title">Notifications</h1>
           {unreadCount > 0 && (
             <p className="text-sm text-gray-500 mt-0.5">{unreadCount} unread</p>
           )}
@@ -61,13 +61,13 @@ export default async function NotificationsPage() {
       </div>
 
       {!notifications?.length ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+        <div className="rp-card p-12 text-center">
           <p className="text-4xl mb-3">🔔</p>
           <p className="font-semibold text-gray-900">All clear</p>
           <p className="text-sm text-gray-500 mt-1">No notifications yet.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-50">
+        <div className="rp-card overflow-hidden divide-y divide-gray-50">
           {notifications.map(n => {
             async function handleRead() {
               'use server'

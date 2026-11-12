@@ -23,14 +23,14 @@ export default async function SubcontractorDetailPage({ params }: { params: Prom
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-5">
         <Link href="/construction/subcontractors" className="text-sm text-gray-500 hover:text-gray-700">← Subcontractors</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">{sub.name}</h1>
+        <h1 className="rp-title mt-2">{sub.name}</h1>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-5">
+      <div className="rp-card p-5 mb-5">
         <SubcontractorForm action={saveSubcontractor.bind(null, id)} sub={sub as SubcontractorRecord} />
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+      <div className="rp-card overflow-hidden mb-5">
         <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Assigned Projects ({assignments?.length ?? 0})</h2></div>
         {!assignments?.length ? (
           <p className="px-4 py-6 text-sm text-gray-400">Not assigned to any projects yet. Assign from a job's Subcontractors tab.</p>
