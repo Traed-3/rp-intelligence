@@ -125,12 +125,18 @@ async function partnerId(admin: ReturnType<typeof createAdminClient>, email: str
   return data.id as string
 }
 
-/** One click: this row is my partner's, not mine. It moves to their plate as it is; handed_from remembers the click. */
-export async function handToPartner(id: string): Promise<void> {
+/**
+ * "Assign to:" dropdown: this row is theirs, not mine. It moves to their plate as it is; handed_from remembers the pick.
+ * Today the only name on the list is the plate partner; the list grows as more people come into the app.
+ */
+export async function assignTask(id: string, formData: FormData): Promise<void> {
   const { admin, id: owner, company_id, email } = await me(); await mine(admin, id, owner)
+  const to = str(formData.get('to'))
+  if (!to) return
   const partner = await partnerId(admin, email, company_id)
+  if (to !== partner) throw new Error('That person is not on the assign list yet')
   const now = new Date().toISOString()
-  const { error } = await admin.from('con_tasks').update({ owner_id: partner, handed_from: owner, handed_at: now, snoozed_until: null, updated_at: now }).eq('id', id)
+  const { error } = await admin.from('con_tasks').update({ owner_id: to, handed_from: owner, handed_at: now, snoozed_until: null, updated_at: now }).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/my')
 }

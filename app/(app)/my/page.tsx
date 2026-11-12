@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { buildPlate, buildSignals, businessDaysSince, dueDelta, isYesNo, firstName, KIND_CLASS, KIND_LABEL, PLATE_PARTNERS, type TaskRow, type TaskKind } from '@/lib/my-plate'
 import { packingSlipSiteKey } from '@/lib/construction-dashboard'
-import { addTask, completeTask, completeTasks, dropTask, reopenTask, setDue, setPriority, snoozeTask, waitTask, answerTask, resolvePriceLine, draftOrderEmail, markOrderSent, handToPartner, takeFromPartner, completePartnerTask } from './actions'
+import { addTask, completeTask, completeTasks, dropTask, reopenTask, setDue, setPriority, snoozeTask, waitTask, answerTask, resolvePriceLine, draftOrderEmail, markOrderSent, assignTask, takeFromPartner, completePartnerTask } from './actions'
+import { AssignTo } from './assign-to'
 import { ORDER_VENDORS, mailtoHref, type OrderDraft, type OrderVendorKey } from '@/lib/order-email'
 import { CopyButton } from '@/components/plate/copy-button'
 import { BulkBar } from '@/components/plate/bulk-bar'
@@ -46,7 +47,7 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
   const since120 = new Date(Date.now() - 120 * 86_400_000).toISOString()
 
-  // Plate partner (Trae <-> Starsky): their open rows are one chip away, and every card gets a "<name>'s" button.
+  // Plate partner (Trae <-> Starsky): their open rows are one chip away, and every card gets an "Assign to:" dropdown at the bottom.
   const { data: meRow } = await admin.from('profiles').select('email').eq('id', profile.id).single()
   const partnerEmail = PLATE_PARTNERS[(meRow?.email ?? '').toLowerCase()]
   const { data: partnerRow } = partnerEmail
@@ -347,8 +348,12 @@ function TaskCard({ t, today, urls, partner = null, waiting = false }: { t: Task
           </div>
         )}
         <form action={completeTask.bind(null, t.id)}><button className="px-4 py-2 sm:py-1.5 rounded-md bg-emerald-600 border border-emerald-700 text-white text-[13px] font-semibold hover:bg-emerald-600/90">Done</button></form>
-        {partner && <form action={handToPartner.bind(null, t.id)}><button title={`Not mine. Move it to ${partner.name}'s plate`} className="px-3 py-2 sm:py-1.5 rounded-md bg-violet-50 border border-violet-300 text-violet-800 text-[13px] font-semibold whitespace-nowrap hover:bg-violet-100">{partner.name}&apos;s</button></form>}
       </div>
+      {partner && (
+        <div className="sm:col-span-2 border-t border-border pt-1.5">
+          <AssignTo action={assignTask.bind(null, t.id)} people={[partner]} />
+        </div>
+      )}
     </li>
   )
 }

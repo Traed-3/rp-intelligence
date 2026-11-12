@@ -39,7 +39,7 @@ export type TaskRow = {
 
 /**
  * Plate partners (Trae 11/12/26): Trae and Starsky both work out of econstruction, so the routines sometimes put
- * Starsky's work on Trae's plate. A partner gets a one-click "<name>'s" button on every card and can see, close or
+ * Starsky's work on Trae's plate. A partner shows in the "Assign to:" dropdown on every card and can see, close or
  * take back what is on the other plate. Keyed by login email.
  */
 export const PLATE_PARTNERS: Record<string, string> = {
