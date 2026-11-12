@@ -7,6 +7,7 @@ import { addTask, completeTask, completeTasks, dropTask, reopenTask, setDue, set
 import { ORDER_VENDORS, mailtoHref, type OrderDraft, type OrderVendorKey } from '@/lib/order-email'
 import { CopyButton } from '@/components/plate/copy-button'
 import { BulkBar } from '@/components/plate/bulk-bar'
+import { MaterialLists, materialLists } from '@/components/plate/material-lists'
 import { WORK_ORDER_DOCS_BUCKET } from '@/lib/svc-gmail-sync'
 
 type TicketRef = { date?: string; subject?: string; paths: string[] }
@@ -296,6 +297,7 @@ function TaskCard({ t, today, urls, waiting = false }: { t: TaskRow; today: stri
           {t.job_id && <Link href={`/construction/jobs/${t.job_id}`} className="text-xs text-blue-700 hover:underline">Job</Link>}
           {t.quote_id && <Link href={`/billing/quotes/${t.quote_id}`} className="text-xs text-blue-700 hover:underline">Quote</Link>}
         </div>
+        <MaterialLists lists={materialLists(t.action)} />
         <Tickets refs={ticketRefs(t)} urls={urls} />
         {richResolver && <Resolver t={t} />}
         <details className="group/more pt-0.5">
