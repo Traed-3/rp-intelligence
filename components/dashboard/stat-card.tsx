@@ -33,7 +33,7 @@ export function StatCard({
   const c = COLOR_MAP[color]
   const content = (
     <div className={cn(
-      'group rounded-2xl border border-gray-200 bg-white p-5 flex items-center gap-4 shadow-sm transition-all duration-200',
+      'rp-card group p-5 flex items-center gap-4 transition-all duration-200',
       href && 'hover:shadow-lg hover:-translate-y-1 cursor-pointer',
       alert && Number(value) > 0 && 'ring-2 ring-red-400/60'
     )}>

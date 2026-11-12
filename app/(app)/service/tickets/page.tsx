@@ -30,7 +30,7 @@ export default async function ServiceTicketsPage({ searchParams }: { searchParam
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Field Tickets
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{list.length} ticket{list.length !== 1 ? 's' : ''} · signed tickets become invoices with one click</p>
@@ -40,14 +40,14 @@ export default async function ServiceTicketsPage({ searchParams }: { searchParam
 
       <div className="flex flex-wrap gap-2 mb-4">
         {[{ v: '', l: 'All' }, { v: 'open', l: 'Open' }, { v: 'to_invoice', l: 'Signed · ready to invoice' }, ...TICKET_STATUSES.map(s => ({ v: s.value, l: s.label }))].map(f => (
-          <Link key={f.v} href={f.v ? `/service/tickets?status=${f.v}` : '/service/tickets'} className={`text-xs px-3 py-1.5 rounded-full border ${status === f.v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}>{f.l}</Link>
+          <Link key={f.v} href={f.v ? `/service/tickets?status=${f.v}` : '/service/tickets'} className={`text-xs px-3 py-1.5 rounded-full border ${status === f.v ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-600 border-gray-200 hover:border-blue-300'}`}>{f.l}</Link>
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+      <div className="rp-card overflow-hidden mb-5">
         {list.length === 0 ? <div className="p-12 text-center text-sm text-gray-400">No tickets yet. Techs start them from a dispatched work order on their phone.</div> : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead><tr className="border-b border-gray-100 bg-gray-50"><th className={th}>Ticket</th><th className={th}>Site</th><th className={`${th} hidden md:table-cell`}>Technician</th><th className={`${th} hidden lg:table-cell`}>Work performed</th><th className={th}>Signed</th><th className={th}>Status</th><th className="px-4 py-3" /></tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {list.map(t => { const st = ticketStatusMeta(t.status); const tech = (t as unknown as { svc_technicians?: { full_name: string } | null }).svc_technicians; return (
@@ -67,13 +67,13 @@ export default async function ServiceTicketsPage({ searchParams }: { searchParam
       </div>
 
       {canWrite && (
-        <details className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+        <details className="rp-card">
           <summary className="px-5 py-4 cursor-pointer font-semibold text-gray-900 flex items-center gap-2"><Plus className="w-4 h-4 text-blue-600" />New ticket (no dispatch)</summary>
           <form action={createServiceTicket} className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
             <div><label className="block text-xs font-medium text-gray-600 mb-1" htmlFor="st-brand">Brand</label><select id="st-brand" name="brand" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" defaultValue="7-Eleven">{BRANDS.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
             <div><label className="block text-xs font-medium text-gray-600 mb-1" htmlFor="st-store">Store #</label><input id="st-store" name="store_number" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" /></div>
             <div><label className="block text-xs font-medium text-gray-600 mb-1" htmlFor="st-problem">Problem reported</label><input id="st-problem" name="problem_reported" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" /></div>
-            <div className="sm:col-span-3"><button type="submit" className="rounded-lg bg-blue-600 text-white text-sm font-medium px-4 py-2 hover:bg-blue-700">Create ticket</button></div>
+            <div className="sm:col-span-3"><button type="submit" className="rounded-lg bg-primary text-primary-foreground text-sm font-medium px-4 py-2 hover:bg-primary/90">Create ticket</button></div>
           </form>
         </details>
       )}

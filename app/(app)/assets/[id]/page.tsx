@@ -149,7 +149,7 @@ export default async function AssetDetailPage({
       <div className="mt-3 flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">{asset.unit_number}</h1>
+            <h1 className="rp-title">{asset.unit_number}</h1>
             <StatusBadge status={asset.status} />
           </div>
           {vehicleLabel && <p className="text-gray-500 mt-0.5">{vehicleLabel}</p>}
@@ -207,7 +207,7 @@ export default async function AssetDetailPage({
 
       <div className="mt-6 space-y-5">
         {/* Asset Info */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           <h2 className="font-semibold text-gray-900 mb-2">Asset Info</h2>
           <div className="divide-y divide-gray-50">
             <InfoRow label="Asset Type" value={(asset as any).asset_types?.name} />
@@ -236,7 +236,7 @@ export default async function AssetDetailPage({
 
         {/* Oil Change */}
         {!isProperty && (asset.last_oil_change_date || asset.oil_change_interval_miles) && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-2">Oil Change / Service</h2>
             <div className="divide-y divide-gray-50">
               <InfoRow label="Last Service Date" value={asset.last_oil_change_date} />
@@ -265,7 +265,7 @@ export default async function AssetDetailPage({
 
         {/* Due Dates */}
         {(isProperty || inspectionNA || asset.inspection_due_date || asset.registration_due_date) && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-3">Due Dates</h2>
             <div className="space-y-2">
               {isProperty ? (
@@ -288,7 +288,7 @@ export default async function AssetDetailPage({
 
         {/* Notes */}
         {asset.notes && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-2">Notes</h2>
             <p className="text-sm text-gray-600 whitespace-pre-wrap">{asset.notes}</p>
           </div>
@@ -296,7 +296,7 @@ export default async function AssetDetailPage({
 
         {/* Maintenance History — vehicles/equipment only */}
         {!isProperty && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           <h2 className="font-semibold text-gray-900 mb-3">Maintenance History</h2>
           {!maintenanceHistory?.length ? (
             <p className="text-sm text-gray-400 text-center py-4">
@@ -341,7 +341,7 @@ export default async function AssetDetailPage({
         {!isProperty && (toolRows?.length ?? 0) > 0 && (
           <Link
             href={`/assets/${id}/tools`}
-            className="block bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:border-blue-300 transition-colors"
+            className="rp-card rp-card-link block p-5"
           >
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">Tools &amp; Supplies</h2>
@@ -354,7 +354,7 @@ export default async function AssetDetailPage({
         )}
 
         {/* Repair Ticket History — every ticket (incl. closed email tickets) */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-gray-900">Repair Ticket History</h2>
             <span className="text-xs text-gray-400">{ticketHistory?.length ?? 0} total</span>
@@ -391,7 +391,7 @@ export default async function AssetDetailPage({
 
         {/* Mileage History — vehicles/equipment only */}
         {!isProperty && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-gray-900">
               {(asset as any).uses_hours ? 'Hours History' : 'Mileage History'}
@@ -412,15 +412,15 @@ export default async function AssetDetailPage({
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="rp-table w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100">
-                    <th className="text-left py-2 pr-4 font-medium text-gray-500">Date</th>
-                    <th className="text-right py-2 pr-4 font-medium text-gray-500">
+                    <th className="text-left py-2 pr-4">Date</th>
+                    <th className="text-right py-2 pr-4">
                       {(asset as any).uses_hours ? 'Hours' : 'Mileage'}
                     </th>
-                    <th className="text-right py-2 pr-4 font-medium text-gray-500">+/−</th>
-                    <th className="text-left py-2 font-medium text-gray-500">Notes</th>
+                    <th className="text-right py-2 pr-4">+/−</th>
+                    <th className="text-left py-2">Notes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -461,7 +461,7 @@ export default async function AssetDetailPage({
 
         {/* Danger zone */}
         {canDelete && (
-          <div className="bg-white rounded-xl border border-red-100 p-5">
+          <div className="bg-card rounded-xl border border-red-100 p-5">
             <h2 className="font-semibold text-red-700 mb-1">Danger Zone</h2>
             <p className="text-sm text-gray-500 mb-3">
               Permanently delete this asset and all its records. This cannot be undone.

@@ -73,7 +73,7 @@ export function ClockWidget({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+    <div className="rp-card p-8 text-center">
       {/* Current time */}
       <p className="text-5xl font-bold text-gray-900 tabular-nums tracking-tight">
         {now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}

@@ -64,7 +64,7 @@ export default async function WorkOrderDetailPage({
 
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{w.portal_wo_number}</h1>
+          <h1 className="rp-title font-mono">{w.portal_wo_number}</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {clientLabel(w.source_portal, w.client_name)}
             {w.incident_number && <> · Incident {w.incident_number}</>}
@@ -79,7 +79,7 @@ export default async function WorkOrderDetailPage({
       {(() => { const existing = (existingTicket as { id: string; ticket_number: string; status: string } | null); return existing ? (
         <Link href={`/service/tickets/${existing.id}`} className="block bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-900">Field ticket <b className="font-mono">{existing.ticket_number}</b> · {existing.status} →</Link>
       ) : (
-        <form action={createServiceTicket} className="mb-5"><input type="hidden" name="work_order_id" value={w.id} /><button type="submit" className="rounded-lg bg-blue-600 text-white text-sm font-medium px-4 py-2 hover:bg-blue-700">Start field ticket</button></form>
+        <form action={createServiceTicket} className="mb-5"><input type="hidden" name="work_order_id" value={w.id} /><button type="submit" className="rounded-lg bg-primary text-primary-foreground text-sm font-medium px-4 py-2 hover:bg-primary/90">Start field ticket</button></form>
       ) })()}
 
       {link ? (
@@ -98,9 +98,9 @@ export default async function WorkOrderDetailPage({
         </div>
       ) : canConstruction && (
         <div className="mb-5 space-y-3">
-          <form action={createJobFromWorkOrder.bind(null, w.id)}><button type="submit" className="rounded-lg border border-gray-300 bg-white text-gray-800 text-sm font-medium px-4 py-2 hover:bg-gray-50">Create construction job →</button></form>
+          <form action={createJobFromWorkOrder.bind(null, w.id)}><button type="submit" className="rounded-lg border border-gray-300 bg-card text-gray-800 text-sm font-medium px-4 py-2 hover:bg-gray-50">Create construction job →</button></form>
           {probableJobs.length > 0 && (
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <div className="rp-card p-4">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Already a construction job at this site?</p>
               <ul className="space-y-2">
                 {probableJobs.map((j: any) => (
@@ -110,7 +110,7 @@ export default async function WorkOrderDetailPage({
                       <span className="text-gray-500"> · {CON_STAGE_LABEL[j.stage] ?? j.stage}</span>
                       {j.status_detail && <span className="block text-xs text-gray-400 truncate">{j.status_detail}</span>}
                     </span>
-                    <form action={linkConstructionJob.bind(null, w.id, j.id)}><button type="submit" className="shrink-0 rounded-lg bg-amber-600 text-white text-xs font-medium px-3 py-1.5 hover:bg-amber-700">This is the one</button></form>
+                    <form action={linkConstructionJob.bind(null, w.id, j.id)}><button type="submit" className="shrink-0 rounded-lg bg-amber-600 text-white text-xs font-medium px-3 py-1.5 hover:bg-amber-600/90">This is the one</button></form>
                   </li>
                 ))}
               </ul>
@@ -134,7 +134,7 @@ export default async function WorkOrderDetailPage({
       )}
 
       <div className="grid sm:grid-cols-2 gap-4 mb-5">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Site</h2>
           <dl className="space-y-1.5 text-sm">
             <div><dt className="inline text-gray-400">Number:</dt> <dd className="inline text-gray-900">{w.site_number ?? '—'}</dd></div>
@@ -144,7 +144,7 @@ export default async function WorkOrderDetailPage({
           </dl>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Timeline</h2>
           <dl className="space-y-1.5 text-sm">
             <div><dt className="inline text-gray-400">Dispatched:</dt> <dd className="inline text-gray-900">{fmt(w.dispatched_at)}</dd></div>
@@ -155,7 +155,7 @@ export default async function WorkOrderDetailPage({
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-5">
+      <div className="rp-card p-5 mb-5">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Assigned Technician</h2>
         {tech ? (
           <p className="text-sm text-gray-900">{tech.full_name} {tech.personal_email && <span className="text-gray-400">· {tech.personal_email}</span>}</p>
@@ -165,14 +165,14 @@ export default async function WorkOrderDetailPage({
       </div>
 
       {w.completion_note_raw && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-5">
+        <div className="rp-card p-5 mb-5">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Tech's Completion Note</h2>
           <p className="text-sm text-gray-900 whitespace-pre-wrap">{w.completion_note_raw}</p>
         </div>
       )}
 
       {w.subject_raw && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Original Dispatch Subject</h2>
           <p className="text-sm text-gray-600">{w.subject_raw}</p>
         </div>

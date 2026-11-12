@@ -197,7 +197,7 @@ export function ExpenseForm({
               type="button"
               onClick={() => edit('expense_type', t.value)}
               className={`py-2 px-3 rounded-xl text-sm font-medium border transition-colors ${
-                f.expense_type === t.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
+                f.expense_type === t.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-700 border-gray-200 hover:border-gray-400'
               }`}
             >
               {t.label}
@@ -315,7 +315,7 @@ export function ExpenseForm({
               type="button"
               onClick={() => { edit('payment_method_code', pm.code); setCustomPm(false) }}
               className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-                f.payment_method_code === pm.code ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
+                f.payment_method_code === pm.code ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-700 border-gray-200 hover:border-gray-400'
               }`}
               title={pm.name}
             >

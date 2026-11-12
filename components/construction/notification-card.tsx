@@ -20,7 +20,7 @@ export function NotificationCard({
   const printHref = `/construction/jobs/${jobId}/notification`
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+    <div className="rp-card p-5">
       <div className="flex items-center justify-between gap-2 mb-2">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Project Notification</h3>
         <span className={`text-[11px] px-2 py-0.5 rounded-full border ${status.className}`}>{status.label}</span>
@@ -42,7 +42,7 @@ export function NotificationCard({
         {canWrite && status.state !== 'sent' && status.state !== 'waived' && (
           <>
             <button onClick={() => start(() => { markNotificationSent(jobId) })} disabled={pending}
-              className="text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg px-3 py-1.5">
+              className="text-sm font-medium text-white bg-green-600 hover:bg-green-600/90 disabled:opacity-50 rounded-lg px-3 py-1.5">
               {pending ? '…' : 'Mark as sent'}
             </button>
             <button onClick={() => start(() => { setNotificationWaived(jobId, true) })} disabled={pending}

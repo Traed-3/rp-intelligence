@@ -47,7 +47,7 @@ export default async function StatusPage() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Set Status</h1>
+          <h1 className="rp-title">Set Status</h1>
           <a href="/shop/clock" className="text-sm text-blue-600">← Clock</a>
         </div>
 

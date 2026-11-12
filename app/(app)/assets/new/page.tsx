@@ -32,10 +32,10 @@ export default async function NewAssetPage() {
         <Link href="/assets" className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to Assets
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">Add New Asset</h1>
+        <h1 className="rp-title mt-2">Add New Asset</h1>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="rp-card p-6">
         <AssetForm action={createAsset} assetTypes={assetTypes ?? []} employees={employees ?? []} />
       </div>
     </div>

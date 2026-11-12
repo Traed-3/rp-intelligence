@@ -98,7 +98,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Calendar
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Maintenance{showConstruction ? ' & Construction' : ''} on one calendar · {events.length} item{events.length !== 1 ? 's' : ''} shown</p>
@@ -106,8 +106,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         <div className="flex items-center gap-2">
           {/* View switch */}
           <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm">
-            <Link href={build({ view: undefined })} className={`px-3 py-1.5 ${view === 'month' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Month</Link>
-            <Link href={build({ view: 'week' })} className={`px-3 py-1.5 border-l border-gray-300 ${view === 'week' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Week</Link>
+            <Link href={build({ view: undefined })} className={`px-3 py-1.5 ${view === 'month' ? 'bg-primary text-primary-foreground' : 'bg-card text-gray-600 hover:bg-gray-50'}`}>Month</Link>
+            <Link href={build({ view: 'week' })} className={`px-3 py-1.5 border-l border-gray-300 ${view === 'week' ? 'bg-primary text-primary-foreground' : 'bg-card text-gray-600 hover:bg-gray-50'}`}>Week</Link>
           </div>
         </div>
       </div>
@@ -120,8 +120,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             const label = layer === 'construction' ? 'Construction' : 'Maintenance'
             return (
               <Link key={layer} href={toggleLayerHref(layer)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-semibold transition-colors ${on ? (layer === 'construction' ? 'bg-blue-600 text-white border-blue-600' : 'bg-emerald-600 text-white border-emerald-600') : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}>
-                <span className={`w-2 h-2 rounded-full ${on ? 'bg-white' : layer === 'construction' ? 'bg-blue-400' : 'bg-emerald-400'}`} />
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-semibold transition-colors ${on ? (layer === 'construction' ? 'bg-primary text-primary-foreground border-primary' : 'bg-emerald-600 text-white border-emerald-600') : 'bg-card text-gray-500 border-gray-300 hover:bg-gray-50'}`}>
+                <span className={`w-2 h-2 rounded-full ${on ? 'bg-card' : layer === 'construction' ? 'bg-blue-400' : 'bg-emerald-400'}`} />
                 {label}
               </Link>
             )
@@ -148,12 +148,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       )}
 
       {enabled.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+        <div className="rp-card p-12 text-center">
           <CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-400 text-sm">Both layers are turned off. Turn one on above to see items.</p>
         </div>
       ) : view === 'month' ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50">
             {WEEKDAY_LABELS.map(w => <div key={w} className="px-2 py-2 text-xs font-semibold text-gray-500 text-center">{w}</div>)}
           </div>
@@ -164,9 +164,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               const inMonth = d.getMonth() === monthOf
               const isToday = iso(today) === key
               return (
-                <div key={i} className={`min-h-28 border-b border-r border-gray-100 p-1.5 ${inMonth ? 'bg-white' : 'bg-gray-50/50'}`}>
+                <div key={i} className={`min-h-28 border-b border-r border-gray-100 p-1.5 ${inMonth ? 'bg-card' : 'bg-gray-50/50'}`}>
                   <div className={`text-xs mb-1 ${isToday ? 'font-bold text-blue-700' : inMonth ? 'text-gray-500' : 'text-gray-300'}`}>
-                    {isToday ? <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white">{d.getDate()}</span> : d.getDate()}
+                    {isToday ? <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground">{d.getDate()}</span> : d.getDate()}
                   </div>
                   <div className="space-y-1">
                     {dayEvents.slice(0, 4).map(e => <EventChip key={e.id} e={e} />)}
@@ -184,7 +184,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             const dayEvents = byDay.get(key) ?? []
             const isToday = iso(today) === key
             return (
-              <div key={i} className={`bg-white rounded-xl border shadow-sm p-2 min-h-40 ${isToday ? 'border-blue-300' : 'border-gray-200'}`}>
+              <div key={i} className={`bg-card rounded-xl border shadow-sm p-2 min-h-40 ${isToday ? 'border-blue-300' : 'border-gray-200'}`}>
                 <div className={`text-xs font-semibold mb-1.5 ${isToday ? 'text-blue-700' : 'text-gray-500'}`}>
                   {d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </div>

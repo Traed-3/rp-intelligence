@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { Plus, Trash2, Camera } from 'lucide-react'
 import { type SumpRow, type SurveyEntry, type EntryKind, type PhotoRow, type SumpType, ENTRY_KINDS, FITTINGS, BOLT_COUNTS, PIPE_OPTIONS, OD_OPTIONS, NOTE_OPTIONS, SUMP_LOCATIONS, SUMP_MATERIALS, SUMP_PROFILES, WORKSHEETS, LID_FIELDS, SUMP_TYPES, composeSumpLabel, entryRef } from '@/lib/survey'
 
-const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white'
+const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card'
 const sel = inp
 const lbl = 'block text-xs font-medium text-gray-600 mb-1'
-const chip = (on: boolean) => `px-3 py-2 rounded-lg border text-sm ${on ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`
+const chip = (on: boolean) => `px-3 py-2 rounded-lg border text-sm ${on ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-700 border-gray-300'}`
 
 type Props = {
   sump: SumpRow
@@ -43,7 +43,7 @@ export function SurveySumpCard({ sump, photos, locked, saveAction, deleteAction,
   const refs = entries.map(entryRef)
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div className="rp-card overflow-hidden">
       <form action={async fd => { await saveAction(fd); setDirty(false) }} className="p-4 space-y-4">
         <input type="hidden" name="entries" value={JSON.stringify(entries)} />
         <input type="hidden" name="location" value={location} /><input type="hidden" name="material" value={material} /><input type="hidden" name="profile" value={profile} /><input type="hidden" name="active_leak" value={leak} />
@@ -109,7 +109,7 @@ export function SurveySumpCard({ sump, photos, locked, saveAction, deleteAction,
           <div><label className={lbl}>Structural damage: description and general measurements (crack, puncture, hole, seam)</label><textarea name="damage" rows={3} defaultValue={sump.damage ?? ''} onChange={() => setDirty(true)} disabled={locked} className={inp} /></div>
         )}
         <div><label className={lbl}>Tech notes for this sump</label><textarea name="notes" rows={2} defaultValue={sump.notes ?? ''} onChange={() => setDirty(true)} disabled={locked} className={inp} placeholder="anything ICON should know" /></div>
-        {!locked && <button className={`w-full rounded-lg py-2.5 text-sm font-semibold ${dirty ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-500'}`}>{dirty ? 'Save this sump' : 'Saved'}</button>}
+        {!locked && <button className={`w-full rounded-lg py-2.5 text-sm font-semibold ${dirty ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-gray-100 text-gray-500'}`}>{dirty ? 'Save this sump' : 'Saved'}</button>}
       </form>
 
       <div className="border-t border-gray-100 bg-gray-50/60 p-4 space-y-3">
@@ -120,7 +120,7 @@ export function SurveySumpCard({ sump, photos, locked, saveAction, deleteAction,
               <div key={ph.id} className="relative group">
                 <a href={`/api/construction/survey-photos/${ph.id}`} target="_blank" rel="noopener"><img src={`/api/construction/survey-photos/${ph.id}`} alt={ph.caption ?? ''} className="w-full aspect-square object-cover rounded-lg border border-gray-200" loading="lazy" /></a>
                 <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 text-white rounded px-1">{[ph.entry_ref, ph.caption].filter(Boolean).join(' · ') || 'sump'}</span>
-                {!locked && <button type="button" onClick={() => { if (confirm('Delete this photo?')) void deletePhotoAction(ph.id) }} className="absolute top-1 right-1 bg-white/90 rounded-full p-1 text-gray-500 hover:text-red-600 opacity-0 group-hover:opacity-100" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>}
+                {!locked && <button type="button" onClick={() => { if (confirm('Delete this photo?')) void deletePhotoAction(ph.id) }} className="absolute top-1 right-1 bg-card/90 rounded-full p-1 text-gray-500 hover:text-red-600 opacity-0 group-hover:opacity-100" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>}
               </div>
             ))}
           </div>
@@ -130,8 +130,8 @@ export function SurveySumpCard({ sump, photos, locked, saveAction, deleteAction,
             <div><label className={lbl}>For entry</label><select name="entry_ref" className={sel}><option value="">whole sump</option>{refs.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
             <div className="sm:col-span-2"><label className={lbl}>Caption</label><input name="caption" className={inp} placeholder="top view, boot, pipe OD…" /></div>
             <div className="flex gap-2">
-              <label className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 text-white py-2.5 text-sm font-semibold cursor-pointer hover:bg-blue-700"><Camera className="w-4 h-4" /> Camera<input type="file" name="photos" accept="image/*" capture="environment" multiple className="hidden" onChange={ev => ev.currentTarget.form?.requestSubmit()} /></label>
-              <label className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm cursor-pointer hover:bg-gray-50">Roll<input type="file" name="photos" accept="image/*" multiple className="hidden" onChange={ev => ev.currentTarget.form?.requestSubmit()} /></label>
+              <label className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground py-2.5 text-sm font-semibold cursor-pointer hover:bg-primary/90"><Camera className="w-4 h-4" /> Camera<input type="file" name="photos" accept="image/*" capture="environment" multiple className="hidden" onChange={ev => ev.currentTarget.form?.requestSubmit()} /></label>
+              <label className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-card px-3 py-2.5 text-sm cursor-pointer hover:bg-gray-50">Roll<input type="file" name="photos" accept="image/*" multiple className="hidden" onChange={ev => ev.currentTarget.form?.requestSubmit()} /></label>
             </div>
           </form>
         )}

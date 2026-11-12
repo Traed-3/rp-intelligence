@@ -56,7 +56,7 @@ export function RemindersCard({
               className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
                 filter === f.value
                   ? 'bg-indigo-600 text-white border-indigo-600'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                  : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'
               }`}
             >
               {f.label} ({f.count})
@@ -65,7 +65,7 @@ export function RemindersCard({
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         {shown.length === 0 ? (
           <p className="px-5 py-6 text-center text-sm text-gray-400">No reminders. 🎉</p>
         ) : (

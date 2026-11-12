@@ -12,7 +12,7 @@ function DriverCard({ a, open }: { a: DriverAudit; open: boolean }) {
   const e = a.file.employee
   const infos = a.findings.length - a.violations - a.warnings
   return (
-    <details open={open} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-3 break-inside-avoid">
+    <details open={open} className="rp-card overflow-hidden mb-3 break-inside-avoid">
       <summary className="px-4 py-3 flex flex-wrap items-center gap-3 cursor-pointer hover:bg-gray-50">
         <span className="flex-1 min-w-48">
           <Link href={`/compliance/employees/${e.id}`} className="font-semibold text-gray-900 hover:text-blue-700">{e.full_name}</Link>
@@ -65,7 +65,7 @@ export default async function DqfAuditPage({ searchParams }: { searchParams: Pro
   }
   const topGaps = [...gapCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
 
-  const kpi = 'bg-white rounded-2xl border border-gray-200 shadow-sm p-4'
+  const kpi = 'rp-card p-4'
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <Link href="/compliance" className="text-sm text-gray-500 hover:text-gray-700 print:hidden">← DQF &amp; Certifications</Link>
@@ -78,7 +78,7 @@ export default async function DqfAuditPage({ searchParams }: { searchParams: Pro
           </p>
         </div>
         <div className="flex gap-2 print:hidden">
-          <Link href={expandAll ? '/compliance/audit' : '/compliance/audit?all=1'} className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-300">{expandAll ? 'Collapse' : 'Expand all'}</Link>
+          <Link href={expandAll ? '/compliance/audit' : '/compliance/audit?all=1'} className="px-3 py-2 rounded-lg border border-gray-200 bg-card text-sm font-medium text-gray-700 hover:border-blue-300">{expandAll ? 'Collapse' : 'Expand all'}</Link>
         </div>
       </div>
 
@@ -90,7 +90,7 @@ export default async function DqfAuditPage({ searchParams }: { searchParams: Pro
       </div>
 
       {topGaps.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 mb-6">
+        <div className="rp-card p-4 mb-6">
           <h2 className="font-semibold text-gray-900 mb-2">Biggest gaps across all drivers</h2>
           <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
             {topGaps.map(([k, n]) => <li key={k} className="flex justify-between gap-3"><span className="text-gray-700">{k}</span><span className="font-semibold text-red-600 tabular-nums">{n} driver{n === 1 ? '' : 's'}</span></li>)}

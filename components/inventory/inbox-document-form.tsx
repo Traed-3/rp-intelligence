@@ -62,7 +62,7 @@ export function InboxDocumentForm({ docId, status, kind, vendor, reference, docu
         </div>
       )}
 
-      <form action={action} className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+      <form action={action} className="rp-card">
         <input type="hidden" name="lines" value={JSON.stringify(payload)} />
         <input type="hidden" name="mode" value={mode} />
         <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3">
@@ -72,8 +72,8 @@ export function InboxDocumentForm({ docId, status, kind, vendor, reference, docu
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="bg-gray-50 text-gray-500 text-xs"><th className="px-3 py-2" /><th className="text-left px-3 py-2 font-medium">On the document</th><th className="text-left px-3 py-2 font-medium">Catalog part</th><th className="text-right px-3 py-2 font-medium">Qty</th><th className="text-right px-3 py-2 font-medium">Unit cost</th></tr></thead>
+          <table className="rp-table w-full text-sm">
+            <thead><tr className="bg-gray-50 text-gray-500 text-xs"><th className="px-3 py-2" /><th className="text-left px-3 py-2">On the document</th><th className="text-left px-3 py-2">Catalog part</th><th className="text-right px-3 py-2">Qty</th><th className="text-right px-3 py-2">Unit cost</th></tr></thead>
             <tbody className="divide-y divide-gray-50">
               {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">No lines yet. Add them by hand.</td></tr>}
               {rows.map(r => {

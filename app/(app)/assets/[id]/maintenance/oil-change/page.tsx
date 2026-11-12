@@ -41,7 +41,7 @@ export default async function OilChangePage({
         <Link href={`/assets/${id}`} className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to {asset.unit_number}
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">Record Oil Change</h1>
+        <h1 className="rp-title mt-2">Record Oil Change</h1>
         {vehicleLabel && <p className="text-gray-500 text-sm mt-0.5">{vehicleLabel}</p>}
       </div>
 
@@ -72,7 +72,7 @@ export default async function OilChangePage({
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="rp-card p-6">
         <OilChangeForm
           action={action}
           today={today}

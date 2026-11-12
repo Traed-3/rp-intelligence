@@ -34,7 +34,7 @@ export default async function ChecklistPage({ searchParams }: { searchParams: Pr
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Checklist
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{doneCount} of {all.length} done</p>
@@ -45,16 +45,16 @@ export default async function ChecklistPage({ searchParams }: { searchParams: Pr
       {/* Category filter */}
       <div className="flex flex-wrap items-center gap-1.5 mb-4">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mr-0.5">Category</span>
-        <Link href="/construction/checklist" className={`text-xs px-2.5 py-1 rounded-full border ${!active ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>All</Link>
+        <Link href="/construction/checklist" className={`text-xs px-2.5 py-1 rounded-full border ${!active ? 'bg-foreground text-background border-foreground' : 'bg-card text-gray-600 border-gray-300 hover:bg-gray-50'}`}>All</Link>
         {categories.map(c => (
           <Link key={c} href={`/construction/checklist?category=${encodeURIComponent(c)}`}
-            className={`text-xs px-2.5 py-1 rounded-full border ${active === c ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>{c}</Link>
+            className={`text-xs px-2.5 py-1 rounded-full border ${active === c ? 'bg-foreground text-background border-foreground' : 'bg-card text-gray-600 border-gray-300 hover:bg-gray-50'}`}>{c}</Link>
         ))}
       </div>
 
       <div className="space-y-5">
         {Array.from(groups.entries()).map(([cat, list]) => (
-          <div key={cat} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div key={cat} className="rp-card overflow-hidden">
             <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-800">{cat}</h2>
               <span className="text-xs text-gray-400">{list.length}</span>

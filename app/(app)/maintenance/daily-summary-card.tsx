@@ -15,7 +15,7 @@ export function DailySummaryCard({ generatedAt, periodStart, periodEnd, content 
 
   if (!content) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="rp-card p-5">
         <div className="flex items-center gap-2 text-gray-700">
           <FileText className="h-5 w-5" />
           <h3 className="text-base font-semibold">Today's Recap</h3>
@@ -35,7 +35,7 @@ export function DailySummaryCard({ generatedAt, periodStart, periodEnd, content 
   }).format(d)
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
+    <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-card to-slate-50 p-5 shadow-sm">
       <button
         type="button"
         onClick={() => setOpen(!open)}

@@ -37,17 +37,17 @@ export default async function ShopEmployeesPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/shop" className="text-sm text-gray-500 hover:text-gray-700">← Shop</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Shop Employees</h1>
+        <h1 className="rp-title">Shop Employees</h1>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="rp-card overflow-hidden">
+        <table className="rp-table w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Name</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Role</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Clock Status</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Current Status</th>
+              <th className="text-left px-4 py-3">Name</th>
+              <th className="text-left px-4 py-3 hidden sm:table-cell">Role</th>
+              <th className="text-left px-4 py-3">Clock Status</th>
+              <th className="text-left px-4 py-3 hidden md:table-cell">Current Status</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>

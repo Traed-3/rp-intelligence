@@ -51,7 +51,7 @@ export default async function WorkOrderDocInboxPage({ searchParams }: { searchPa
             key={t.value}
             href={`/service/tickets/inbox?status=${t.value}`}
             className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
-              status === t.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+              status === t.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'
             }`}
           >
             {t.label} <span className="opacity-70">{countByStatus.get(t.value) ?? 0}</span>
@@ -60,19 +60,19 @@ export default async function WorkOrderDocInboxPage({ searchParams }: { searchPa
       </div>
 
       {list.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+        <div className="rp-card p-12 text-center">
           <p className="text-gray-400 text-sm">Nothing here.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rp-card overflow-hidden">
+          <table className="rp-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Work Order</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">From</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Subject</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Signature</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Received</th>
+                <th className="text-left px-4 py-3">Work Order</th>
+                <th className="text-left px-4 py-3">From</th>
+                <th className="text-left px-4 py-3 hidden sm:table-cell">Subject</th>
+                <th className="text-left px-4 py-3">Signature</th>
+                <th className="text-left px-4 py-3 hidden lg:table-cell">Received</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>

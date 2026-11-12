@@ -30,30 +30,30 @@ export default async function BillingHubPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Quotes &amp; Invoices</h1>
+          <h1 className="rp-title">Quotes &amp; Invoices</h1>
           <p className="text-sm text-gray-500 mt-0.5">Quotes and invoices for Construction and Service, priced the REV19 way.</p>
         </div>
-        {canWrite && <div className="flex gap-2"><Link href="/billing/quotes/new" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium px-3 py-2 hover:bg-blue-700"><Plus className="w-4 h-4" />New quote</Link><Link href="/billing/invoices/new" className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium px-3 py-2 hover:border-blue-300"><Plus className="w-4 h-4" />New invoice</Link></div>}
+        {canWrite && <div className="flex gap-2"><Link href="/billing/quotes/new" className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium px-3 py-2 hover:bg-primary/90"><Plus className="w-4 h-4" />New quote</Link><Link href="/billing/invoices/new" className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium px-3 py-2 hover:border-blue-300"><Plus className="w-4 h-4" />New invoice</Link></div>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {tiles.map(t => { const Icon = t.icon; return (
-          <Link key={t.href} href={t.href} className="block rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:border-blue-300 hover:shadow">
+          <Link key={t.href} href={t.href} className="rp-card rp-card-link block p-5">
             <div className="flex items-start gap-3"><span className="inline-flex w-10 h-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Icon className="w-5 h-5" /></span><div><div className="font-semibold text-gray-900">{t.title}</div><div className="text-sm text-gray-500 mt-0.5">{t.body}</div></div></div>
           </Link>) })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between"><h2 className="font-semibold text-gray-900">Recent quotes</h2><Link href="/billing/quotes" className="text-xs text-blue-600">All →</Link></div>
-          <table className="w-full text-sm"><tbody className="divide-y divide-gray-50">
+          <table className="rp-table w-full text-sm"><tbody className="divide-y divide-gray-50">
             {(quotes ?? []).map(q => <ClickableRow key={q.id} href={`/billing/quotes/${q.id}`}><td className="px-4 py-2.5 font-mono text-xs text-gray-700">{q.quote_number}</td><td className="px-2 py-2.5 text-gray-700">{(q as unknown as { con_customers: { name: string } | null }).con_customers?.name ?? '—'}<div className="text-xs text-gray-400">{q.store_label ?? ''} · {q.department}</div></td><td className="px-2 py-2.5"><QuoteStatusBadge status={q.status} /></td><td className="px-4 py-2.5 text-right tabular-nums font-medium">{money(q.final_total)}</td></ClickableRow>)}
             {!(quotes ?? []).length && <tr><td className="px-5 py-6 text-sm text-gray-400">No quotes yet.</td></tr>}
           </tbody></table>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between"><h2 className="font-semibold text-gray-900">Recent invoices</h2><Link href="/billing/invoices" className="text-xs text-blue-600">All →</Link></div>
-          <table className="w-full text-sm"><tbody className="divide-y divide-gray-50">
+          <table className="rp-table w-full text-sm"><tbody className="divide-y divide-gray-50">
             {(invoices ?? []).map(i => <ClickableRow key={i.id} href={`/billing/invoices/${i.id}`}><td className="px-4 py-2.5 font-mono text-xs text-gray-700">{i.invoice_number}</td><td className="px-2 py-2.5 text-gray-700">{(i as unknown as { con_customers: { name: string } | null }).con_customers?.name ?? '—'}<div className="text-xs text-gray-400">{i.store_label ?? ''} · {fmtDate(i.invoice_date)}</div></td><td className="px-2 py-2.5"><InvoiceStatusBadge status={i.status} /></td><td className="px-4 py-2.5 text-right tabular-nums font-medium">{money(i.invoice_grand_total)}</td></ClickableRow>)}
             {!(invoices ?? []).length && <tr><td className="px-5 py-6 text-sm text-gray-400">No invoices yet.</td></tr>}
           </tbody></table>

@@ -16,7 +16,7 @@ export function EmailInvoiceForm({ invoiceId, defaultTo, defaultSubject, default
 }) {
   const [state, action, pending] = useActionState(emailInvoice.bind(null, invoiceId), null as EmailState)
   return (
-    <details className="bg-white rounded-2xl border border-gray-200 shadow-sm mt-4" open={history.length === 0 && configured}>
+    <details className="rp-card mt-4" open={history.length === 0 && configured}>
       <summary className="px-5 py-3 cursor-pointer font-semibold text-gray-900 flex items-center gap-2"><Mail className="w-4 h-4 text-blue-600" />Email this invoice{history.length > 0 && <span className="text-xs font-normal text-gray-400">· sent {history.length}×, last {new Date(history[0].sent_at).toLocaleDateString()}</span>}</summary>
       <div className="px-5 pb-5">
         {!configured && <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900 mb-3">Email sending isn&apos;t switched on yet. Add <code>RESEND_API_KEY</code> (and <code>RESEND_FROM_EMAIL</code>, a verified sender) in Vercel → Settings → Environment Variables, then redeploy. Until then, use the PDF button and attach it yourself.</div>}

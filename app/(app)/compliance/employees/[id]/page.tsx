@@ -33,7 +33,7 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
       <Link href="/compliance" className="text-sm text-gray-500 hover:text-gray-700">← DQF &amp; Certifications</Link>
       <div className="flex flex-wrap items-start justify-between gap-3 mt-2 mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{e.full_name}</h1>
+          <h1 className="rp-title">{e.full_name}</h1>
           <p className="text-sm text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
             <span>{[e.job_title, departmentLabel(e.department)].filter(Boolean).join(' · ')}</span>
             {e.hire_date && <span>Hired {fmtDate(e.hire_date)}</span>}
@@ -50,7 +50,7 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
       </div>
 
       {audit && audit.findings.length > 0 && (
-        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+        <section className="rp-card overflow-hidden mb-5">
           <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900 inline-flex items-center gap-2"><ClipboardCheck className="w-4 h-4 text-blue-600" />DOT audit</h2>
             <span className="text-xs text-gray-400">{audit.violations} violation{audit.violations === 1 ? '' : 's'} · {audit.warnings} to fix · <Link href="/compliance/audit" className="hover:underline">all drivers</Link></span>
@@ -81,7 +81,7 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
           : [{ label: '', rows }]
         const addHere = addable.filter(t => t.category === cat.value)
         return (
-          <section key={cat.value} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+          <section key={cat.value} className="rp-card overflow-hidden mb-5">
             <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-semibold text-gray-900">{cat.label}</h2>
               <span className="text-xs text-gray-400">
@@ -103,7 +103,7 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
                 <select name="type_id" className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm min-w-64">
                   {addHere.map(t => <option key={t.id} value={t.id}>{t.name}{t.issuer ? ` — ${t.issuer}` : ''}</option>)}
                 </select>
-                <button className="px-3 py-1.5 rounded-lg border border-blue-300 bg-white text-xs font-semibold text-blue-700 hover:bg-blue-50">+ Add to file</button>
+                <button className="px-3 py-1.5 rounded-lg border border-blue-300 bg-card text-xs font-semibold text-blue-700 hover:bg-blue-50">+ Add to file</button>
                 {cat.value === 'certification' && <Link href="/compliance/settings#types" className="text-xs text-gray-500 hover:underline">Not listed? Add a new certification type</Link>}
               </form>
             )}
@@ -112,9 +112,9 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
       })}
 
       {!!history?.length && (
-        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+        <section className="rp-card overflow-hidden mb-5">
           <h2 className="px-4 py-3 border-b border-gray-100 font-semibold text-gray-900">Earlier copies &amp; renewal history</h2>
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <tbody className="divide-y divide-gray-50">
               {history.map(h => {
                 const rel = h.hr_employee_items as unknown as { hr_requirement_types: { name: string } | null }
@@ -133,7 +133,7 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
       )}
 
       {me.canWrite && (
-        <details className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-8">
+        <details className="rp-card mb-8">
           <summary className="px-4 py-3 font-semibold text-gray-900 cursor-pointer">Edit employee details</summary>
           <div className="px-4 pb-5 pt-2"><EmployeeForm action={updateEmployee.bind(null, e.id)} employee={e} /></div>
         </details>

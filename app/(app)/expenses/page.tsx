@@ -53,7 +53,7 @@ export default async function ExpensesPage({
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Expenses & Receipts</h1>
+          <h1 className="rp-title">Expenses & Receipts</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             ${monthTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })} spent this month
           </p>
@@ -79,17 +79,17 @@ export default async function ExpensesPage({
         ].map(f => (
           <Link key={f.value} href={`/expenses?type=${f.value}${q ? `&q=${q}` : ''}`}
             className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
-              type === f.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+              type === f.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'
             }`}>
             {f.label}
           </Link>
         ))}
         {canAuditCards(profile!.role) && (
-          <Link href="/expenses/cards" className="ml-auto px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 bg-white text-gray-600 hover:border-gray-400">
+          <Link href="/expenses/cards" className="ml-auto px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 bg-card text-gray-600 hover:border-gray-400">
             💳 Card audit →
           </Link>
         )}
-        <Link href="/expenses/report" className="px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 bg-white text-gray-600 hover:border-gray-400">
+        <Link href="/expenses/report" className="px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 bg-card text-gray-600 hover:border-gray-400">
           📊 Report →
         </Link>
       </div>
@@ -103,19 +103,19 @@ export default async function ExpensesPage({
       </form>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         {!expenses?.length ? (
           <p className="px-5 py-10 text-center text-sm text-gray-400">No expenses found.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500">Date</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500">Vendor</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500 hidden md:table-cell">Charged To</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500 hidden sm:table-cell">Pay</th>
-                  <th className="text-right px-4 py-2.5 font-medium text-gray-500">Amount</th>
+                  <th className="text-left px-4 py-2.5">Date</th>
+                  <th className="text-left px-4 py-2.5">Vendor</th>
+                  <th className="text-left px-4 py-2.5 hidden md:table-cell">Charged To</th>
+                  <th className="text-left px-4 py-2.5 hidden sm:table-cell">Pay</th>
+                  <th className="text-right px-4 py-2.5">Amount</th>
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>

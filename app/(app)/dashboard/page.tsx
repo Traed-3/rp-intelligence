@@ -23,7 +23,7 @@ function DepartmentCard({
   return (
     <Link
       href={href}
-      className="group relative bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:border-blue-300 hover:shadow-md transition-all flex flex-col"
+      className="rp-card rp-card-link group relative p-5 flex flex-col"
     >
       {badge && (
         <span className="absolute -top-2.5 left-4 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200 shadow-sm">
@@ -135,7 +135,7 @@ export default async function CompanyDashboardPage({
 
       {/* Hero header band */}
       <div className="relative overflow-hidden rounded-3xl px-6 py-7 sm:px-8 sm:py-8 shadow-lg"
-        style={{ background: 'linear-gradient(135deg, #16243d 0%, #1e3558 55%, #2d4e7a 100%)' }}>
+        data-hero>
         <div className="pointer-events-none absolute -top-20 -right-12 w-64 h-64 rounded-full bg-blue-300/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-10 w-64 h-64 rounded-full bg-green-400/10 blur-3xl" />
         <div className="relative flex flex-wrap items-end justify-between gap-4">

@@ -29,7 +29,7 @@ export default async function LocationsPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Stock locations
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{list.length} location{list.length !== 1 ? 's' : ''} · a truck is a place parts live, tied to its asset number</p>
@@ -41,13 +41,13 @@ export default async function LocationsPage() {
       </div>
 
       {groups.map(g => (
-        <div key={g.kind} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+        <div key={g.kind} className="rp-card overflow-hidden mb-5">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2 font-semibold text-gray-900">
             {g.kind === 'truck' ? <Truck className="w-4 h-4 text-blue-600" /> : <Warehouse className="w-4 h-4 text-blue-600" />}
             {kindLabel(g.kind)}s <span className="text-sm font-normal text-gray-400">({g.rows.length})</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <thead>
                 <tr className="bg-gray-50">
                   <th className={th}>Location</th>
@@ -76,7 +76,7 @@ export default async function LocationsPage() {
       ))}
 
       {canWrite && (
-        <details className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+        <details className="rp-card">
           <summary className="px-5 py-4 cursor-pointer font-semibold text-gray-900 flex items-center gap-2"><Plus className="w-4 h-4 text-blue-600" />Add location</summary>
           <div className="px-5 pb-5"><LocationForm action={saveLocation.bind(null, null)} assets={assets ?? []} techs={techs ?? []} /></div>
         </details>

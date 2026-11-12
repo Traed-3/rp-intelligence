@@ -20,7 +20,7 @@ export default async function QuoteTemplatesPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Quote Templates
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Starting points for the REV19 builder — pick one from New Quote instead of starting blank.</p>
@@ -32,19 +32,19 @@ export default async function QuoteTemplatesPage() {
       </div>
 
       {list.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+        <div className="rp-card p-12 text-center">
           <p className="text-gray-400 text-sm">No templates yet.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rp-card overflow-hidden">
+          <table className="rp-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Category</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Lines</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Brand notes</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
+                <th className="text-left px-4 py-3">Name</th>
+                <th className="text-left px-4 py-3 hidden sm:table-cell">Category</th>
+                <th className="text-left px-4 py-3 hidden md:table-cell">Lines</th>
+                <th className="text-left px-4 py-3 hidden lg:table-cell">Brand notes</th>
+                <th className="text-left px-4 py-3">Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>

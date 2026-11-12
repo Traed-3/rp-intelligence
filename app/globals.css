@@ -4,11 +4,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ════════════════════════════════════════════════════════════════════════
+   RP Intelligence design system
+   Everything about the look lives here: colors, type, radii, shadows and the
+   shared rp-* building blocks. Pages use these instead of styling themselves.
+   Light and dark are the same tokens with different values (.dark on <html>).
+   ════════════════════════════════════════════════════════════════════════ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -47,7 +54,47 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* ── RPS Brand: override Tailwind blue → brand navy ── */
+  /* Semantic colors pages should reach for first */
+  --color-surface: var(--surface);          /* page background */
+  --color-raised: var(--raised);            /* table headers, hover rows, wells */
+  --color-hairline: var(--hairline);        /* the faintest divider */
+  --color-brand: var(--brand);              /* the one accent: links, focus, active marks */
+  --color-brand-soft: var(--brand-soft);
+  --color-ink: var(--ink);                  /* always-dark panel (code blocks, toasts) */
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  /* Layered shadows: a tight contact shadow plus a soft ambient one */
+  --shadow-xs: var(--shadow-1);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
+  --shadow-xl: var(--shadow-4);
+}
+
+/* Palettes are real CSS variables (not inlined) so .dark can swap them and
+   every existing gray-/blue-/red-… utility follows without touching the page. */
+@theme {
+  /* Neutral: a cool gray with a trace of the brand navy in it */
+  --color-gray-50:  oklch(0.981 0.003 258);
+  --color-gray-100: oklch(0.962 0.005 258);
+  --color-gray-200: oklch(0.922 0.008 258);
+  --color-gray-300: oklch(0.868 0.011 258);
+  --color-gray-400: oklch(0.675 0.016 258);
+  --color-gray-500: oklch(0.545 0.019 258);
+  --color-gray-600: oklch(0.44 0.022 258);
+  --color-gray-700: oklch(0.365 0.025 258);
+  --color-gray-800: oklch(0.27 0.028 258);
+  --color-gray-900: oklch(0.2 0.03 258);
+  --color-gray-950: oklch(0.145 0.028 258);
+
+  /* Brand navy takes over Tailwind's blue (700 is #16243d, the anchor) */
   --color-blue-50:  #eef1f7;
   --color-blue-100: #d4dbe9;
   --color-blue-200: #a9b8d0;
@@ -60,79 +107,150 @@
   --color-blue-900: #080e18;
   --color-blue-950: #040810;
 
-  /* ── RPS Brand green accent ── */
+  /* Brand green from the logo (kept for the logo's own uses, not for status) */
   --color-rps-green:       #72c143;
   --color-rps-green-light: #eef7e7;
   --color-rps-green-dark:  #4e8a2c;
 }
 
 :root {
+  color-scheme: light;
+  --radius: 0.5rem;
+
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --surface: oklch(0.981 0.003 258);
+  --raised: oklch(0.97 0.004 258);
+  --foreground: oklch(0.2 0.03 258);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.22 0.065 255);   /* #16243d brand navy */
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.262 0.052 262);        /* #16243d brand navy */
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.962 0.005 258);
+  --secondary-foreground: oklch(0.27 0.028 258);
+  --muted: oklch(0.962 0.005 258);
+  --muted-foreground: oklch(0.52 0.019 258);
+  --accent: oklch(0.962 0.005 258);
+  --accent-foreground: oklch(0.27 0.028 258);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.35 0.065 255);      /* brand navy, slightly lighter for focus rings */
+  --border: oklch(0.922 0.008 258);
+  --hairline: oklch(0.95 0.006 258);
+  --input: oklch(0.868 0.011 258);
+  --ring: oklch(0.56 0.15 256);
+  --brand: oklch(0.53 0.15 256);
+  --brand-soft: oklch(0.955 0.022 256);
+  --ink: oklch(0.2 0.03 258);
+
+  --success: oklch(0.52 0.13 160);  --success-soft: oklch(0.962 0.03 160);
+  --warning: oklch(0.56 0.13 70);   --warning-soft: oklch(0.966 0.04 85);
+  --danger:  oklch(0.53 0.2 27);    --danger-soft:  oklch(0.966 0.02 25);
+  --info:    oklch(0.5 0.13 250);   --info-soft:    oklch(0.96 0.02 250);
+
+  --shadow-1: 0 1px 2px oklch(0.2 0.03 258 / 0.05), 0 1px 1px oklch(0.2 0.03 258 / 0.03);
+  --shadow-2: 0 1px 2px oklch(0.2 0.03 258 / 0.05), 0 4px 10px -2px oklch(0.2 0.03 258 / 0.07);
+  --shadow-3: 0 2px 4px oklch(0.2 0.03 258 / 0.05), 0 12px 24px -6px oklch(0.2 0.03 258 / 0.12);
+  --shadow-4: 0 4px 8px oklch(0.2 0.03 258 / 0.06), 0 24px 48px -12px oklch(0.2 0.03 258 / 0.2);
+
+
+  /* Fixed brand navy for panels that stay navy in both themes (hero, Ask RPS) */
+  --navy: #16243d;
+  --hero: linear-gradient(135deg, #16243d 0%, #1e3558 55%, #2d4e7a 100%);
+
+  /* Construction stage colors: the Master Schedule's own colors, kept so the
+     board still matches the spreadsheet. Used as a tint, never a solid block. */
+  --stage-quoting: #ED7D31;
+  --stage-permitting: #223962;
+  --stage-material-ordering: #F8CBAD;
+  --stage-needs-scheduled: #FFC000;
+  --stage-scheduled: #385624;
+  --stage-in-progress: #04FAE1;
+  --stage-on-hold: #C00000;
+  --stage-return-needed: #FF0000;
+  --stage-close-out: #7030A0;
+  --stage-invoicing: #FFFF00;
+  --stage-complete: #A9CE91;
+  --stage-overspill-program: #9DC3E6;
+
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.99 0.002 258);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.955 0.007 258);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  color-scheme: dark;
+
+  --background: oklch(0.165 0.018 258);
+  --surface: oklch(0.165 0.018 258);
+  --raised: oklch(0.235 0.02 258);
+  --foreground: oklch(0.955 0.005 258);
+  --card: oklch(0.205 0.02 258);
+  --popover: oklch(0.225 0.021 258);
+  --primary: oklch(0.52 0.13 258);          /* navy lifted so it reads on a dark page */
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.255 0.02 258);
+  --secondary-foreground: oklch(0.955 0.005 258);
+  --muted: oklch(0.255 0.02 258);
+  --muted-foreground: oklch(0.69 0.018 258);
+  --accent: oklch(0.255 0.02 258);
+  --accent-foreground: oklch(0.955 0.005 258);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --border: oklch(0.3 0.022 258);
+  --hairline: oklch(0.255 0.02 258);
+  --input: oklch(0.37 0.024 258);
+  --ring: oklch(0.7 0.13 256);
+  --brand: oklch(0.74 0.12 256);
+  --brand-soft: oklch(0.27 0.05 256);
+  --ink: oklch(0.13 0.015 258);
+
+  --success: oklch(0.76 0.14 160);  --success-soft: oklch(0.255 0.04 160);
+  --warning: oklch(0.8 0.13 80);    --warning-soft: oklch(0.265 0.045 80);
+  --danger:  oklch(0.74 0.15 25);   --danger-soft:  oklch(0.255 0.045 25);
+  --info:    oklch(0.76 0.11 250);  --info-soft:    oklch(0.26 0.045 250);
+
+  --shadow-1: 0 1px 2px oklch(0 0 0 / 0.35);
+  --shadow-2: 0 1px 2px oklch(0 0 0 / 0.35), 0 4px 10px -2px oklch(0 0 0 / 0.4);
+  --shadow-3: 0 2px 4px oklch(0 0 0 / 0.35), 0 12px 24px -6px oklch(0 0 0 / 0.5);
+  --shadow-4: 0 4px 8px oklch(0 0 0 / 0.4), 0 24px 48px -12px oklch(0 0 0 / 0.6);
+
+  --sidebar: oklch(0.185 0.019 258);
+  --sidebar-accent: oklch(0.255 0.02 258);
+
+  /* Palettes flipped for a dark page: the pale steps become deep tints and the
+     dark steps become light text, so "bg-red-50 text-red-700" still reads as a
+     soft red badge. 500/600 stay mid-tone so solid buttons keep white text. */
+  --color-gray-50: oklch(0.225 0.018 258); --color-gray-100: oklch(0.255 0.02 258); --color-gray-200: oklch(0.3 0.022 258); --color-gray-300: oklch(0.37 0.024 258); --color-gray-400: oklch(0.6 0.02 258); --color-gray-500: oklch(0.69 0.018 258); --color-gray-600: oklch(0.77 0.015 258); --color-gray-700: oklch(0.84 0.012 258); --color-gray-800: oklch(0.9 0.008 258); --color-gray-900: oklch(0.955 0.005 258); --color-gray-950: oklch(0.98 0.003 258);
+  --color-blue-50: oklch(0.25 0.045 258); --color-blue-100: oklch(0.3 0.06 258); --color-blue-200: oklch(0.38 0.08 258); --color-blue-300: oklch(0.48 0.1 258); --color-blue-400: oklch(0.6 0.12 258); --color-blue-500: oklch(0.66 0.12 258); --color-blue-600: oklch(0.72 0.11 258); --color-blue-700: oklch(0.79 0.1 258); --color-blue-800: oklch(0.86 0.07 258); --color-blue-900: oklch(0.91 0.05 258); --color-blue-950: oklch(0.95 0.03 258);
+  --color-red-50: oklch(0.235 0.035 25); --color-red-100: oklch(0.275 0.05 25); --color-red-200: oklch(0.35 0.07 25); --color-red-300: oklch(0.45 0.09 25); --color-red-400: oklch(0.62 0.13 25); --color-red-500: oklch(0.68 0.15 25); --color-red-600: oklch(0.64 0.17 25); --color-red-700: oklch(0.76 0.13 25); --color-red-800: oklch(0.84 0.09 25); --color-red-900: oklch(0.9 0.06 25); --color-red-950: oklch(0.95 0.03 25);
+  --color-orange-50: oklch(0.235 0.035 47); --color-orange-100: oklch(0.275 0.05 47); --color-orange-200: oklch(0.35 0.07 47); --color-orange-300: oklch(0.45 0.09 47); --color-orange-400: oklch(0.62 0.13 47); --color-orange-500: oklch(0.68 0.15 47); --color-orange-600: oklch(0.64 0.17 47); --color-orange-700: oklch(0.76 0.13 47); --color-orange-800: oklch(0.84 0.09 47); --color-orange-900: oklch(0.9 0.06 47); --color-orange-950: oklch(0.95 0.03 47);
+  --color-amber-50: oklch(0.235 0.035 72); --color-amber-100: oklch(0.275 0.05 72); --color-amber-200: oklch(0.35 0.07 72); --color-amber-300: oklch(0.45 0.09 72); --color-amber-400: oklch(0.62 0.13 72); --color-amber-500: oklch(0.68 0.15 72); --color-amber-600: oklch(0.64 0.17 72); --color-amber-700: oklch(0.76 0.13 72); --color-amber-800: oklch(0.84 0.09 72); --color-amber-900: oklch(0.9 0.06 72); --color-amber-950: oklch(0.95 0.03 72);
+  --color-yellow-50: oklch(0.235 0.035 90); --color-yellow-100: oklch(0.275 0.05 90); --color-yellow-200: oklch(0.35 0.07 90); --color-yellow-300: oklch(0.45 0.09 90); --color-yellow-400: oklch(0.62 0.13 90); --color-yellow-500: oklch(0.68 0.15 90); --color-yellow-600: oklch(0.64 0.17 90); --color-yellow-700: oklch(0.76 0.13 90); --color-yellow-800: oklch(0.84 0.09 90); --color-yellow-900: oklch(0.9 0.06 90); --color-yellow-950: oklch(0.95 0.03 90);
+  --color-lime-50: oklch(0.235 0.035 131); --color-lime-100: oklch(0.275 0.05 131); --color-lime-200: oklch(0.35 0.07 131); --color-lime-300: oklch(0.45 0.09 131); --color-lime-400: oklch(0.62 0.13 131); --color-lime-500: oklch(0.68 0.15 131); --color-lime-600: oklch(0.64 0.17 131); --color-lime-700: oklch(0.76 0.13 131); --color-lime-800: oklch(0.84 0.09 131); --color-lime-900: oklch(0.9 0.06 131); --color-lime-950: oklch(0.95 0.03 131);
+  --color-green-50: oklch(0.235 0.035 150); --color-green-100: oklch(0.275 0.05 150); --color-green-200: oklch(0.35 0.07 150); --color-green-300: oklch(0.45 0.09 150); --color-green-400: oklch(0.62 0.13 150); --color-green-500: oklch(0.68 0.15 150); --color-green-600: oklch(0.64 0.17 150); --color-green-700: oklch(0.76 0.13 150); --color-green-800: oklch(0.84 0.09 150); --color-green-900: oklch(0.9 0.06 150); --color-green-950: oklch(0.95 0.03 150);
+  --color-emerald-50: oklch(0.235 0.035 163); --color-emerald-100: oklch(0.275 0.05 163); --color-emerald-200: oklch(0.35 0.07 163); --color-emerald-300: oklch(0.45 0.09 163); --color-emerald-400: oklch(0.62 0.13 163); --color-emerald-500: oklch(0.68 0.15 163); --color-emerald-600: oklch(0.64 0.17 163); --color-emerald-700: oklch(0.76 0.13 163); --color-emerald-800: oklch(0.84 0.09 163); --color-emerald-900: oklch(0.9 0.06 163); --color-emerald-950: oklch(0.95 0.03 163);
+  --color-teal-50: oklch(0.235 0.035 183); --color-teal-100: oklch(0.275 0.05 183); --color-teal-200: oklch(0.35 0.07 183); --color-teal-300: oklch(0.45 0.09 183); --color-teal-400: oklch(0.62 0.13 183); --color-teal-500: oklch(0.68 0.15 183); --color-teal-600: oklch(0.64 0.17 183); --color-teal-700: oklch(0.76 0.13 183); --color-teal-800: oklch(0.84 0.09 183); --color-teal-900: oklch(0.9 0.06 183); --color-teal-950: oklch(0.95 0.03 183);
+  --color-cyan-50: oklch(0.235 0.035 215); --color-cyan-100: oklch(0.275 0.05 215); --color-cyan-200: oklch(0.35 0.07 215); --color-cyan-300: oklch(0.45 0.09 215); --color-cyan-400: oklch(0.62 0.13 215); --color-cyan-500: oklch(0.68 0.15 215); --color-cyan-600: oklch(0.64 0.17 215); --color-cyan-700: oklch(0.76 0.13 215); --color-cyan-800: oklch(0.84 0.09 215); --color-cyan-900: oklch(0.9 0.06 215); --color-cyan-950: oklch(0.95 0.03 215);
+  --color-sky-50: oklch(0.235 0.035 237); --color-sky-100: oklch(0.275 0.05 237); --color-sky-200: oklch(0.35 0.07 237); --color-sky-300: oklch(0.45 0.09 237); --color-sky-400: oklch(0.62 0.13 237); --color-sky-500: oklch(0.68 0.15 237); --color-sky-600: oklch(0.64 0.17 237); --color-sky-700: oklch(0.76 0.13 237); --color-sky-800: oklch(0.84 0.09 237); --color-sky-900: oklch(0.9 0.06 237); --color-sky-950: oklch(0.95 0.03 237);
+  --color-indigo-50: oklch(0.235 0.035 277); --color-indigo-100: oklch(0.275 0.05 277); --color-indigo-200: oklch(0.35 0.07 277); --color-indigo-300: oklch(0.45 0.09 277); --color-indigo-400: oklch(0.62 0.13 277); --color-indigo-500: oklch(0.68 0.15 277); --color-indigo-600: oklch(0.64 0.17 277); --color-indigo-700: oklch(0.76 0.13 277); --color-indigo-800: oklch(0.84 0.09 277); --color-indigo-900: oklch(0.9 0.06 277); --color-indigo-950: oklch(0.95 0.03 277);
+  --color-violet-50: oklch(0.235 0.035 293); --color-violet-100: oklch(0.275 0.05 293); --color-violet-200: oklch(0.35 0.07 293); --color-violet-300: oklch(0.45 0.09 293); --color-violet-400: oklch(0.62 0.13 293); --color-violet-500: oklch(0.68 0.15 293); --color-violet-600: oklch(0.64 0.17 293); --color-violet-700: oklch(0.76 0.13 293); --color-violet-800: oklch(0.84 0.09 293); --color-violet-900: oklch(0.9 0.06 293); --color-violet-950: oklch(0.95 0.03 293);
+  --color-purple-50: oklch(0.235 0.035 304); --color-purple-100: oklch(0.275 0.05 304); --color-purple-200: oklch(0.35 0.07 304); --color-purple-300: oklch(0.45 0.09 304); --color-purple-400: oklch(0.62 0.13 304); --color-purple-500: oklch(0.68 0.15 304); --color-purple-600: oklch(0.64 0.17 304); --color-purple-700: oklch(0.76 0.13 304); --color-purple-800: oklch(0.84 0.09 304); --color-purple-900: oklch(0.9 0.06 304); --color-purple-950: oklch(0.95 0.03 304);
+  --color-fuchsia-50: oklch(0.235 0.035 322); --color-fuchsia-100: oklch(0.275 0.05 322); --color-fuchsia-200: oklch(0.35 0.07 322); --color-fuchsia-300: oklch(0.45 0.09 322); --color-fuchsia-400: oklch(0.62 0.13 322); --color-fuchsia-500: oklch(0.68 0.15 322); --color-fuchsia-600: oklch(0.64 0.17 322); --color-fuchsia-700: oklch(0.76 0.13 322); --color-fuchsia-800: oklch(0.84 0.09 322); --color-fuchsia-900: oklch(0.9 0.06 322); --color-fuchsia-950: oklch(0.95 0.03 322);
+  --color-pink-50: oklch(0.235 0.035 354); --color-pink-100: oklch(0.275 0.05 354); --color-pink-200: oklch(0.35 0.07 354); --color-pink-300: oklch(0.45 0.09 354); --color-pink-400: oklch(0.62 0.13 354); --color-pink-500: oklch(0.68 0.15 354); --color-pink-600: oklch(0.64 0.17 354); --color-pink-700: oklch(0.76 0.13 354); --color-pink-800: oklch(0.84 0.09 354); --color-pink-900: oklch(0.9 0.06 354); --color-pink-950: oklch(0.95 0.03 354);
+  --color-rose-50: oklch(0.235 0.035 16); --color-rose-100: oklch(0.275 0.05 16); --color-rose-200: oklch(0.35 0.07 16); --color-rose-300: oklch(0.45 0.09 16); --color-rose-400: oklch(0.62 0.13 16); --color-rose-500: oklch(0.68 0.15 16); --color-rose-600: oklch(0.64 0.17 16); --color-rose-700: oklch(0.76 0.13 16); --color-rose-800: oklch(0.84 0.09 16); --color-rose-900: oklch(0.9 0.06 16); --color-rose-950: oklch(0.95 0.03 16);
+  --color-slate-50: var(--color-gray-50); --color-slate-100: var(--color-gray-100); --color-slate-200: var(--color-gray-200); --color-slate-300: var(--color-gray-300); --color-slate-400: var(--color-gray-400); --color-slate-500: var(--color-gray-500); --color-slate-600: var(--color-gray-600); --color-slate-700: var(--color-gray-700); --color-slate-800: var(--color-gray-800); --color-slate-900: var(--color-gray-900); --color-slate-950: var(--color-gray-950);
+  --color-zinc-50: var(--color-gray-50); --color-zinc-100: var(--color-gray-100); --color-zinc-200: var(--color-gray-200); --color-zinc-300: var(--color-gray-300); --color-zinc-400: var(--color-gray-400); --color-zinc-500: var(--color-gray-500); --color-zinc-600: var(--color-gray-600); --color-zinc-700: var(--color-gray-700); --color-zinc-800: var(--color-gray-800); --color-zinc-900: var(--color-gray-900); --color-zinc-950: var(--color-gray-950);
+  --color-neutral-50: var(--color-gray-50); --color-neutral-100: var(--color-gray-100); --color-neutral-200: var(--color-gray-200); --color-neutral-300: var(--color-gray-300); --color-neutral-400: var(--color-gray-400); --color-neutral-500: var(--color-gray-500); --color-neutral-600: var(--color-gray-600); --color-neutral-700: var(--color-gray-700); --color-neutral-800: var(--color-gray-800); --color-neutral-900: var(--color-gray-900); --color-neutral-950: var(--color-gray-950);
+  --color-stone-50: var(--color-gray-50); --color-stone-100: var(--color-gray-100); --color-stone-200: var(--color-gray-200); --color-stone-300: var(--color-gray-300); --color-stone-400: var(--color-gray-400); --color-stone-500: var(--color-gray-500); --color-stone-600: var(--color-gray-600); --color-stone-700: var(--color-gray-700); --color-stone-800: var(--color-gray-800); --color-stone-900: var(--color-gray-900); --color-stone-950: var(--color-gray-950);
 }
 
 @layer base {
@@ -141,12 +259,133 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
   }
   html {
     @apply font-sans;
     font-size: 17px;
   }
+  /* One focus ring everywhere, keyboard only */
+  :where(a, button, summary, [role="button"], [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+  :where(input, select, textarea):focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--ring) 45%, transparent);
+    outline-offset: 0;
+    border-color: var(--ring);
+  }
+  :where(input, select, textarea)::placeholder { color: var(--color-gray-400); }
+  /* Money and counts line up in columns */
+  :where(td, th, .tabular-nums) { font-variant-numeric: tabular-nums; }
+  ::selection { background: color-mix(in oklab, var(--brand) 22%, transparent); }
 }
+
+/* ── Shared building blocks ────────────────────────────────────────────────
+   Used through the components in components/ui (PageHeader, SectionCard,
+   ListCard, StatusPill, SiteTag, DataTable, FilterChip, EmptyState, Skeleton)
+   or directly as class names. In the components layer, so a utility class on
+   the same element can still adjust one thing without a fight. */
+@layer components {
+  /* Page shell + header */
+  .rp-page { padding: 1rem; margin-inline: auto; max-width: 80rem; }
+  @media (min-width: 640px) { .rp-page { padding: 1.5rem; } }
+  @media (min-width: 1024px) { .rp-page { padding: 2rem; } }
+  .rp-title { font-size: 1.5rem; line-height: 1.2; font-weight: 650; letter-spacing: -0.022em; color: var(--foreground); text-wrap: balance; }
+  @media (min-width: 640px) { .rp-title { font-size: 1.7rem; } }
+  .rp-subtitle { font-size: 0.875rem; line-height: 1.45; color: var(--muted-foreground); margin-top: 0.25rem; }
+  .rp-label { font-size: 0.6875rem; line-height: 1.2; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted-foreground); }
+  .rp-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; font-size: 0.8125rem; color: var(--muted-foreground); margin-bottom: 0.375rem; }
+  .rp-crumbs a:hover { color: var(--foreground); }
+
+  /* The notification bell floats top-right on desktop; keep each page's header row clear of it. */
+  @media (min-width: 768px) { .rp-main > .rp-page-in > div > :first-child:not([data-hero]) { padding-right: 3rem; } }
+
+  /* Cards */
+  .rp-card { background: var(--card); color: var(--card-foreground); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow-1); }
+  .rp-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--hairline); }
+  .rp-card-title { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; color: var(--foreground); }
+  .rp-card-link { transition: border-color 150ms, box-shadow 150ms, transform 150ms; }
+  .rp-card-link:hover { border-color: color-mix(in oklab, var(--brand) 45%, var(--border)); box-shadow: var(--shadow-2); }
+  .rp-card-link:active { transform: translateY(1px); box-shadow: var(--shadow-1); }
+
+  /* List item card (the My Plate card): its own card, a colored left stripe
+     for status, room for a site tag, muted detail, pills and one action. */
+  .rp-item { --stripe: var(--color-gray-300); background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--stripe); border-radius: var(--radius-lg); padding: 0.75rem 0.875rem; box-shadow: var(--shadow-1); transition: box-shadow 150ms, border-color 150ms; }
+  .rp-item:hover { box-shadow: var(--shadow-2); }
+  .rp-item[data-tone="danger"]  { --stripe: var(--danger); }
+  .rp-item[data-tone="warning"] { --stripe: var(--warning); }
+  .rp-item[data-tone="success"] { --stripe: var(--success); }
+  .rp-item[data-tone="info"]    { --stripe: var(--info); }
+  .rp-item[data-tone="brand"]   { --stripe: var(--primary); }
+  .rp-item[data-tone="muted"]   { --stripe: var(--color-gray-300); }
+  .rp-item-title { font-weight: 600; font-size: 0.9375rem; line-height: 1.35; color: var(--foreground); }
+  .rp-item-detail { font-size: 0.8125rem; line-height: 1.45; color: var(--muted-foreground); }
+
+  /* Site / store tag: mono, light blue */
+  .rp-site-tag { display: inline-flex; align-items: center; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1; font-weight: 500; padding: 0.25rem 0.4375rem; border-radius: var(--radius-sm); background: var(--color-blue-50); color: var(--color-blue-600); border: 1px solid var(--color-blue-100); white-space: nowrap; }
+
+  /* Status pill: color means something (danger / warning / success / info) or nothing (neutral) */
+  .rp-pill { display: inline-flex; align-items: center; gap: 0.3125rem; font-size: 0.71875rem; line-height: 1; font-weight: 600; padding: 0.28125rem 0.5rem; border-radius: 999px; white-space: nowrap; background: var(--muted); color: var(--color-gray-600); border: 1px solid var(--border); }
+  .rp-pill[data-tone="danger"]  { background: var(--danger-soft);  color: var(--danger);  border-color: color-mix(in oklab, var(--danger) 22%, transparent); }
+  .rp-pill[data-tone="warning"] { background: var(--warning-soft); color: var(--warning); border-color: color-mix(in oklab, var(--warning) 25%, transparent); }
+  .rp-pill[data-tone="success"] { background: var(--success-soft); color: var(--success); border-color: color-mix(in oklab, var(--success) 22%, transparent); }
+  .rp-pill[data-tone="info"]    { background: var(--info-soft);    color: var(--info);    border-color: color-mix(in oklab, var(--info) 22%, transparent); }
+  .rp-pill[data-dot]::before { content: ""; width: 0.375rem; height: 0.375rem; border-radius: 999px; background: currentColor; }
+
+  /* Filter chip */
+  .rp-chip { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--color-gray-700); font-size: 0.8125rem; line-height: 1.2; font-weight: 600; white-space: nowrap; transition: background-color 120ms, border-color 120ms, color 120ms; }
+  .rp-chip:hover { background: var(--raised); border-color: var(--color-gray-300); }
+  .rp-chip:active { transform: translateY(0.5px); }
+  .rp-chip[aria-current="true"], .rp-chip[data-on="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+
+  /* Tables */
+  .rp-table { width: 100%; font-size: 0.875rem; border-collapse: separate; border-spacing: 0; }
+  .rp-table thead th { position: sticky; top: 0; z-index: 1; background: var(--raised); color: var(--muted-foreground); font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  .rp-table tbody tr { transition: background-color 100ms; }
+  .rp-table tbody tr:hover { background: color-mix(in oklab, var(--raised) 70%, transparent); }
+  .rp-table tbody tr + tr > td { border-top: 1px solid var(--hairline); }
+  .rp-table :is(td, th).num, .rp-table :is(td, th).text-right { text-align: right; font-variant-numeric: tabular-nums; }
+  .rp-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Stat tile */
+  .rp-stat-value { font-size: 1.625rem; line-height: 1.1; font-weight: 650; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; color: var(--foreground); }
+  .rp-stat-label { font-size: 0.75rem; color: var(--muted-foreground); margin-top: 0.25rem; }
+
+  /* Form control */
+  .rp-input { width: 100%; border: 1px solid var(--input); border-radius: var(--radius-md); background: var(--card); padding: 0.4375rem 0.625rem; font-size: 0.875rem; color: var(--foreground); transition: border-color 120ms, box-shadow 120ms; }
+  .rp-input:hover { border-color: var(--color-gray-400); }
+
+  /* Navy hero panel */
+  [data-hero] { background: var(--hero); color: #fff; }
+  /* The hero is navy in both themes, so the pale tints used on it stay pale in dark mode. */
+  .dark [data-hero] { box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.08); --color-blue-100: #d4dbe9; --color-blue-200: #a9b8d0; --color-blue-300: #7595b7; --color-amber-100: oklch(0.962 0.059 95.6); --color-amber-300: oklch(0.879 0.169 91.6); --color-amber-400: oklch(0.828 0.189 84.4); --color-green-100: oklch(0.962 0.044 156.7); --color-green-300: oklch(0.871 0.15 154.4); --color-green-400: oklch(0.792 0.209 151.7); }
+
+  /* Construction stage tint: soft wash of the stage color, text pulled toward it */
+  .rp-stage { --c: var(--color-gray-400); background: color-mix(in oklab, var(--c) 20%, var(--card)); color: color-mix(in oklab, var(--c) 45%, var(--foreground)); border: 1px solid color-mix(in oklab, var(--c) 45%, var(--border)); }
+  .rp-stage-quoting { --c: var(--stage-quoting); }
+  .rp-stage-permitting { --c: var(--stage-permitting); }
+  .rp-stage-material-ordering { --c: var(--stage-material-ordering); }
+  .rp-stage-needs-scheduled { --c: var(--stage-needs-scheduled); }
+  .rp-stage-scheduled { --c: var(--stage-scheduled); }
+  .rp-stage-in-progress { --c: var(--stage-in-progress); }
+  .rp-stage-on-hold { --c: var(--stage-on-hold); }
+  .rp-stage-return-needed { --c: var(--stage-return-needed); }
+  .rp-stage-close-out { --c: var(--stage-close-out); }
+  .rp-stage-invoicing { --c: var(--stage-invoicing); }
+  .rp-stage-complete { --c: var(--stage-complete); }
+  .rp-stage-overspill-program { --c: var(--stage-overspill-program); }
+
+  /* Empty state: one helpful line */
+  .rp-empty { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; padding: 2.5rem 1.25rem; border: 1px dashed var(--border); border-radius: var(--radius-xl); background: color-mix(in oklab, var(--card) 60%, transparent); color: var(--muted-foreground); font-size: 0.875rem; }
+
+  /* Skeleton block (pairs with the rp-ring loader) */
+  .rp-skeleton { border-radius: var(--radius-lg); background: linear-gradient(90deg, var(--muted) 0%, color-mix(in oklab, var(--muted) 55%, var(--card)) 50%, var(--muted) 100%); background-size: 200% 100%; animation: rp-shimmer 1.4s ease-in-out infinite; }
+}
+
+@keyframes rp-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
 /* ── Motion ─────────────────────────────────────────────────────────────────
    One small, consistent set: page rise, ring loader, sign-in logo reveal,
    status-change wipe, sent confirmation. Every element's resting style is its
@@ -180,7 +419,7 @@
 .rp-logo-tag { animation: rp-fade 400ms ease-out 1100ms backwards; }
 
 /* Status change: a navy panel wipes across the badge with a check, then clears. */
-.rp-flash { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #16243d; color: #fff; clip-path: inset(0 0 0 100%); animation: rp-flash 900ms cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
+.rp-flash { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--primary); color: var(--primary-foreground); clip-path: inset(0 0 0 100%); animation: rp-flash 900ms cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
 
 /* Sent confirmation: ring draws, then the check. */
 .rp-check-ring { stroke-dasharray: 100; animation: rp-draw 450ms ease-out backwards; }
@@ -190,7 +429,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .rp-page-in, .rp-ring-arc, .rp-logo-mark, .rp-logo-line, .rp-logo-text, .rp-logo-ring circle,
-  .rp-logo-tag, .rp-flash, .rp-check-ring, .rp-check-mark, .rp-sent-in, .rp-sent-text { animation: none; }
+  .rp-logo-tag, .rp-flash, .rp-skeleton, .rp-check-ring, .rp-check-mark, .rp-sent-in, .rp-sent-text { animation: none; }
 }
 
 /* ── Navigation links: bold, and one step larger than the text around them

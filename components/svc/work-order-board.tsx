@@ -88,7 +88,7 @@ export function WorkOrderBoard({ workOrders, statuses }: { workOrders: WorkOrder
               </div>
               <div className="space-y-2">
                 {col.map(w => (
-                  <Link key={w.id} href={`/service/${w.id}`} className="block bg-white rounded-xl border border-gray-200 shadow-sm p-3 hover:border-blue-300 hover:shadow transition-all">
+                  <Link key={w.id} href={`/service/${w.id}`} className="rp-card rp-card-link block p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold text-sm text-gray-900">{w.site_number ?? '—'}</span>
                       <PriorityBadge priorityRaw={w.priority_raw} priorityRank={w.priority_rank} />
