@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buildPlate, dueDelta, type TaskRow } from '@/lib/my-plate'
 import { canAssignPlate } from '@/lib/role-access'
@@ -5,6 +6,18 @@ import { addTask, completeTask, reopenTask, saveNote } from './actions'
 
 const fmt = (iso: string | null) => iso ? new Date(iso + (iso.length === 10 ? 'T12:00:00Z' : '')).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) : ''
 const inp = 'w-full rounded-md border border-gray-300 bg-card px-2.5 py-2 text-sm text-foreground'
+
+/** Clock In / Clock Out button for the top of My Plate (it is the first screen now, so the clock has to be on it). */
+export async function ClockButton({ profileId }: { profileId: string }) {
+  const { data } = await createAdminClient().from('employee_statuses').select('clock_status').eq('profile_id', profileId).maybeSingle()
+  const clockedIn = data?.clock_status === 'clocked_in'
+  return (
+    <Link href="/shop/clock" className={`mb-5 flex items-center justify-between w-full rounded-xl px-5 py-3.5 text-white font-bold shadow-sm ${clockedIn ? 'bg-red-500 hover:bg-red-600' : 'bg-green-600 hover:bg-green-700'}`}>
+      <span>{clockedIn ? '🔴 Clock Out' : '🟢 Clock In'}</span>
+      <span className="text-sm font-medium opacity-90">{clockedIn ? 'You are clocked in' : 'You are clocked out'} →</span>
+    </Link>
+  )
+}
 
 export type PlatePerson = { id: string; name: string }
 
@@ -39,6 +52,8 @@ export async function SimplePlate({ profile }: { profile: { id: string; company_
           <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{plate.doneToday.length}</b> done today</span>
         </div>
       </header>
+
+      <ClockButton profileId={profile.id} />
 
       <section className="space-y-2.5 mb-6">
         {open.length === 0 && plate.waiting.length === 0 && <div className="rp-empty"><p>Nothing on your plate right now.</p></div>}

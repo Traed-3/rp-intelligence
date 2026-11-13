@@ -143,6 +143,18 @@ export default async function MobilePage() {
           <span className="text-2xl opacity-80">→</span>
         </Link>
 
+        {/* Primary action — clock */}
+        <Link
+          href="/shop/clock"
+          className={cn(
+            'flex items-center justify-between w-full rounded-2xl px-6 py-5 text-white font-bold text-lg shadow-sm',
+            isClockedIn ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+          )}
+        >
+          <span>{isClockedIn ? '🔴 Clock Out' : '🟢 Clock In'}</span>
+          <span className="text-2xl opacity-80">→</span>
+        </Link>
+
         {/* Forms: surveys and test reports (service techs, construction techs and the construction roles). */}
         {canSurvey && (
           <Link href="/forms" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-emerald-600 hover:bg-emerald-600/90 text-white font-bold text-lg shadow-sm">
@@ -159,18 +171,6 @@ export default async function MobilePage() {
           <span>🧾 Service Ticket</span>
           <span className="text-gray-400">→</span>
         </Link>}
-
-        {/* Primary action — clock */}
-        <Link
-          href="/shop/clock"
-          className={cn(
-            'flex items-center justify-between w-full rounded-2xl px-6 py-5 text-white font-bold text-lg shadow-sm',
-            isClockedIn ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-          )}
-        >
-          <span>{isClockedIn ? '🔴 Clock Out' : '🟢 Clock In'}</span>
-          <span className="text-2xl opacity-80">→</span>
-        </Link>
 
         {/* Secondary actions grid */}
         <div className="grid grid-cols-2 gap-3">
