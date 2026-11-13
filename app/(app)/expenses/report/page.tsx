@@ -159,7 +159,12 @@ export default async function ExpenseReportPage({
       {/* Breakdown tables */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <SummaryTable title="By Employee" rows={byPerson} />
-        <SummaryTable title="By Payment Method" rows={byPayment} />
+        <div>
+          <SummaryTable title="By Payment Method" rows={byPayment} />
+          <Link href="/expenses/receipts" className="mt-2 inline-block text-xs font-medium text-blue-600 hover:underline">
+            See every receipt by payment type, with the receipt and a check-off →
+          </Link>
+        </div>
         <SummaryTable title="By Asset (asset expenses only)" rows={byAsset} />
         <SummaryTable title="By Expense Type" rows={byType} />
       </div>
