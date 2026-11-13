@@ -14,7 +14,7 @@ const TILES: Tile[] = [
   { href: '/construction/surveys/tests', icon: ShieldCheck, title: 'Spill Bucket & Overfill Tests', body: 'Spill bucket and Stage I bucket tests on the same state forms. Finish makes the PDF and emails it.' },
   { icon: ClipboardList, title: 'Site Surveys', body: 'Spill bucket and tank top site surveys.' },
   { icon: Truck, title: 'Pre-Trip Inspection', body: 'Daily truck and trailer walk-around.' },
-  { icon: TriangleAlert, title: 'Accident Report', body: 'Vehicle accident or site incident report.' },
+  { href: '/forms/accident', icon: TriangleAlert, title: 'Accident Report', body: 'Work vehicle accident: what happened, other driver, police, photos. Makes a PDF.' },
 ]
 
 export default async function FormsPage() {
