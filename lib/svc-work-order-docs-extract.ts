@@ -99,7 +99,7 @@ How these tickets are written:
 - On-site time is written "OS" or "O.S." followed by start-end-hours and the crew: "OS 11:30-13:00-1.5 x2" means on site 11:30 to 13:00, 1.5 hours, 2 men. "OS" is never "05". Times are 24-hour; minutes are 00, 15, 30 or 45 and hours are in quarter steps (.25 .5 .75). If you read "13:95", it is "13:45".
 - Crew ticket email subjects carry the same numbers: "SU-597 1.75 (X2)" = site SU-597, 1.75 hours, 2 men; "40013 11:30-12:15-.75x2". Use the subject to settle a digit you cannot read on the page.
 - Dates are in the current year and within a few days before the email date given below. Written "10/29/26" is October 29, 2026 — never 2016, 2020, 2024 or 2025. If the day you read is after the email date, you misread it: read again.
-- Fuel grades and equipment are abbreviations. They are: RUL (regular), PUL (premium, never "PVL" or "POL"), MID, DSL (diesel, never "OSL"), KERO, DEF, E85; STP (submersible pump), UDC (under-dispenser containment), ATG (tank gauge, never "AT6"), VR / Veeder-Root, PLLD, MAG sensor, LD (leak detector), CNI, SB (spill bucket), FRP, shear valve, drop tube, drain valve, swivel, breakaway, whip hose, functional element, check valve, manhole, riser, Fibrelite lid / skirt, DOT barrel, W&M (weights and measures), P1…P16 = pump / fueling position, DSP = dispenser.
+- The company's own words and abbreviations are listed under COMPANY LINGO below. When handwriting could be one of those terms, it is that term: write the term, never a look-alike ("PUL", not "PVL"). The "misread as" notes are mistakes made on earlier tickets.
 - Leave the pre-printed letterhead (company name, address, phone) and empty pre-printed boxes out of front_text. Start at the first thing the tech wrote.
 - Parts: one entry per item, never two items joined in one entry ("250 ft of sensor wire" and "Seal Pack VDR-0514100-30" are two parts). Quantity comes from what the tech wrote next to the item ("1- box gloves", "2 Seal Pack", "250ft"); with nothing written it is 1. The RPS stock tag stuck on the back shows the part name, the part number, NEW / OLD serial numbers and a small shelf number (like 59, 64, 97) — that shelf number is NOT a quantity and serial numbers are not part numbers.
 - wo_number is only a real work order: WOT…, FWKD…, INC… or an SR number. Initials or short codes in the "customer's order no." box are not a work order — leave wo_number null.
@@ -110,6 +110,21 @@ How these tickets are written:
 - If a "ticket tracker entry" is given below, it is what the same crew typed for this visit. Use it only to decide between readings of handwriting you are unsure of. The ticket itself is the record: where the two differ in substance, transcribe the ticket and say so in notes.
 
 Return only the record_ticket tool call.`
+
+/** Used only if the company_lingo table is empty or cannot be read. */
+const FALLBACK_LINGO = 'RUL = regular unleaded; MUL = midgrade unleaded; PUL = premium unleaded; DSL = diesel; ATG = automatic tank gauge; STP = submersible pump; UDC = under-dispenser containment; OS = on site; RTN = return trip needed'
+
+/**
+ * The running list of RPS words and abbreviations (table company_lingo, edited at Service -> All tickets ->
+ * Words & lingo). Read fresh for every ticket so a term added in the office is used on the next read.
+ */
+async function companyLingo(admin: ReturnType<typeof createAdminClient>, companyId: string): Promise<string> {
+  const { data } = await admin.from('company_lingo').select('term, meaning, misreads, note')
+    .eq('company_id', companyId).eq('is_active', true).order('category').order('term').limit(400)
+  const lines = (data ?? []).filter(r => r.term && (r.meaning || r.misreads))
+    .map(r => `${r.term}${r.meaning ? ` = ${r.meaning}` : ''}${r.misreads ? ` (misread as: ${r.misreads})` : ''}${r.note ? ` — ${r.note}` : ''}`)
+  return lines.length ? lines.join('\n') : FALLBACK_LINGO
+}
 
 type Att = { name: string; mime: string; path: string; size: number }
 
@@ -260,6 +275,7 @@ export async function extractWorkOrderDocument(docId: string): Promise<{ ok: boo
     admin.from('svc_technicians').select('full_name').eq('company_id', doc.company_id).eq('is_active', true),
     admin.from('profiles').select('full_name').eq('company_id', doc.company_id),
   ])
+  const lingo = await companyLingo(admin, doc.company_id)
   const staff = [...new Set([...(techs ?? []), ...(people ?? [])].map(p => (p.full_name ?? '').trim()).filter(n => n.includes(' ')))].sort()
 
   let tracker: { smartsheet_row_id: number; work_date: string | null; site: string | null; technicians: string | null; onsite_hours: number | null; description: string | null; parts: string | null; status: string | null } | null = null
@@ -289,7 +305,8 @@ export async function extractWorkOrderDocument(docId: string): Promise<{ ok: boo
   })
 
   const client = new Anthropic()
-  const call = (model: string) => client.messages.create({ model, max_tokens: 8000, system: SYSTEM, tools: [RECORD_TOOL], tool_choice: { type: 'tool', name: 'record_ticket' }, messages: [{ role: 'user', content }] })
+  const system = `${SYSTEM}\n\nCOMPANY LINGO\n${lingo}`
+  const call = (model: string) => client.messages.create({ model, max_tokens: 8000, system, tools: [RECORD_TOOL], tool_choice: { type: 'tool', name: 'record_ticket' }, messages: [{ role: 'user', content }] })
   let model = EXTRACT_MODEL
   let response: Anthropic.Message
   try {
