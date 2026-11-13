@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { toCsv } from '@/lib/csv'
+import { chargedTo, expenseTypeLabel } from '@/lib/expense-display'
 import { submitterLabel } from '@/lib/receipt-submitter'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -21,20 +22,20 @@ export async function GET(request: NextRequest) {
 
   const { data: expenses } = await admin
     .from('expenses')
-    .select('expense_date, amount, vendor, description, expense_type, payment_method_code, store_number, project_number, submitter_name, submitter_email, profiles!expenses_submitted_by_fkey(full_name, email), assets(unit_number), expense_categories(name)')
+    .select('expense_date, amount, vendor, description, expense_type, payment_method_code, store_number, project_number, category_custom, con_jobs(site_number), submitter_name, submitter_email, profiles!expenses_submitted_by_fkey(full_name, email), assets(unit_number), expense_categories(name)')
     .eq('company_id', profile.company_id)
     .gte('expense_date', start)
     .lte('expense_date', end)
     .order('expense_date')
 
   const rows: unknown[][] = [
-    ['Date', 'Employee', 'Amount', 'Type', 'Asset/Store/Project', 'Category', 'Vendor', 'Payment', 'Description'],
+    ['Date', 'Employee', 'Amount', 'Type', 'Charged to', 'Category', 'Vendor', 'Payment', 'Description'],
     ...(expenses ?? []).map(e => [
       e.expense_date,
       submitterLabel(e as any) ?? '',
       Number(e.amount).toFixed(2),
-      e.expense_type,
-      (e as any).assets?.unit_number ?? e.store_number ?? e.project_number ?? '',
+      expenseTypeLabel(e.expense_type),
+      chargedTo(e as never).label,
       (e as any).expense_categories?.name ?? '',
       e.vendor ?? '',
       e.payment_method_code ?? '',

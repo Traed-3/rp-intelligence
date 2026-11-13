@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="card-audit-${code}-${range.ym}.csv"`,
+      'Content-Disposition': `attachment; filename="audit-${code.replace(/[^A-Z0-9]/gi, '')}-${range.ym}.csv"`,
     },
   })
 }

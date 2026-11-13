@@ -564,3 +564,26 @@ ticket email; scans in the private `svc-work-order-docs` bucket).
   (`companyLingo()` in lib/svc-work-order-docs-extract.ts), so do NOT hard-code abbreviations in SYSTEM: add them to the table.
   Edited at /service/tickets/lingo ("Words & lingo" link on All Tickets; LINGO_EDIT_ROLES in lib/ticket-log.ts).
   RUL = regular unleaded, MUL = midgrade unleaded (not "MID"), PUL = premium unleaded, ATG = automatic tank gauge, STP = submersible pump.
+
+---
+
+## EXPENSES RESTYLE + RECEIPTS IN FORMS (added 2026-11-13)
+
+- Every Expenses screen (list, receipt detail, Receipts by payment type, Spending report, Card audit, Fuel, Submit a
+  Receipt) is built on the shared kit in components/ui (PageHeader, StatTile, FilterChip, SectionCard, DataTable,
+  StatusPill, SiteTag, EmptyState, `rp-input`, `rp-label`, buttonVariants) and the theme tokens (text-foreground,
+  text-muted-foreground, bg-raised, border-hairline, text-success/-danger/-warning/-info). No emoji, no raw gray/blue
+  utility colors. New Expenses UI must use the same kit.
+- "Charged to" (Trae, 2026-11-13): never show the raw type. `chargedTo()` in lib/expense-display.ts is the one rule:
+  truck = unit number (Q17), project/store = the SITE number (SU-7100; job number only as a fallback),
+  everything else = its overhead bucket or **Shop Stock** (never "general"). `EXPENSE_TYPE_LABEL` names the types
+  (Truck / Asset, Project, Store, Shop Stock). Used by the list, detail, receipts report and both CSVs.
+- Forms -> **Submit a Receipt** tile -> `/expenses/new?from=forms`. Techs have no Expenses module, so the page shows a
+  Forms breadcrumb, Cancel goes to Forms, and after sending it returns to the form ("Receipt turned in"). Service and
+  construction techs reach it from Forms; mechanics (no Forms) keep the "Submit Receipt" menu link.
+- Spending report "Last month" used to run through today (it had no end date); it now stops at the month's last day.
+- Receipt backfill: `npx tsx --env-file=.env.local scripts/receipt-expense-backfill.mts <since> <until> [--apply]`.
+  Run 2026-11-13 for 7/1 to 9/21/2026 (305 receipts). Jan to June 2026 emails are in billing_inbox_documents but not imported.
+- Card audit is now **Card & Account Audit** (Trae, 2026-11-13: "same thing, should cover any account"). `/expenses/cards`
+  takes any code from Settings → Payment methods, cards and vendor accounts alike (codes with `&` such as J&J included);
+  the picker shows two rows, Cards and Accounts (an account = a payment method whose name ends "(account)").

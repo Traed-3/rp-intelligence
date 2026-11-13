@@ -25,7 +25,8 @@ export async function loadCardCodes(companyId: string) {
 export async function loadCardAudit(companyId: string, card: string, ym: string | undefined) {
   const range = monthRange(ym)
   const { codes, methods } = await loadCardCodes(companyId)
-  const code = /^[A-Za-z]{1,6}$/.test(card) ? card.toUpperCase() : 'TEC'
+  // Any card or vendor account code from Settings → Payment methods (TEC, HDP, NOL, J&J …).
+  const code = /^[A-Za-z&]{1,8}$/.test(card) ? card.toUpperCase() : 'TEC'
   // The month is decided by the receipt date, so look a week either side of the emailed date
   // (a 10/31 receipt emailed 11/2 still belongs to October).
   const pad = (iso: string, days: number) => new Date(Date.parse(iso) + days * 86_400_000).toISOString()
