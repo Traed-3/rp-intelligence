@@ -140,6 +140,19 @@ LOGIN, SETTINGS AND FORMS (Trae, 2026-11-13):
   (SURVEY_TECH_ROLES) and the construction roles; not mechanics or shop employees. A Construction module block does
   not take Forms away. New forms: add the page, then a tile in app/(app)/forms/page.tsx.
 
+MY PLATE FOR EVERYONE (Trae, 2026-11-13):
+- Every login has a My Plate (/my) and it is the default first screen (DEFAULT_LANDING_PAGE = '/my'; shop employees
+  still land on /maintenance; a landing page picked in Settings -> Users wins). `/` (app/page.tsx) decides.
+- Construction roles get the full plate (quotes, prices, orders, signals, partner plate). Everyone else gets
+  app/(app)/my/simple-plate.tsx: their own con_tasks rows, Done, a note, add a to-do. None of the quote/price data loads.
+  In app/(app)/my/actions.ts, `me({ construction: true })` guards the quote/price/order/partner actions.
+- Assigning: the add form has a "For:" dropdown for PLATE_ASSIGN_ROLES (owner, manager, construction_manager,
+  construction_admin, shop_manager). The row is created on that person's plate with `action.assigned_by` /
+  `assigned_by_name` ("From <name>" on the card). `handed_from` is NOT used for this: it stays reserved for the
+  Trae <-> Starsky plate moves the routines learn from (~/rps-jobs/plate_ownership.md).
+- Phone home (/mobile) leads with My Plate (open count) and Forms; the default phone bar is Home, Plate, Tickets, Shop,
+  then Build / Forms where the person has them.
+
 ---
 
 ## EMAIL SYNC — THE NEXT BIG FEATURE (NOT yet built; do not start until Trae approves)

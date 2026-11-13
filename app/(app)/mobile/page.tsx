@@ -51,7 +51,7 @@ export default async function MobilePage() {
   // The Field Survey Only login has no use for this home screen: straight to its one page.
   if (isSurveyOnly(profile?.role)) redirect(SURVEY_ONLY_HOME)
   const canSurvey = canUseFieldSurveys({ id: profile?.id, role: profile?.role })
-  const surveyFirst = profile?.role === 'construction_tech'   // crew: Field Surveys is the big button at the top
+  const { count: plateCount } = await admin.from('con_tasks').select('id', { count: 'exact', head: true }).eq('owner_id', profile!.id).in('status', ['open', 'waiting'])
   const shopOnly = isShopOnly(profile?.role)   // shop employees: shop screens only (lib/role-access.ts)
   const isClockedIn = empStatus?.clock_status === 'clocked_in'
   const activeTicket = (empStatus as any)?.repair_tickets
@@ -137,16 +137,16 @@ export default async function MobilePage() {
       {/* Main actions */}
       <div className="flex-1 px-4 py-6 space-y-3">
 
-        {/* Construction crew: Field Surveys one tap from the home screen */}
-        {surveyFirst && (
-          <Link href="/construction/surveys" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-sm">
-            <span>📸 Field Surveys</span>
-            <span className="text-2xl opacity-80">→</span>
-          </Link>
-        )}
-        {surveyFirst && (
-          <Link href="/construction/surveys/tests" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-emerald-600 hover:bg-emerald-600/90 text-white font-bold text-lg shadow-sm">
-            <span>💧 Sump / Spill Bucket Test</span>
+        {/* My Plate first: what a manager assigned this person and what they added themselves. */}
+        <Link href="/my" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-sm">
+          <span>✅ My Plate{(plateCount ?? 0) > 0 ? ` (${plateCount})` : ''}</span>
+          <span className="text-2xl opacity-80">→</span>
+        </Link>
+
+        {/* Forms: surveys and test reports (service techs, construction techs and the construction roles). */}
+        {canSurvey && (
+          <Link href="/forms" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-emerald-600 hover:bg-emerald-600/90 text-white font-bold text-lg shadow-sm">
+            <span>📝 Forms</span>
             <span className="text-2xl opacity-80">→</span>
           </Link>
         )}
@@ -203,18 +203,6 @@ export default async function MobilePage() {
             <span className="text-3xl">📋</span>
             <span className="text-sm font-semibold text-gray-800">Daily Update</span>
           </Link>}
-          {canSurvey && !surveyFirst && (
-            <Link href="/construction/surveys" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
-              <span className="text-3xl">📸</span>
-              <span className="text-sm font-semibold text-gray-800">Field Survey</span>
-            </Link>
-          )}
-          {canSurvey && !surveyFirst && (
-            <Link href="/construction/surveys/tests" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
-              <span className="text-3xl">💧</span>
-              <span className="text-sm font-semibold text-gray-800">Sump / Spill Test</span>
-            </Link>
-          )}
 
           <Link href="/shop/general-time" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">⏱️</span>

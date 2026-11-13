@@ -181,14 +181,16 @@ export default async function UsersSettingsPage() {
       <div className="mt-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm p-5 text-sm text-gray-600">
         <p className="font-semibold text-gray-900 mb-2">Role descriptions:</p>
         <div className="space-y-1.5">
-          <p><strong>Owner</strong> — Full access. Can manage users, settings, and see everything.</p>
-          <p><strong>Manager</strong> — Can create/edit tickets, view reports, approve time entries.</p>
-          <p><strong>Shop Manager</strong> — Manages repair tickets and shop employees. Can approve time.</p>
-          <p><strong>Shop Technician</strong> — Can clock in/out, update ticket status, log time.</p>
-          <p><strong>Mechanic</strong> — Shop mechanic. Can clock in/out, work on tickets, and log labor time.</p>
-          <p><strong>Service Tech</strong> — Field technician. Can log mileage/hours and update asset status.</p>
-          <p><strong>Construction Tech</strong> — Construction field technician. Can log time, view assigned work, and run Field Surveys (big button on the phone home screen).</p>
-          <p><strong>Construction Administrator</strong> — Construction jobs, permits and scheduling, Quotes &amp; Invoices, and DQF &amp; Certs.</p>
+          <p><strong>Everyone</strong> — has a My Plate (their own to-do list, and the first screen they see) and can clock in and out. Owners, managers and admins can put a task on anyone&apos;s plate.</p>
+          <p><strong>Owner</strong> — Full access. Manages users and settings and sees everything, including Quotes &amp; Invoices, Reports &amp; Payroll and DQF &amp; Certs.</p>
+          <p><strong>Manager</strong> — Everything an owner sees except changing another owner. Tickets, reports, time approval, Settings.</p>
+          <p><strong>Construction Manager</strong> — Construction jobs, permits and scheduling, Quotes &amp; Invoices, DQF &amp; Certs, Forms. Has Settings.</p>
+          <p><strong>Construction Administrator</strong> — Construction jobs, permits and scheduling, Quotes &amp; Invoices, DQF &amp; Certs, Forms. Has Settings.</p>
+          <p><strong>Shop Manager</strong> — Runs repair tickets and the shop crew, approves shop time, can assign tasks to plates.</p>
+          <p><strong>Service Tech</strong> — Field technician. Service Dispatch, field service tickets, <strong>Forms</strong> (ICON boot surveys, hydrostatic test reports, spill bucket and overfill tests), Inventory (cost only), Maintenance, Calendar, turn in a receipt. No accounting, no DQF &amp; Certs, no Settings.</p>
+          <p><strong>Construction Tech</strong> — Construction field technician. Same as a Service Tech, including <strong>Forms</strong>. No accounting, no DQF &amp; Certs, no Settings.</p>
+          <p><strong>Mechanic</strong> — Shop mechanic. Repair tickets, assets, time clock, Service Dispatch, Inventory (cost only), Calendar. No Forms, no accounting, no DQF &amp; Certs, no Settings.</p>
+          <p><strong>Shop Technician</strong> — Shop side only: My Plate, Maintenance &amp; Fleet, Assets, Repair Tickets, Shop &amp; Time Clock. Nothing else.</p>
           <p><strong>Parts Manager</strong> — Runs the parts room: receives stock, transfers, counts and the parts catalog in Inventory.</p>
           <p><strong>Office Staff</strong> — Office and accounting: Quotes &amp; Invoices and Card Audit; can view assets and records.</p>
           <p><strong>Viewer</strong> — Read-only. Cannot edit anything.</p>

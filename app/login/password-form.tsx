@@ -3,7 +3,6 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { VALID_LANDING_PAGES, DEFAULT_LANDING_PAGE } from '@/lib/landing-pages'
 
 export function PasswordLoginForm() {
   const [email, setEmail]       = useState('')
@@ -19,24 +18,14 @@ export function PasswordLoginForm() {
     setError(null)
     startTransition(async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         setError('Incorrect email or password.')
         return
       }
 
-      let landingPage: string = DEFAULT_LANDING_PAGE
-      if (data.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('default_landing_page')
-          .eq('id', data.user.id)
-          .maybeSingle()
-        const page = profile?.default_landing_page
-        if (page && (VALID_LANDING_PAGES as readonly string[]).includes(page)) landingPage = page
-      }
-
-      router.push(landingPage)
+      // '/' works out the right first screen for this person (their saved landing page, else My Plate).
+      router.push('/')
       router.refresh()
     })
   }

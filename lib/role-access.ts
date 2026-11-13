@@ -24,16 +24,21 @@ export const SETTINGS_ROLES: readonly string[] = ['owner', 'manager', 'construct
 export const canUseSettings = (role: R) => SETTINGS_ROLES.includes(role ?? '')
 const under = (pathname: string, p: string) => pathname === p || pathname.startsWith(p + '/')
 
+/** Who may put a task on someone else's My Plate. Everyone can add to their own. */
+export const PLATE_ASSIGN_ROLES: readonly string[] = ['owner', 'manager', 'construction_manager', 'construction_admin', 'shop_manager']
+export const canAssignPlate = (role: R) => PLATE_ASSIGN_ROLES.includes(role ?? '')
+
 /** Forms section (surveys, test reports): service techs and construction techs, never mechanics or shop employees. */
 const FORMS_PATHS = ['/forms', '/construction/surveys', '/api/construction/surveys', '/api/construction/survey-photos']
 
 // The shop side of the app.
-const SHOP_PAGES = ['/maintenance', '/assets', '/tickets', '/shop', '/time', '/notifications']
+// '/my' = My Plate: everyone who signs in has one (Trae 11/13/26). Non-construction roles get the simple plate.
+const SHOP_PAGES = ['/my', '/maintenance', '/assets', '/tickets', '/shop', '/time', '/notifications']
 const SHOP_MOBILE = ['/mobile/report-issue', '/mobile/mileage', '/mobile/ticket']
 const SHOP_API = ['/api/assistant', '/api/push', '/api/upload', '/api/tickets', '/api/auth', '/api/daily-summary']
 
 // Techs and mechanics also get the field side. Not here on purpose: /billing, /expenses, /reports, /compliance,
-// /review, /my, /inventory/receive (vendor invoices and packing slips) and the rest of /construction.
+// /review, /inventory/receive (vendor invoices and packing slips) and the rest of /construction.
 const FIELD_PAGES = [
   ...SHOP_PAGES, '/dashboard', '/mobile', '/service', '/calendar', '/forms', '/construction/surveys',
   '/inventory/parts', '/inventory/stock', '/inventory/transfers', '/inventory/locations',
@@ -46,7 +51,7 @@ const SHOP_EXACT = ['/', '/mobile']
 const FIELD_EXACT = [...SHOP_EXACT, '/inventory']
 
 export const SHOP_HOME = '/maintenance'
-export const FIELD_HOME = '/dashboard'
+export const FIELD_HOME = '/my'
 /** Where a locked role is sent when it asks for a page it may not have. */
 export const lockedRoleHome = (role: R) => (isShopOnly(role) ? SHOP_HOME : FIELD_HOME)
 

@@ -19,7 +19,8 @@ const item = (i: Omit<NavItem, 'key'>): NavItem => ({ key: i.href, ...i })
 
 const navItems: NavItem[] = [
   item({ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }),
-  item({ href: '/my', label: 'My Plate', short: 'Plate', icon: ListChecks, construction: true }),
+  // Everyone has a My Plate (construction roles get the full one, everyone else the simple one).
+  item({ href: '/my', label: 'My Plate', short: 'Plate', icon: ListChecks }),
   // Maintenance is a module hub: Assets, Tickets and Shop live inside it
   // (they keep their own URLs, so the module stays highlighted while you're in any of them).
   // Shop/Tickets can be blocked separately from Maintenance itself (see lib/modules.ts),
@@ -68,10 +69,9 @@ export function buildNav({ role, userId, blockedModules, complianceGranted }: Na
 
   /** The phone bottom bar when the person has not picked their own tabs. */
   const defaultTabs: NavItem[] = surveyOnly ? [{ ...surveysLink, label: 'Surveys' }] : [
+    // Kept short so it fits a phone: Dashboard, Assets and the rest are under More.
     item({ href: '/mobile',    label: 'Home',      icon: Home }),
-    item({ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }),
-    ...(canSeeConstruction ? [item({ href: '/my', label: 'Plate', icon: ListChecks })] : []),
-    item({ href: '/assets',    label: 'Assets',    icon: Truck }),
+    item({ href: '/my', label: 'Plate', icon: ListChecks }),
     item({ href: '/tickets',   label: 'Tickets',   icon: ClipboardList }),
     item({ href: '/shop',      label: 'Shop',      icon: Users }),
     ...(canSeeConstruction ? [item({ href: '/construction', label: 'Build', icon: HardHat })] : []),
@@ -106,7 +106,7 @@ export function allowedDashboardCards({ role, userId, blockedModules, compliance
     maintenance: !blocked.has('maintenance'),
     service: !blocked.has('service_dispatch'),
     construction: con && !blocked.has('construction'),
-    my_plate: con,
+    my_plate: true,
     billing: !noAccountingOrHr(role) && (con || (BILLING_READ_ROLES as readonly string[]).includes(role ?? '')) && !blocked.has('billing'),
     inventory: !blocked.has('inventory'),
     compliance: canReadCompliance({ id: userId, role }, !!complianceGranted) && !blocked.has('compliance'),
