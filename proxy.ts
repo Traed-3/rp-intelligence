@@ -6,6 +6,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY } from '@/li
 import { VALID_LANDING_PAGES, DEFAULT_LANDING_PAGE } from '@/lib/landing-pages'
 import { moduleForPath } from '@/lib/modules'
 import { isSurveyOnly, surveyOnlyMayVisit, SURVEY_ONLY_HOME } from '@/lib/field-surveys'
+import { isLockedRole, roleMayVisit, lockedRoleHome, lockedLanding } from '@/lib/role-access'
 
 // profiles has RLS enabled with zero policies defined (every other read of it
 // in this app goes through the service-role admin client for that reason) —
@@ -72,6 +73,8 @@ export async function proxy(request: NextRequest) {
   if (user && isPublic && ['/api/gmail/', '/api/svc/', '/api/billing/', '/api/daily-summary'].some((p) => pathname.startsWith(p))) {
     const { data: who } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
     if (isSurveyOnly(who?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Techs, mechanics and shop employees: same deny-by-default list as the pages (lib/role-access.ts).
+    if (!roleMayVisit(who?.role, pathname)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   // Only for pages the login gate actually covers, plus /login itself (to
@@ -112,8 +115,10 @@ export async function proxy(request: NextRequest) {
       // Rare path (already-signed-in user manually hits /login, e.g. an old
       // bookmark) — still honor their configured landing page for consistency
       // with the actual login flows in auth/callback and the password form.
-      const page = isSurveyOnly(profile?.role) ? SURVEY_ONLY_HOME : profile?.default_landing_page
-      const landingPage = page && (VALID_LANDING_PAGES as readonly string[]).includes(page) ? page : DEFAULT_LANDING_PAGE
+      const page = isSurveyOnly(profile?.role) ? SURVEY_ONLY_HOME
+        : isLockedRole(profile?.role) ? lockedLanding(profile?.role, profile?.default_landing_page)
+        : profile?.default_landing_page
+      const landingPage = page && ((VALID_LANDING_PAGES as readonly string[]).includes(page) || isLockedRole(profile?.role)) ? page : DEFAULT_LANDING_PAGE
       return NextResponse.redirect(new URL(landingPage, request.url))
     }
 
@@ -123,6 +128,13 @@ export async function proxy(request: NextRequest) {
       if (surveyOnlyMayVisit(pathname)) return supabaseResponse
       if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       return NextResponse.redirect(new URL(SURVEY_ONLY_HOME, request.url))
+    }
+
+    // Techs, mechanics and shop employees: deny by default (lib/role-access.ts). No accounting, no HR / DQF for any of
+    // them; shop employees only get the shop side. Anything not on their list redirects home, API paths answer 403.
+    if (!roleMayVisit(profile?.role, pathname)) {
+      if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.redirect(new URL(lockedRoleHome(profile?.role), request.url))
     }
 
     // Per-user module blocks (Settings → Users). Checked after the /login
@@ -135,8 +147,10 @@ export async function proxy(request: NextRequest) {
         .eq('profile_id', user.id)
         .eq('module', moduleKey)
         .maybeSingle()
-      if (block) {
-        return NextResponse.redirect(new URL(`/dashboard?blocked=${moduleKey}`, request.url))
+      // A locked role whose own home is the blocked module stays put rather than bouncing between two redirects.
+      if (block && !(isLockedRole(profile?.role) && pathname === lockedRoleHome(profile?.role))) {
+        const home = isLockedRole(profile?.role) ? lockedRoleHome(profile?.role) : '/dashboard'
+        return NextResponse.redirect(new URL(`${home}?blocked=${moduleKey}`, request.url))
       }
     }
   }

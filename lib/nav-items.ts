@@ -6,6 +6,7 @@ import { canReadConstruction } from '@/lib/construction'
 import { canUseFieldSurveys, isSurveyOnly } from '@/lib/field-surveys'
 import { BILLING_READ_ROLES } from '@/lib/billing'
 import { canReadCompliance } from '@/lib/compliance'
+import { roleMayVisit, isFieldRole, noAccountingOrHr } from '@/lib/role-access'
 
 /**
  * The one place that decides which menu entries a person is allowed to see.
@@ -38,6 +39,9 @@ const navItems: NavItem[] = [
   item({ href: '/settings', label: 'Settings', icon: Settings }),
 ]
 
+/** Techs and mechanics cannot open Expenses; they get a straight link to the receipt form instead. */
+const receiptLink = item({ href: '/expenses/new', label: 'Submit Receipt', short: 'Receipt', icon: Receipt })
+
 const surveysLink = item({ href: '/construction/surveys', label: 'Field Surveys', short: 'Surveys', icon: ClipboardCheck })
 
 export type NavWho = { role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean }
@@ -58,8 +62,9 @@ export function buildNav({ role, userId, blockedModules, complianceGranted }: Na
     (canSeeConstruction || !i.construction) &&
     (canSeeBilling || !i.billing) &&
     (canReadCompliance({ id: userId, role }, !!complianceGranted) || !i.compliance) &&
-    !(i.module && blocked.has(i.module))
-  )
+    !(i.module && blocked.has(i.module)) &&
+    roleMayVisit(role, i.href)   // techs, mechanics, shop employees: only what lib/role-access.ts lists
+  ).flatMap(i => (i.href === '/calendar' && isFieldRole(role) ? [i, receiptLink] : [i]))
 
   /** The phone bottom bar when the person has not picked their own tabs. */
   const defaultTabs: NavItem[] = surveyOnly ? [{ ...surveysLink, label: 'Surveys' }] : [
@@ -71,7 +76,7 @@ export function buildNav({ role, userId, blockedModules, complianceGranted }: Na
     item({ href: '/shop',      label: 'Shop',      icon: Users }),
     ...(canSeeConstruction ? [item({ href: '/construction', label: 'Build', icon: HardHat })] : []),
     ...(needsSurveysLink ? [item({ href: '/construction/surveys', label: 'Surveys', icon: ClipboardCheck })] : []),
-  ]
+  ].filter(t => roleMayVisit(role, t.href))
 
   /** Everything this person could put on the phone bar: the default tabs plus every sidebar entry, short labels. */
   const tabChoices: NavItem[] = surveyOnly ? defaultTabs : [
@@ -102,9 +107,10 @@ export function allowedDashboardCards({ role, userId, blockedModules, compliance
     service: !blocked.has('service_dispatch'),
     construction: con && !blocked.has('construction'),
     my_plate: con,
-    billing: (con || (BILLING_READ_ROLES as readonly string[]).includes(role ?? '')) && !blocked.has('billing'),
+    billing: !noAccountingOrHr(role) && (con || (BILLING_READ_ROLES as readonly string[]).includes(role ?? '')) && !blocked.has('billing'),
     inventory: !blocked.has('inventory'),
     compliance: canReadCompliance({ id: userId, role }, !!complianceGranted) && !blocked.has('compliance'),
   }
-  return DASHBOARD_CARDS.filter(c => allow[c.key])
+  const pageFor: Record<DashboardCardKey, string> = { maintenance: '/maintenance', service: '/service', construction: '/construction', my_plate: '/my', billing: '/billing', inventory: '/inventory', compliance: '/compliance' }
+  return DASHBOARD_CARDS.filter(c => allow[c.key] && roleMayVisit(role, pageFor[c.key]))
 }

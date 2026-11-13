@@ -4,15 +4,19 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { ExpenseForm } from './expense-form'
 import { createExpense } from '../actions'
+import { noAccountingOrHr } from '@/lib/role-access'
 
-export default async function NewExpensePage({ searchParams }: { searchParams: Promise<{ doc?: string }> }) {
-  const { doc: docId } = await searchParams
+export default async function NewExpensePage({ searchParams }: { searchParams: Promise<{ doc?: string; sent?: string }> }) {
+  const { doc: rawDocId, sent } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const admin = createAdminClient()
 
   const { data: profile } = await admin
-    .from('profiles').select('company_id').eq('id', user!.id).single()
+    .from('profiles').select('company_id, role').eq('id', user!.id).single()
+  // Techs, mechanics and shop employees only turn in their own receipt: no inbox email pre-fill, no way into Expenses.
+  const locked = noAccountingOrHr(profile?.role)
+  const docId = locked ? undefined : rawDocId
 
   const [
     { data: assets },
@@ -85,9 +89,12 @@ export default async function NewExpensePage({ searchParams }: { searchParams: P
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-6">
-        <Link href="/expenses" className="text-sm text-gray-500 hover:text-gray-700">← Expenses</Link>
+        {!locked && <Link href="/expenses" className="text-sm text-gray-500 hover:text-gray-700">← Expenses</Link>}
         <h1 className="rp-title mt-2">New Expense / Receipt</h1>
       </div>
+      {sent && (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">Receipt turned in. You can add another one below.</div>
+      )}
       <div className="rp-card p-6">
         <ExpenseForm
           action={createExpense}

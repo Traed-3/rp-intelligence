@@ -1,3 +1,4 @@
+import { isShopOnly } from '@/lib/role-access'
 import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
@@ -51,6 +52,7 @@ export default async function MobilePage() {
   if (isSurveyOnly(profile?.role)) redirect(SURVEY_ONLY_HOME)
   const canSurvey = canUseFieldSurveys({ id: profile?.id, role: profile?.role })
   const surveyFirst = profile?.role === 'construction_tech'   // crew: Field Surveys is the big button at the top
+  const shopOnly = isShopOnly(profile?.role)   // shop employees: shop screens only (lib/role-access.ts)
   const isClockedIn = empStatus?.clock_status === 'clocked_in'
   const activeTicket = (empStatus as any)?.repair_tickets
   const isWorkingTicket = isClockedIn && empStatus?.current_status === 'working_on_ticket' && !!activeTicket?.id
@@ -150,13 +152,13 @@ export default async function MobilePage() {
         )}
 
         {/* Field service ticket — sign on the phone, invoice from the office */}
-        <Link
+        {!shopOnly && <Link
           href="/mobile/service-ticket"
           className="rp-card flex items-center justify-between w-full px-6 py-4 font-semibold text-gray-900"
         >
           <span>🧾 Service Ticket</span>
           <span className="text-gray-400">→</span>
-        </Link>
+        </Link>}
 
         {/* Primary action — clock */}
         <Link
@@ -197,10 +199,10 @@ export default async function MobilePage() {
             <span className="text-sm font-semibold text-gray-800">Log Mileage</span>
           </Link>
 
-          <Link href="/mobile/daily-update" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
+          {!shopOnly && <Link href="/mobile/daily-update" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">📋</span>
             <span className="text-sm font-semibold text-gray-800">Daily Update</span>
-          </Link>
+          </Link>}
           {canSurvey && !surveyFirst && (
             <Link href="/construction/surveys" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">📸</span>

@@ -113,6 +113,16 @@ shop_employee: clock in/out, set status, start/pause/stop ticket work, update ow
   parts flags, mark complete, view own time logs.
 viewer: read-only dashboard + reports.
 
+ROLE LOCKDOWN (Trae, 2026-11-13) — `lib/role-access.ts`, enforced in proxy.ts on every request, DENY BY DEFAULT:
+- service_tech, construction_tech, mechanic: NEVER anything accounting (Quotes & Invoices, Expenses list/report/card audit,
+  Reports & Payroll, vendor paperwork in /inventory/receive) or HR (DQF & Certs — the DQF access list cannot override this).
+  They keep Dashboard, Maintenance/Assets/Tickets/Shop, Service Dispatch, Inventory (cost only: no sell price / markup, no
+  price editing), Calendar, Field Surveys, and `/expenses/new` to turn in their own receipt (it returns to the form, not the expense).
+- shop_employee: ONLY the shop side — Maintenance & Fleet (home), Assets, Repair Tickets, Shop & Time Clock, their phone
+  shop screens, notifications and their own Personalize/Alerts settings. No Dashboard, Service, Inventory, Calendar, receipts.
+- A NEW page or API route is closed to these roles until it is added to the lists in lib/role-access.ts. The menu
+  (lib/nav-items.ts) filters through the same function. Check: `npx tsx scripts/role-access-check.mts`.
+
 ---
 
 ## EMAIL SYNC — THE NEXT BIG FEATURE (NOT yet built; do not start until Trae approves)

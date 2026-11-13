@@ -1,3 +1,4 @@
+import { noAccountingOrHr } from '@/lib/role-access'
 /**
  * DQF & Certifications module — shared types and rules (no DB access here).
  *
@@ -8,10 +9,11 @@
 export const COMPLIANCE_READ_ROLES = ['owner', 'manager', 'construction_manager', 'construction_admin']
 export const COMPLIANCE_WRITE_ROLES = ['owner', 'manager', 'construction_manager', 'construction_admin']
 
+// Techs, mechanics and shop employees never get DQF & Certs, even if someone puts them on the access list (11/13/26).
 type GateProfile = { id?: string | null; role?: string | null } | null | undefined
 /** `granted` = the person is on the DQF settings "Who else can use DQF & Certs" list (full access, any role). */
-export const canReadCompliance = (p: GateProfile, granted = false) => !!p?.id && (granted || COMPLIANCE_READ_ROLES.includes(p.role ?? ''))
-export const canWriteCompliance = (p: GateProfile, granted = false) => !!p?.id && (granted || COMPLIANCE_WRITE_ROLES.includes(p.role ?? ''))
+export const canReadCompliance = (p: GateProfile, granted = false) => !!p?.id && !noAccountingOrHr(p.role) && (granted || COMPLIANCE_READ_ROLES.includes(p.role ?? ''))
+export const canWriteCompliance = (p: GateProfile, granted = false) => !!p?.id && !noAccountingOrHr(p.role) && (granted || COMPLIANCE_WRITE_ROLES.includes(p.role ?? ''))
 
 export const HR_BUCKET = 'hr-compliance'
 

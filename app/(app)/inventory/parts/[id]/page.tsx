@@ -1,3 +1,4 @@
+import { noAccountingOrHr } from '@/lib/role-access'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -13,7 +14,10 @@ const KIND_LABEL: Record<string, string> = {
 
 export default async function PartDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { company_id, canWrite } = await requireInventory()
+  const { company_id, canWrite: mayWrite, role } = await requireInventory()
+  // Techs, mechanics and shop employees see cost only: no sell price, markup or billed-to-customer history, and no price editing.
+  const hideSell = noAccountingOrHr(role)
+  const canWrite = mayWrite && !hideSell
   const admin = createAdminClient()
 
   const [{ data: part }, { data: history }, { data: stock }] = await Promise.all([
@@ -41,8 +45,8 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <Stat label="Unit cost" value={p.unit_cost != null ? money(p.unit_cost) : 'needed'} sub={p.cost_vendor ?? (p.sku ? SEED_TAG_LABEL[p.sku] : undefined)} />
         <Stat label="Priced on" value={fmtDate(p.cost_date)} sub={p.cost_source ? COST_SOURCE_LABEL[p.cost_source] ?? p.cost_source : undefined} />
-        <Stat label="Sell (explicit)" value={p.sell_price != null ? money(p.sell_price) : '—'} sub={p.markup_pct != null ? `${Math.round(p.markup_pct * 100)}% markup` : 'flat 20% markup'} />
-        <Stat label="Computed sell" value={computedVa != null ? money(computedVa) : 'rule not set'} sub={computedExempt != null ? `${money(computedExempt)} tax-exempt` : 'VA 5.3% tax'} />
+        {!hideSell && <Stat label="Sell (explicit)" value={p.sell_price != null ? money(p.sell_price) : '—'} sub={p.markup_pct != null ? `${Math.round(p.markup_pct * 100)}% markup` : 'flat 20% markup'} />}
+        {!hideSell && <Stat label="Computed sell" value={computedVa != null ? money(computedVa) : 'rule not set'} sub={computedExempt != null ? `${money(computedExempt)} tax-exempt` : 'VA 5.3% tax'} />}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
@@ -54,7 +58,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             <table className="rp-table w-full text-sm">
               <thead><tr className="bg-gray-50 text-gray-500"><th className="text-left px-4 py-2">Date</th><th className="text-left px-4 py-2">Kind</th><th className="text-right px-4 py-2">Price</th><th className="text-left px-4 py-2 hidden sm:table-cell">Reference</th></tr></thead>
               <tbody className="divide-y divide-gray-50">
-                {(history ?? []).map(h => (
+                {(history ?? []).filter(h => !hideSell || !String(h.kind).startsWith('sell')).map(h => (
                   <tr key={h.id}>
                     <td className="px-4 py-2 text-gray-600 whitespace-nowrap">{fmtDate(h.observed_on)}</td>
                     <td className="px-4 py-2 text-gray-600">{KIND_LABEL[h.kind] ?? h.kind}</td>

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { noAccountingOrHr } from '@/lib/role-access'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { learnCardFromExpense, cleanLast4 } from '@/lib/receipt-scan'
@@ -58,7 +59,9 @@ export async function createExpense(_state: State, formData: FormData): Promise<
   try { const raw = str(formData.get('ai_extracted')); aiExtracted = raw ? JSON.parse(raw) : null } catch { aiExtracted = null }
   const aiFilled = (str(formData.get('ai_filled')) ?? '').split(',').map(x => x.trim()).filter(Boolean)
   // Receipt keyed in from an inbox email → credit the person who sent the email.
-  const sourceDocId = str(formData.get('source_document_id'))
+  // Techs, mechanics and shop employees can turn in a receipt but never open the expense pages or an inbox email.
+  const locked = noAccountingOrHr(profile.role)
+  const sourceDocId = locked ? null : str(formData.get('source_document_id'))
   let submitter: { submitted_by: string | null; submitter_name: string | null; submitter_email: string | null } =
     { submitted_by: profile.id, submitter_name: null, submitter_email: null }
   // Only link an email this company actually has (never trust the raw form value).
@@ -114,7 +117,7 @@ export async function createExpense(_state: State, formData: FormData): Promise<
   }).catch(() => {})
 
   revalidatePath('/expenses')
-  redirect(`/expenses/${expense.id}`)
+  redirect(locked ? '/expenses/new?sent=1' : `/expenses/${expense.id}`)
 }
 
 // ── Create fuel entry ─────────────────────────────────────────────────────────
