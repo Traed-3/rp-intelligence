@@ -63,6 +63,25 @@ export default async function TicketLogPage({ searchParams }: {
     head(b => b), head(b => b.eq('extract_status', 'done')), head(b => b.neq('parts', '[]')), head(b => b.eq('completion', 'rtn')),
   ])
 
+  // "Sent without a ticket": emails a tech sent into rpinvoicing with no scan or photo attached (checked against Gmail).
+  type Bare = { id: string; subject: string | null; sender: string | null; received_at: string | null; parsed: { note?: string; woNumber?: string | null } | null; matched_work_order_id: string | null }
+  let bare: Bare[] = [], bareTotal = 0
+  if (view === 'noticket') {
+    let bq = admin.from('svc_gmail_imports')
+      .select('id, subject, sender, received_at, parsed, matched_work_order_id', { count: 'exact' })
+      .eq('company_id', companyId).eq('mailbox', 'rpinvoicing').eq('has_attachments', false).eq('parsed->>att_checked', 'true')
+      .not('sender', 'ilike', '%rpinvoicing%').not('sender', 'ilike', '%no-reply%')
+      // truck-log style notes ("11/9/2026 JCC") are not tickets
+      .not('subject', 'imatch', '^\\s*(re:\\s*)*\\d{1,2}/\\d{1,2}/\\d{2,4}')
+    if (from) bq = bq.gte('received_at', `${from}T00:00:00-05:00`)
+    if (to) bq = bq.lte('received_at', `${to}T23:59:59-05:00`)
+    if (q) bq = bq.or(['subject', 'sender'].map(c => `${c}.ilike.%${q}%`).join(','))
+    const r = await bq.order('received_at', { ascending: false }).range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
+    bare = (r.data ?? []) as unknown as Bare[]; bareTotal = r.count ?? 0
+  }
+  const shownTotal = view === 'noticket' ? bareTotal : total
+  const shownPages = view === 'noticket' ? Math.max(1, Math.ceil(bareTotal / PAGE_SIZE)) : pages
+
   const href = (over: Record<string, string | number | undefined>) => {
     const p = new URLSearchParams()
     const merged = { q, view, from, to, page: 1, ...over }
@@ -130,7 +149,42 @@ export default async function TicketLogPage({ searchParams }: {
 
       {error && <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700 mb-4">Could not load the tickets: {error.message}</div>}
 
-      {rows.length === 0 ? (
+      {view === 'noticket' ? (
+        bare.length === 0 ? (
+          <div className="rp-card p-12 text-center"><p className="text-gray-400 text-sm">No emails without a ticket.</p></div>
+        ) : (
+          <div className="rp-card overflow-x-auto">
+            <p className="px-4 py-3 text-xs text-gray-500 border-b border-gray-100">Emails a tech sent in with no scan or photo attached. Some are followed a minute later by the same email with the ticket; the rest need the ticket sent in.</p>
+            <table className="rp-table w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-4 py-3">Emailed</th>
+                  <th className="text-left px-4 py-3">From</th>
+                  <th className="text-left px-4 py-3">Subject</th>
+                  <th className="text-left px-4 py-3 hidden md:table-cell">What the email said</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {bare.map(b => {
+                  const cells = (
+                    <>
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-700">{fmtDay(b.received_at)}</td>
+                      <td className="px-4 py-3 text-gray-600 text-xs">{b.sender}</td>
+                      <td className="px-4 py-3 text-gray-900">{b.subject}</td>
+                      <td className="px-4 py-3 text-gray-600 text-xs hidden md:table-cell max-w-sm"><p className="line-clamp-2">{(b.parsed?.note ?? '').replace(/\s+/g, ' ').slice(0, 200) || '—'}</p></td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">{b.matched_work_order_id && <span className="text-xs font-medium text-blue-600">Open call →</span>}</td>
+                    </>
+                  )
+                  return b.matched_work_order_id
+                    ? <ClickableRow key={b.id} href={`/service/${b.matched_work_order_id}`}>{cells}</ClickableRow>
+                    : <tr key={b.id}>{cells}</tr>
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : rows.length === 0 ? (
         <div className="rp-card p-12 text-center"><p className="text-gray-400 text-sm">No tickets match.</p></div>
       ) : (
         <div className="rp-card overflow-x-auto">
@@ -194,10 +248,10 @@ export default async function TicketLogPage({ searchParams }: {
       )}
 
       <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
-        <p>{total.toLocaleString('en-US')} ticket{total === 1 ? '' : 's'}{total > PAGE_SIZE ? ` · page ${page} of ${pages}` : ''}</p>
+        <p>{shownTotal.toLocaleString('en-US')} {view === 'noticket' ? 'email' : 'ticket'}{shownTotal === 1 ? '' : 's'}{shownTotal > PAGE_SIZE ? ` · page ${page} of ${shownPages}` : ''}</p>
         <div className="flex gap-2">
           {page > 1 && <Link href={href({ page: page - 1 })} className="px-3 py-1.5 rounded-lg border border-gray-200 hover:border-gray-400 text-gray-700">← Newer</Link>}
-          {page < pages && <Link href={href({ page: page + 1 })} className="px-3 py-1.5 rounded-lg border border-gray-200 hover:border-gray-400 text-gray-700">Older →</Link>}
+          {page < shownPages && <Link href={href({ page: page + 1 })} className="px-3 py-1.5 rounded-lg border border-gray-200 hover:border-gray-400 text-gray-700">Older →</Link>}
         </div>
       </div>
     </div>

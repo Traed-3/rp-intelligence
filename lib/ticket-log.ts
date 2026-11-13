@@ -22,6 +22,7 @@ export const LOG_VIEWS = [
   { value: 'unlinked', label: 'Not tied to a call or job' },
   { value: 'untyped',  label: 'Not typed yet' },
   { value: 'copies',   label: 'Forwarded copies' },
+  { value: 'noticket', label: 'Sent without a ticket' },
 ] as const
 export type LogView = typeof LOG_VIEWS[number]['value']
 
