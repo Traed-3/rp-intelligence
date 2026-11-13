@@ -27,8 +27,7 @@ create index if not exists pretrip_inspections_company_idx on public.pretrip_ins
 create index if not exists pretrip_inspections_asset_idx on public.pretrip_inspections (asset_id);
 create index if not exists pretrip_inspections_created_by_idx on public.pretrip_inspections (created_by);
 
--- Reads are limited to the person's own company; every write goes through the server (service role).
+-- Service role only: every read and write goes through the server, which applies the Forms rules (techs see their
+-- own inspections, the construction office roles see all). No policies, so the browser client cannot read the table.
 alter table public.pretrip_inspections enable row level security;
 drop policy if exists pretrip_inspections_company_read on public.pretrip_inspections;
-create policy pretrip_inspections_company_read on public.pretrip_inspections for select
-  using (company_id = (select company_id from public.profiles where id = auth.uid()));
