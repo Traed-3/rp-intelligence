@@ -136,7 +136,7 @@ LOGIN, SETTINGS AND FORMS (Trae, 2026-11-13):
   owner, manager, construction_manager, construction_admin. Everyone else is redirected home.
 - Forms section: /forms (menu "Forms") is the hub for field forms. Tiles: ICON Boot Surveys (/construction/surveys),
   Hydrostatic Test Report and Spill Bucket & Overfill Tests (/construction/surveys/tests), Pre-Trip Inspection
-  (/forms/pre-trip); Site Surveys and Accident Report are placeholders ("Coming soon"). Open to service_tech + construction_tech
+  (/forms/pre-trip), Accident Report (/forms/accident); Site Surveys is a placeholder ("Coming soon"). Open to service_tech + construction_tech
   (SURVEY_TECH_ROLES) and the construction roles; not mechanics or shop employees. A Construction module block does
   not take Forms away. New forms: add the page, then a tile in app/(app)/forms/page.tsx.
 
@@ -479,3 +479,27 @@ Forms -> Pre-Trip Inspection: the paper "Rappahannock Petroleum Vehicle / Traile
   GET /forms/pre-trip/[id]/pdf draws it live from the row (`?download=1` to save). Nothing is stored in a bucket.
 - Email: the finished screen has an "Email PDF" box (`emailInspection`, Resend). No default address; nothing sends
   unless someone types one.
+
+---
+
+## ACCIDENT REPORT FORM (added 2026-11-13)
+
+Forms -> Accident Report: replaces the Smartsheet "RPS Work Vehicle Accident Report" form (sheet 6208378130196356, last
+used Aug 2024). Same questions, plus injuries, witnesses, the other driver's phone / vehicle / insurer, and photos.
+- Routes `/forms/accident` (list + New accident report) and `/forms/accident/[id]` (the report). Same
+  `requireFieldSurveys` guard as the rest of Forms; techs see the reports they filed, construction office roles see all.
+- ONE question list drives everything: `ACCIDENT_SECTIONS` in lib/accident.ts (label, type, required, `showIf` = only
+  asked when that Yes/No is Yes). The form, the save action, the finish check and the PDF all read it, and every
+  question key is a column on `accident_reports`. To add a question: add the column, then the entry in that list.
+- Submit needs every required answer (follow-ups only when their Yes/No is Yes) and the employee signature. Answering
+  No clears what was typed under it. A submitted report can only be reopened by the construction office roles.
+- Table `accident_reports` (migration supabase/migrations/accident_reports.sql, APPLIED 2026-11-13 via Supabase MCP): service-role only (RLS on, no policies)
+  because it holds other drivers' license and insurance numbers. `photos` jsonb lists files in the private
+  `construction-docs` bucket under <company>/accident-reports/<id>/ (shrunk in the browser, re-encoded to JPEG with EXIF
+  stripped on the server, max 24). Thumbnails: GET /forms/accident/[id]/photo/[n] (signed redirect).
+- PDF: lib/accident-pdf.tsx (sections as label / answer boxes, signature, photos four to a page).
+  GET /forms/accident/[id]/pdf draws it live (`?download=1` to save).
+- Email (Trae, 2026-11-13): submitting emails the PDF automatically to `ACCIDENT_NOTIFY` in lib/accident.ts
+  (rpscentral@gmail.com, sdodson.rp@gmail.com) via Resend; a re-submit after a reopen sends again marked "(updated)".
+  A failed email never blocks the submit: `emailed_at` stays empty and the submitted screen says in red that it did not
+  go, with the "Email PDF" box pre-filled with the list. The same box sends it to anyone else (insurance agent).
