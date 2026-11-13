@@ -13,6 +13,12 @@ export async function changeOwnPassword(_s: ChangeState, formData: FormData): Pr
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Only for someone who was handed a temporary password and has not replaced it yet. Without this, anyone holding a
+  // signed-in session could set a new password without knowing the current one.
+  const admin = createAdminClient()
+  const { data: profile } = await admin.from('profiles').select('is_active, must_change_password').eq('id', user.id).maybeSingle()
+  if (!profile?.is_active || !profile.must_change_password) redirect('/')
+
   const password = String(formData.get('password') ?? '')
   const confirm = String(formData.get('confirm') ?? '')
   const problem = validateNewPassword(password)
@@ -23,7 +29,6 @@ export async function changeOwnPassword(_s: ChangeState, formData: FormData): Pr
   const probe = await supabase.auth.signInWithPassword({ email: user.email ?? '', password })
   if (!probe.error) return { error: 'Pick a new password, not the temporary one you were given.' }
 
-  const admin = createAdminClient()
   const { error } = await admin.auth.admin.updateUserById(user.id, { password })
   if (error) return { error: error.message }
   await admin.from('profiles').update({ must_change_password: false }).eq('id', user.id)
