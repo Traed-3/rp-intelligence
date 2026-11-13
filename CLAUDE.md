@@ -558,6 +558,12 @@ ticket email; scans in the private `svc-work-order-docs` bucket).
   `captureMissingWorkOrderDocuments` (GET /api/svc/gmail-sync?pass=capture-missing&limit=N) goes back to Gmail for every
   `svc_gmail_imports` row with has_attachments=false and no `parsed.att_checked`, stores the attachments and queues the read.
   `has_attachments` is now set at intake; emails that truly had nothing attached show in the log under "Sent without a ticket".
+- Company lingo (Trae, 11/13/26: "you should have a running record of our company's words and lingo and that should be
+  used to decipher what is written"): table `company_lingo` (term, meaning, misreads, category fuel|equipment|ticket|parts|general,
+  note; migration company_lingo.sql, APPLIED). The reader appends the whole active list to its instructions on every read
+  (`companyLingo()` in lib/svc-work-order-docs-extract.ts), so do NOT hard-code abbreviations in SYSTEM: add them to the table.
+  Edited at /service/tickets/lingo ("Words & lingo" link on All Tickets; LINGO_EDIT_ROLES in lib/ticket-log.ts).
+  RUL = regular unleaded, MUL = midgrade unleaded (not "MID"), PUL = premium unleaded, ATG = automatic tank gauge, STP = submersible pump.
 
 ---
 

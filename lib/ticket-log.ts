@@ -47,3 +47,16 @@ export function hoursLabel(hours: number | null | undefined, crew: number | null
   if (hours == null) return '—'
   return crew && crew > 1 ? `${hours} × ${crew}` : String(hours)
 }
+
+// ── Company lingo (table company_lingo): the running list of RPS words the ticket reader is given ──
+export const LINGO_CATEGORIES = [
+  { value: 'fuel',      label: 'Fuel grades' },
+  { value: 'equipment', label: 'Equipment' },
+  { value: 'ticket',    label: 'How tickets are written' },
+  { value: 'parts',     label: 'Parts and part numbers' },
+  { value: 'general',   label: 'Other' },
+] as const
+
+/** Office roles that may add to or change the list. Everyone who can open Service can read it. */
+export const LINGO_EDIT_ROLES: readonly string[] = ['owner', 'manager', 'construction_manager', 'construction_admin', 'shop_manager', 'office_staff']
+export const canEditLingo = (role: string | null | undefined) => LINGO_EDIT_ROLES.includes(role ?? '')

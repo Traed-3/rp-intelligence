@@ -100,6 +100,7 @@ export default async function TicketLogPage({ searchParams }: {
         <p className="text-sm text-gray-500 mt-0.5">
           Every ticket emailed in, typed out: the front, and the parts on the back. Search by store, work order, tech, part number or any word on the ticket.
           {' '}<Link href="/service/tickets/inbox" className="text-blue-600 hover:text-blue-800">Review queue →</Link>
+          {' '}<Link href="/service/tickets/lingo" className="text-blue-600 hover:text-blue-800 ml-2">Words &amp; lingo →</Link>
         </p>
       </div>
 
