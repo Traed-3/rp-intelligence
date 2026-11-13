@@ -43,6 +43,8 @@ const navItems: NavItem[] = [
 const receiptLink = item({ href: '/expenses/new', label: 'Submit Receipt', short: 'Receipt', icon: Receipt })
 
 const surveysLink = item({ href: '/construction/surveys', label: 'Field Surveys', short: 'Surveys', icon: ClipboardCheck })
+/** Forms: site surveys, ICON boot surveys, hydrostatic and spill bucket test reports (and later pre-trip, accident report). */
+const formsLink = item({ href: '/forms', label: 'Forms', icon: ClipboardCheck, match: ['/forms', '/construction/surveys'] })
 
 export type NavWho = { role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean }
 
@@ -50,15 +52,13 @@ export function buildNav({ role, userId, blockedModules, complianceGranted }: Na
   const canSeeConstruction = canReadConstruction({ id: userId, role })
   const blocked = new Set(blockedModules ?? [])
   const surveyOnly = isSurveyOnly(role)
-  // Crew who can run surveys but do not have the Construction module (construction techs) get a Field Surveys link of their own.
-  const needsSurveysLink = canUseFieldSurveys({ id: userId, role }) && !canSeeConstruction
+  // Everyone who can fill out field forms gets the Forms section (service techs, construction techs, the construction roles).
+  const canForms = canUseFieldSurveys({ id: userId, role }) && roleMayVisit(role, '/forms')
   // Construction and My Plate show for the construction roles (Settings → role); billing for its own roles too.
   const canSeeBilling = canSeeConstruction || (BILLING_READ_ROLES as readonly string[]).includes(role ?? '')
 
   /** Sidebar entries this person may see, in the default order. */
-  const sidebar: NavItem[] = surveyOnly ? [surveysLink] : [
-    ...(needsSurveysLink ? [navItems[0], surveysLink, ...navItems.slice(1)] : navItems),
-  ].filter(i =>
+  const sidebar: NavItem[] = surveyOnly ? [surveysLink] : navItems.flatMap(i => (i.href === '/service' && canForms ? [i, formsLink] : [i])).filter(i =>
     (canSeeConstruction || !i.construction) &&
     (canSeeBilling || !i.billing) &&
     (canReadCompliance({ id: userId, role }, !!complianceGranted) || !i.compliance) &&
@@ -75,7 +75,7 @@ export function buildNav({ role, userId, blockedModules, complianceGranted }: Na
     item({ href: '/tickets',   label: 'Tickets',   icon: ClipboardList }),
     item({ href: '/shop',      label: 'Shop',      icon: Users }),
     ...(canSeeConstruction ? [item({ href: '/construction', label: 'Build', icon: HardHat })] : []),
-    ...(needsSurveysLink ? [item({ href: '/construction/surveys', label: 'Surveys', icon: ClipboardCheck })] : []),
+    ...(canForms ? [item({ href: '/forms', label: 'Forms', icon: ClipboardCheck })] : []),
   ].filter(t => roleMayVisit(role, t.href))
 
   /** Everything this person could put on the phone bar: the default tabs plus every sidebar entry, short labels. */

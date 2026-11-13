@@ -32,6 +32,9 @@ export function moduleLabel(key: string): string {
 
 /** Which module (if any) a request path belongs to. */
 export function moduleForPath(pathname: string): ModuleKey | null {
+  // The Forms section (surveys, test reports) lives under /construction/surveys but is its own section:
+  // a Construction block on a service tech must not take their forms away.
+  if (pathname === '/construction/surveys' || pathname.startsWith('/construction/surveys/')) return null
   for (const m of MODULES) {
     if (m.prefixes.some(p => pathname.startsWith(p))) return m.key
   }

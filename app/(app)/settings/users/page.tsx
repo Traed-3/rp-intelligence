@@ -24,9 +24,11 @@ export default async function UsersSettingsPage() {
 
   const { data: users } = await admin
     .from('profiles')
-    .select('id, full_name, email, phone, role, is_active, created_at, default_landing_page, job_title')
+    .select('id, full_name, email, phone, role, is_active, created_at, default_landing_page, job_title, must_change_password')
     .eq('company_id', profile!.company_id)
+    .order('is_active', { ascending: false })   // active people first, inactive at the bottom
     .order('full_name')
+  const inactiveCount = (users ?? []).filter(u => !u.is_active).length
 
   const { data: allBlocks } = await admin
     .from('profile_module_blocks')
@@ -55,13 +57,14 @@ export default async function UsersSettingsPage() {
       <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 mb-6 text-sm text-blue-800">
         <p className="font-semibold mb-1">How employees get access:</p>
         <ol className="list-decimal list-inside space-y-0.5 text-blue-700">
-          <li>An owner or manager adds them here with <strong>+ Add Employee</strong> (name, company Gmail, role).</li>
-          <li>They visit the app URL and sign in with that Gmail. Anyone not on this list is turned away.</li>
-          <li>Change what they can see any time with the role picker on their row.</li>
-          <li>No Gmail? Use <strong>Password</strong> on their row to set one, then they sign in with their email and that password.</li>
+          <li>An owner or manager adds them here with <strong>+ Add Employee</strong> (name, email, role). Nobody can sign in unless they are on this list and <strong>Active</strong>.</li>
+          <li>Press <strong>Password</strong> on their row and give them a starter password. Leave &ldquo;Temporary&rdquo; ticked.</li>
+          <li>They sign in with their email and that password, and are made to choose their own before they see anything.</li>
+          <li>Their <strong>role</strong> decides what they can see. <strong>Disable</strong> signs them out and blocks sign-in; <strong>Activate</strong> lets them back in.</li>
         </ol>
       </div>
 
+      <p className="mb-2 text-xs text-gray-500">{(users ?? []).length - inactiveCount} active · {inactiveCount} inactive (shown at the bottom, struck through){profile!.role === 'owner' ? '. Remove deletes a login for good.' : ''}</p>
       <div className="rp-card overflow-hidden">
         <table className="rp-table w-full text-sm">
           <thead>
@@ -92,10 +95,12 @@ export default async function UsersSettingsPage() {
                 await updateDefaultLandingPage(u.id, page)
               }
               return (
-                <tr key={u.id} className="hover:bg-gray-50">
+                <tr key={u.id} className={u.is_active ? 'hover:bg-gray-50' : 'bg-gray-50/70'}>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-gray-900">{u.full_name}</span>{(u as any).job_title && <span className="ml-2 text-xs text-gray-400">{(u as any).job_title}</span>}
+                      <span className={`font-medium ${u.is_active ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{u.full_name}</span>
+                      {!u.is_active && <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-red-200 bg-red-50 text-red-700">Inactive · cannot sign in</span>}
+                      {u.is_active && (u as any).must_change_password && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-800" title="Has a temporary password and has not chosen their own yet">Temporary password</span>}{(u as any).job_title && <span className="ml-2 text-xs text-gray-400">{(u as any).job_title}</span>}
                       {isSelf && <span className="text-xs text-gray-400">(you)</span>}
                       {!lockedOwner && <EditUserButton user={{ id: u.id, full_name: u.full_name, email: u.email, phone: (u as any).phone ?? null, job_title: (u as any).job_title ?? null }} />}
                       {/* Only an owner may set an owner's password; the server action enforces the same rule. */}
@@ -130,19 +135,15 @@ export default async function UsersSettingsPage() {
                     {isSelf || lockedOwner ? (
                       <span className={`text-xs px-2 py-0.5 rounded-full border ${u.is_active ? 'text-green-700 bg-green-50 border-green-200' : 'text-gray-500 bg-gray-100 border-gray-200'}`}>{u.is_active ? 'Active' : 'Inactive'}</span>
                     ) : (
-                      <form action={handleToggleActive}>
+<form action={handleToggleActive} className="flex flex-col items-start gap-1">
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${u.is_active ? 'text-green-700 bg-green-50 border-green-200' : 'text-red-700 bg-red-50 border-red-200'}`}>{u.is_active ? 'Active' : 'Inactive'}</span>
                         <button
                           type="submit"
-                          title={u.is_active ? 'Click to deactivate — signs them out and blocks login' : 'Click to reactivate'}
-                          className={`text-xs px-2 py-0.5 rounded-full border font-medium transition-colors ${
-                            u.is_active
-                              ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                              : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-                          }`}
+                          title={u.is_active ? 'Signs them out and blocks sign-in' : 'Lets them sign in again'}
+                          className={`text-xs font-medium border px-2.5 py-1 rounded-lg transition-colors ${u.is_active ? 'text-red-700 border-red-200 hover:bg-red-50' : 'text-green-700 border-green-300 hover:bg-green-50'}`}
                         >
-                          {u.is_active ? 'Active' : 'Inactive'}
+                          {u.is_active ? 'Disable' : 'Activate'}
                         </button>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{u.is_active ? 'Click to deactivate' : 'Click to reactivate'}</p>
                       </form>
                     )}
                   </td>

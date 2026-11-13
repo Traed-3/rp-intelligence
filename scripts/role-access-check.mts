@@ -2,6 +2,8 @@
 import { roleMayVisit } from '../lib/role-access'
 import { buildNav, allowedDashboardCards } from '../lib/nav-items'
 import { canReadCompliance } from '../lib/compliance'
+import { canUseFieldSurveys } from '../lib/field-surveys'
+import { moduleForPath } from '../lib/modules'
 
 let bad = 0
 const expect = (what: string, got: unknown, want: unknown) => { if (got !== want) { bad++; console.log(`FAIL ${what}: got ${got}, want ${want}`) } }
@@ -13,12 +15,12 @@ const ACCOUNTING_HR = ['/billing', '/billing/quotes', '/billing/invoices/abc', '
   '/api/expenses/card-audit-csv', '/api/construction/documents/abc', '/api/construction/reports/csv', '/api/svc/gmail-sync', '/api/gmail/sync',
   '/expenses/new/../cards', '/expenses/new%2f..%2fcards', '/some-new-page']
 const FIELD_OK = ['/dashboard', '/mobile', '/mobile/service-ticket/abc', '/maintenance', '/assets/abc', '/tickets/abc', '/shop/clock', '/time', '/service', '/service/abc',
-  '/inventory', '/inventory/parts/abc', '/inventory/stock', '/calendar', '/notifications', '/settings', '/settings/personalize', '/settings/alerts',
-  '/construction/surveys', '/construction/surveys/tests/abc', '/expenses/new', '/api/expenses/scan', '/api/assistant', '/api/upload', '/api/tickets/abc/status']
+  '/inventory', '/inventory/parts/abc', '/inventory/stock', '/calendar', '/notifications',
+  '/expenses/new', '/api/expenses/scan', '/api/assistant', '/api/upload', '/api/tickets/abc/status']
 const SHOP_OK = ['/maintenance', '/maintenance/oil-changes', '/assets', '/assets/abc', '/tickets', '/tickets/abc', '/shop', '/shop/clock', '/shop/my-tasks', '/time',
-  '/mobile', '/mobile/report-issue', '/mobile/mileage', '/mobile/ticket/abc/work', '/notifications', '/settings', '/settings/personalize', '/api/assistant', '/api/upload']
+  '/mobile', '/mobile/report-issue', '/mobile/mileage', '/mobile/ticket/abc/work', '/notifications', '/api/assistant', '/api/upload']
 const SHOP_NO = ['/dashboard', '/service', '/service/abc', '/inventory', '/inventory/parts', '/calendar', '/construction/surveys', '/expenses/new', '/mobile/service-ticket',
-  '/mobile/daily-update', '/mobile/survey', '/api/inventory/parts/search', '/api/expenses/scan']
+  '/mobile/daily-update', '/mobile/survey', '/api/inventory/parts/search', '/api/expenses/scan', '/forms', '/construction/surveys/tests', '/api/construction/surveys/abc/pdf']
 
 for (const role of ['service_tech', 'construction_tech', 'mechanic']) {
   for (const p of ACCOUNTING_HR) expect(`${role} ${p}`, roleMayVisit(role, p), false)
@@ -26,8 +28,23 @@ for (const role of ['service_tech', 'construction_tech', 'mechanic']) {
 }
 for (const p of [...ACCOUNTING_HR, ...SHOP_NO]) expect(`shop_employee ${p}`, roleMayVisit('shop_employee', p), false)
 for (const p of SHOP_OK) expect(`shop_employee ${p}`, roleMayVisit('shop_employee', p), true)
-for (const role of ['owner', 'manager', 'office_staff', 'construction_manager', 'construction_admin', 'parts_manager', 'viewer'])
-  for (const p of [...ACCOUNTING_HR, ...FIELD_OK]) expect(`${role} ${p} (unchanged)`, roleMayVisit(role, p), true)
+const SETTINGS = ['/settings', '/settings/users', '/settings/personalize', '/settings/alerts', '/settings/company', '/settings/payment-methods']
+const FORMS = ['/forms', '/construction/surveys', '/construction/surveys/abc', '/construction/surveys/tests', '/construction/surveys/tests/abc', '/api/construction/surveys/abc/pdf', '/api/construction/survey-photos/abc']
+for (const role of ['owner', 'manager', 'construction_manager', 'construction_admin'])
+  for (const p of [...ACCOUNTING_HR, ...FIELD_OK, ...SETTINGS, ...FORMS]) expect(`${role} ${p} (unchanged)`, roleMayVisit(role, p), true)
+for (const role of ['office_staff', 'parts_manager', 'viewer', 'shop_manager', 'estimator', 'service_tech', 'construction_tech', 'mechanic', 'shop_employee', 'field_surveyor'])
+  for (const p of SETTINGS) expect(`${role} ${p} (settings closed)`, roleMayVisit(role, p), false)
+for (const role of ['office_staff', 'parts_manager', 'viewer'])
+  for (const p of [...ACCOUNTING_HR.filter(x => !x.startsWith('/settings')), ...FIELD_OK]) expect(`${role} ${p} (unchanged)`, roleMayVisit(role, p), true)
+for (const role of ['service_tech', 'construction_tech']) {
+  for (const p of FORMS) expect(`${role} ${p} (forms)`, roleMayVisit(role, p), true)
+  expect(`${role} can fill forms`, canUseFieldSurveys({ id: 'x', role }), true)
+  expect(`${role} has Forms in the menu`, buildNav({ role, userId: 'x' }).sidebar.some(i => i.href === '/forms'), true)
+}
+for (const p of FORMS) expect(`mechanic ${p} (no forms)`, roleMayVisit('mechanic', p), false)
+expect('mechanic cannot fill forms', canUseFieldSurveys({ id: 'x', role: 'mechanic' }), false)
+expect('a Construction block does not hide forms', moduleForPath('/construction/surveys/tests'), null)
+expect('a Construction block still hides jobs', moduleForPath('/construction/jobs'), 'construction')
 
 for (const role of ['service_tech', 'construction_tech', 'mechanic', 'shop_employee']) {
   expect(`${role} DQF even when on the access list`, canReadCompliance({ id: 'x', role }, true), false)

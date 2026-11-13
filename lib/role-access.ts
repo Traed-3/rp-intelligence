@@ -19,22 +19,30 @@ export const isLockedRole = (role: R) => isFieldRole(role) || isShopOnly(role)
 /** Accounting and HR are closed to these roles no matter what else is granted (the DQF access list included). */
 export const noAccountingOrHr = (role: R) => isLockedRole(role)
 
-// The shop side of the app. '/settings' is listed as exact-only below: its sub-pages are named one by one.
-const SHOP_PAGES = ['/maintenance', '/assets', '/tickets', '/shop', '/time', '/notifications', '/settings/personalize', '/settings/alerts']
+/** Settings (every page under it, Personalize and Alerts included) is for owners, managers and admins only. */
+export const SETTINGS_ROLES: readonly string[] = ['owner', 'manager', 'construction_manager', 'construction_admin']
+export const canUseSettings = (role: R) => SETTINGS_ROLES.includes(role ?? '')
+const under = (pathname: string, p: string) => pathname === p || pathname.startsWith(p + '/')
+
+/** Forms section (surveys, test reports): service techs and construction techs, never mechanics or shop employees. */
+const FORMS_PATHS = ['/forms', '/construction/surveys', '/api/construction/surveys', '/api/construction/survey-photos']
+
+// The shop side of the app.
+const SHOP_PAGES = ['/maintenance', '/assets', '/tickets', '/shop', '/time', '/notifications']
 const SHOP_MOBILE = ['/mobile/report-issue', '/mobile/mileage', '/mobile/ticket']
 const SHOP_API = ['/api/assistant', '/api/push', '/api/upload', '/api/tickets', '/api/auth', '/api/daily-summary']
 
 // Techs and mechanics also get the field side. Not here on purpose: /billing, /expenses, /reports, /compliance,
 // /review, /my, /inventory/receive (vendor invoices and packing slips) and the rest of /construction.
 const FIELD_PAGES = [
-  ...SHOP_PAGES, '/dashboard', '/mobile', '/service', '/calendar', '/construction/surveys',
+  ...SHOP_PAGES, '/dashboard', '/mobile', '/service', '/calendar', '/forms', '/construction/surveys',
   '/inventory/parts', '/inventory/stock', '/inventory/transfers', '/inventory/locations',
   '/expenses/new',   // turn in their own receipt (photo-first form); the expense list, reports and card audit stay closed
 ]
 const FIELD_API = [...SHOP_API, '/api/inventory', '/api/construction/surveys', '/api/construction/survey-photos', '/api/construction/sites/search', '/api/expenses/scan']
 
 // Hub pages opened by exact address only (their sub-pages are listed one by one above).
-const SHOP_EXACT = ['/', '/settings', '/mobile']
+const SHOP_EXACT = ['/', '/mobile']
 const FIELD_EXACT = [...SHOP_EXACT, '/inventory']
 
 export const SHOP_HOME = '/maintenance'
@@ -42,9 +50,11 @@ export const FIELD_HOME = '/dashboard'
 /** Where a locked role is sent when it asks for a page it may not have. */
 export const lockedRoleHome = (role: R) => (isShopOnly(role) ? SHOP_HOME : FIELD_HOME)
 
-/** May this role open this path? Always true for roles that are not locked. */
+/** May this role open this path? Roles that are not locked are only held to the Settings rule here. */
 export function roleMayVisit(role: R, pathname: string): boolean {
+  if (under(pathname, '/settings') && !canUseSettings(role)) return false
   if (!isLockedRole(role)) return true
+  if (role === 'mechanic' && FORMS_PATHS.some(p => under(pathname, p))) return false
   if (pathname.includes('..') || pathname.includes('\\') || /%2e|%5c|%2f/i.test(pathname)) return false   // no dot-segment or encoded tricks out of the allowed prefixes
   const hit = (p: string) => pathname === p || pathname.startsWith(p + '/')
   const shop = isShopOnly(role)

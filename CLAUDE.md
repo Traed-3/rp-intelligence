@@ -120,8 +120,25 @@ ROLE LOCKDOWN (Trae, 2026-11-13) — `lib/role-access.ts`, enforced in proxy.ts 
   price editing), Calendar, Field Surveys, and `/expenses/new` to turn in their own receipt (it returns to the form, not the expense).
 - shop_employee: ONLY the shop side — Maintenance & Fleet (home), Assets, Repair Tickets, Shop & Time Clock, their phone
   shop screens, notifications and their own Personalize/Alerts settings. No Dashboard, Service, Inventory, Calendar, receipts.
+- shop_employee no longer has Settings at all; nor does anyone outside SETTINGS_ROLES (next section).
 - A NEW page or API route is closed to these roles until it is added to the lists in lib/role-access.ts. The menu
   (lib/nav-items.ts) filters through the same function. Check: `npx tsx scripts/role-access-check.mts`.
+
+LOGIN, SETTINGS AND FORMS (Trae, 2026-11-13):
+- NO GOOGLE SIGN-IN. Email + password only. /api/auth/google and /auth/callback just redirect to /login?google=off, and
+  proxy.ts signs out any session whose token says it was started by an outside provider (`amr` method `oauth`).
+  Do not bring the Google button back. (The Gmail inbox tokens for email sync are separate and unaffected.)
+- Accounts: owner/manager adds the person in Settings -> Users, presses Password and sets a starter password with
+  "Temporary" ticked -> `profiles.must_change_password` (migration profiles_must_change_password.sql, APPLIED) -> proxy.ts
+  sends them to /change-password (app/change-password/*) until they choose their own. Inactive people show struck through
+  with a red "Inactive · cannot sign in" tag, at the bottom of the list; Disable / Activate buttons; Remove = owner only.
+- Settings (ALL of /settings, Personalize and Alerts included) = SETTINGS_ROLES in lib/role-access.ts:
+  owner, manager, construction_manager, construction_admin. Everyone else is redirected home.
+- Forms section: /forms (menu "Forms") is the hub for field forms. Tiles: ICON Boot Surveys (/construction/surveys),
+  Hydrostatic Test Report and Spill Bucket & Overfill Tests (/construction/surveys/tests); Site Surveys, Pre-Trip
+  Inspection and Accident Report are placeholders ("Coming soon"). Open to service_tech + construction_tech
+  (SURVEY_TECH_ROLES) and the construction roles; not mechanics or shop employees. A Construction module block does
+  not take Forms away. New forms: add the page, then a tile in app/(app)/forms/page.tsx.
 
 ---
 

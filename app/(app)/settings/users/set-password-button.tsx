@@ -14,10 +14,11 @@ export function SetPasswordButton({ userId, fullName, email }: { userId: string;
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [temporary, setTemporary] = useState(true)
   const [isPending, startTransition] = useTransition()
 
   function handleOpen() {
-    setPassword(''); setShow(false); setError(null); setSaved(false); setCopied(false)
+    setPassword(''); setShow(false); setError(null); setSaved(false); setCopied(false); setTemporary(true)
     setOpen(true)
   }
 
@@ -47,7 +48,7 @@ export function SetPasswordButton({ userId, fullName, email }: { userId: string;
     if (problem) { setError(problem); return }
     setError(null)
     startTransition(async () => {
-      const result = await setUserPassword(userId, password)
+      const result = await setUserPassword(userId, password, temporary)
       if (result.error) setError(result.error)
       else setSaved(true)
     })
@@ -73,7 +74,7 @@ export function SetPasswordButton({ userId, fullName, email }: { userId: string;
               {saved ? (
                 <>
                   <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
-                    Password saved. Give it to {fullName} now. It can&apos;t be viewed again, only replaced.
+                    Password saved. Give it to {fullName} now. It can&apos;t be viewed again, only replaced.{temporary ? ' They will be made to choose their own the first time they sign in.' : ''}
                   </div>
                   <div className="flex justify-end">
                     <button onClick={handleClose} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Done</button>
@@ -103,6 +104,10 @@ export function SetPasswordButton({ userId, fullName, email }: { userId: string;
                         {password && <button type="button" onClick={handleCopy} className="text-gray-500 hover:text-gray-700">{copied ? 'Copied' : 'Copy'}</button>}
                       </div>
                     </div>
+                    <label className="flex items-start gap-2 text-sm text-gray-700">
+                      <input type="checkbox" className="mt-0.5" checked={temporary} onChange={e => setTemporary(e.target.checked)} />
+                      <span>Temporary password. Make them choose their own the first time they sign in.</span>
+                    </label>
                     <p className="text-xs text-gray-500">
                       They sign in on the login page with this email and password. Give it to them in person or by phone. It replaces any password they have now.
                     </p>
