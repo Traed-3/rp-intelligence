@@ -192,7 +192,7 @@ export default async function UsersSettingsPage() {
           <p><strong>Mechanic</strong> — Shop mechanic. Repair tickets, assets, time clock, Service Dispatch, Inventory (cost only), Calendar. No Forms, no accounting, no DQF &amp; Certs, no Settings.</p>
           <p><strong>Shop Technician</strong> — Shop side only: My Plate, Maintenance &amp; Fleet, Assets, Repair Tickets, Shop &amp; Time Clock. Nothing else.</p>
           <p><strong>Parts Manager</strong> — Runs the parts room: receives stock, transfers, counts and the parts catalog in Inventory.</p>
-          <p><strong>Office Staff</strong> — Office and accounting: Quotes &amp; Invoices and Card Audit; can view assets and records.</p>
+          <p><strong>Office Staff</strong> — Office and accounting: Quotes &amp; Invoices and the Card &amp; Account Audit; can view assets and records.</p>
           <p><strong>Viewer</strong> — Read-only. Cannot edit anything.</p>
         </div>
       </div>

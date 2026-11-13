@@ -1,4 +1,6 @@
-import Link from 'next/link'
+import { PageHeader } from '@/components/ui/page-header'
+import { SectionCard } from '@/components/ui/section-card'
+import { money, shortDate } from '@/lib/receipt-report'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { FuelForm } from './fuel-form'
@@ -25,45 +27,39 @@ export default async function FuelPage() {
   const today = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <div className="mb-6">
-        <Link href="/expenses" className="text-sm text-gray-500 hover:text-gray-700">← Expenses</Link>
-        <h1 className="rp-title mt-2">Fuel Receipt</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Log a fill-up. Mileage auto-updates the asset record.</p>
-      </div>
+    <div className="rp-page max-w-2xl">
+      <PageHeader
+        crumbs={[{ label: 'Expenses', href: '/expenses' }, { label: 'Fuel' }]}
+        title="Fuel Receipt"
+        description="Log a fill-up. The mileage you enter updates the truck's record."
+      />
 
-      <div className="rp-card p-6 mb-6">
+      <div className="rp-card p-5 sm:p-6 mb-6">
         <FuelForm action={createFuelEntry} assets={assets ?? []} paymentMethods={paymentMethods ?? []} today={today} />
       </div>
 
-      {/* Recent fuel entries */}
       {recentFuel && recentFuel.length > 0 && (
-        <div className="rp-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <h2 className="font-semibold text-sm text-gray-900">Recent Fill-Ups</h2>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {recentFuel.map(f => (
-              <div key={f.id} className="px-5 py-3 flex items-center justify-between text-sm">
+        <SectionCard title="Recent fill-ups" flush>
+          {recentFuel.map(f => {
+            const unit = (f.assets as unknown as { unit_number: string | null } | null)?.unit_number
+            return (
+              <div key={f.id} className="px-5 py-3 flex items-center justify-between text-sm border-b border-hairline last:border-0">
                 <div>
-                  <p className="font-medium text-gray-900">{(f as any).assets?.unit_number ?? '—'}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(f.entry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ·{' '}
-                    {f.mileage.toLocaleString()} mi · {f.gallons} gal
+                  <p className="font-medium text-foreground">{unit ?? 'No unit #'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {shortDate(String(f.entry_date).slice(0, 10))} · {f.mileage.toLocaleString()} mi · {f.gallons} gal
                     {f.oil_level && (
-                      <span className={`ml-2 font-semibold ${f.oil_level <= 3 ? 'text-red-600' : f.oil_level <= 5 ? 'text-amber-600' : 'text-green-600'}`}>
-                        Oil: {f.oil_level}/9
+                      <span className={`ml-2 font-semibold ${f.oil_level <= 3 ? 'text-danger' : f.oil_level <= 5 ? 'text-warning' : 'text-success'}`}>
+                        Oil {f.oil_level}/9
                       </span>
                     )}
                   </p>
                 </div>
-                {f.total_cost && (
-                  <span className="font-semibold text-gray-900">${Number(f.total_cost).toFixed(2)}</span>
-                )}
+                {f.total_cost && <span className="font-semibold text-foreground tabular-nums">{money(Number(f.total_cost))}</span>}
               </div>
-            ))}
-          </div>
-        </div>
+            )
+          })}
+        </SectionCard>
       )}
     </div>
   )

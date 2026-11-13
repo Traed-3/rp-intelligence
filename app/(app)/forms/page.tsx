@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ClipboardCheck, ClipboardList, Droplets, ShieldCheck, Truck, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { ClipboardCheck, ClipboardList, Droplets, Receipt, ShieldCheck, Truck, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { requireFieldSurveys } from '@/lib/construction-guard'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +14,7 @@ const TILES: Tile[] = [
   { href: '/construction/surveys/tests', icon: ShieldCheck, title: 'Spill Bucket & Overfill Tests', body: 'Spill bucket and Stage I bucket tests on the same state forms. Finish makes the PDF and emails it.' },
   { icon: ClipboardList, title: 'Site Surveys', body: 'Spill bucket and tank top site surveys.' },
   { href: '/forms/pre-trip', icon: Truck, title: 'Pre-Trip Inspection', body: 'Daily truck and trailer walk-around. Mark each line OK, Remark or N/A; finish makes the PDF.' },
+  { href: '/expenses/new?from=forms', icon: Receipt, title: 'Submit a Receipt', body: 'Snap the receipt and the app fills in the amount, vendor and card. Pick the truck, job or Shop Stock and send it to the office.' },
   { href: '/forms/accident', icon: TriangleAlert, title: 'Accident Report', body: 'Work vehicle accident: what happened, other driver, police, photos. Submitting emails the PDF to the office.' },
 ]
 

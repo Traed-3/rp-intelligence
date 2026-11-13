@@ -1,13 +1,13 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { CheckCircle2 } from 'lucide-react'
+import { PageHeader } from '@/components/ui/page-header'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { ExpenseForm } from './expense-form'
 import { createExpense } from '../actions'
-import { noAccountingOrHr } from '@/lib/role-access'
+import { noAccountingOrHr, roleMayVisit } from '@/lib/role-access'
 
-export default async function NewExpensePage({ searchParams }: { searchParams: Promise<{ doc?: string; sent?: string }> }) {
-  const { doc: rawDocId, sent } = await searchParams
+export default async function NewExpensePage({ searchParams }: { searchParams: Promise<{ doc?: string; sent?: string; from?: string }> }) {
+  const { doc: rawDocId, sent, from } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const admin = createAdminClient()
@@ -86,14 +86,21 @@ export default async function NewExpensePage({ searchParams }: { searchParams: P
     }
   }
 
+  // Techs reach this from Forms (they have no Expenses module); the office reaches it from Expenses.
+  const viaForms = (locked || from === 'forms') && roleMayVisit(profile?.role, '/forms')
+  const home = viaForms ? { label: 'Forms', href: '/forms' } : locked ? null : { label: 'Expenses', href: '/expenses' }
+
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="mb-6">
-        {!locked && <Link href="/expenses" className="text-sm text-gray-500 hover:text-gray-700">← Expenses</Link>}
-        <h1 className="rp-title mt-2">New Expense / Receipt</h1>
-      </div>
+    <div className="rp-page max-w-3xl">
+      <PageHeader
+        crumbs={home ? [home, { label: 'Submit a receipt' }] : undefined}
+        title="Submit a Receipt"
+        description="Take a photo of the receipt first. The app reads it and fills in what it can; check it, then send it in."
+      />
       {sent && (
-        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">Receipt turned in. You can add another one below.</div>
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-success/25 bg-success-soft px-4 py-3 text-sm font-medium text-success">
+          <CheckCircle2 className="size-4 shrink-0" /> Receipt turned in. You can add another one below.
+        </div>
       )}
       <div className="rp-card p-6">
         <ExpenseForm
@@ -107,6 +114,8 @@ export default async function NewExpensePage({ searchParams }: { searchParams: P
           storeNumbers={storeNumbers}
           projectCategories={projectCategories}
           sourceDoc={sourceDoc}
+          cancelHref={home?.href ?? '/'}
+          fromForms={viaForms}
         />
       </div>
     </div>

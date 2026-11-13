@@ -2,14 +2,14 @@
 
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
-import { Sparkles, Loader2, AlertTriangle, CreditCard } from 'lucide-react'
+import { Sparkles, Loader2, AlertTriangle, CreditCard, Truck, Store, HardHat, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ImageUpload } from '@/components/ui/image-upload'
 import type { ScanResult } from '@/lib/receipt-scan'
 
 type State = { error: string } | null
-const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
-const lbl = 'flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1'
+const inp = 'rp-input'
+const lbl = 'rp-label flex items-center gap-1.5 mb-1.5'
 
 type Asset   = { id: string; unit_number: string; name: string | null; make: string | null; model: string | null }
 type PM      = { id: string; code: string; name: string }
@@ -35,7 +35,7 @@ function Auto({ k, auto, why }: { k: Key; auto: Set<Key>; why: Partial<Record<st
 }
 
 export function ExpenseForm({
-  action, assets, paymentMethods, assetCategories, storeCategories, openTickets, constructionJobs, storeNumbers, projectCategories, sourceDoc = null,
+  action, assets, paymentMethods, assetCategories, storeCategories, openTickets, constructionJobs, storeNumbers, projectCategories, sourceDoc = null, cancelHref = '/expenses', fromForms = false,
 }: {
   action: (state: State, formData: FormData) => Promise<State>
   assets: Asset[]
@@ -47,6 +47,10 @@ export function ExpenseForm({
   storeNumbers: string[]
   projectCategories: Record<string, string[]>
   /** the receipt email this expense is being keyed in from (credits its sender) */
+  /** where Cancel goes: Expenses for the office, Forms for techs */
+  cancelHref?: string
+  /** opened from Forms: after sending, come back to this form */
+  fromForms?: boolean
   sourceDoc?: { id: string; sender: string | null; senderEmail: string | null; vendor: string | null; date: string | null; amount: number | null } | null
 }) {
   const [state, formAction, isPending] = useActionState(action, null)
@@ -123,11 +127,12 @@ export function ExpenseForm({
   return (
     <form action={formAction} className="space-y-6">
       {state?.error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{state.error}</div>
+        <div className="rounded-lg border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-danger">{state.error}</div>
       )}
 
       {/* Everything the form posts */}
       <input type="hidden" name="receipt_url" value={receiptUrl ?? ''} />
+      {fromForms && <input type="hidden" name="from" value="forms" />}
       <input type="hidden" name="payment_method_code" value={f.payment_method_code} />
       <input type="hidden" name="expense_type" value={f.expense_type} />
       <input type="hidden" name="card_last4" value={f.card_last4} />
@@ -147,7 +152,7 @@ export function ExpenseForm({
       )}
 
       {/* Step 1 — receipt photo first */}
-      <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+      <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
         <p className="text-sm font-semibold text-gray-900 mb-1">1. Snap the receipt</p>
         <p className="text-xs text-gray-500 mb-3">The app reads it and fills in what it can. Check everything below and change anything that’s wrong.</p>
         <ImageUpload bucket="receipts" value={receiptUrl} onChange={onPhoto} label="Take Photo or Upload Receipt" />
@@ -185,22 +190,21 @@ export function ExpenseForm({
       {/* Charge To */}
       <div>
         <label className={lbl}>Charge To {A('expense_type')}</label>
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { value: 'asset',   label: '🚛 Asset' },
-            { value: 'store',   label: '🏪 Store #' },
-            { value: 'project', label: '📋 Project #' },
-            { value: 'general', label: '📦 General' },
-          ].map(t => (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {([
+            { value: 'asset',   label: 'Truck',      icon: Truck },
+            { value: 'store',   label: 'Store #',    icon: Store },
+            { value: 'project', label: 'Project',    icon: HardHat },
+            { value: 'general', label: 'Shop Stock', icon: Package },
+          ] as const).map(t => (
             <button
               key={t.value}
               type="button"
               onClick={() => edit('expense_type', t.value)}
-              className={`py-2 px-3 rounded-xl text-sm font-medium border transition-colors ${
-                f.expense_type === t.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-700 border-gray-200 hover:border-gray-400'
-              }`}
+              data-on={f.expense_type === t.value}
+              className="rp-chip justify-center !rounded-lg !py-2.5 flex-col sm:flex-row"
             >
-              {t.label}
+              <t.icon className="size-4" /> {t.label}
             </button>
           ))}
         </div>
@@ -208,9 +212,9 @@ export function ExpenseForm({
 
       {f.expense_type === 'asset' && (
         <div>
-          <label className={lbl}>Asset {A('asset_id')}</label>
+          <label className={lbl}>Truck / Asset {A('asset_id')}</label>
           <select name="asset_id" className={inp + autoRing('asset_id')} value={f.asset_id} onChange={e => edit('asset_id', e.target.value)}>
-            <option value="">— Select asset —</option>
+            <option value="">Select a truck or asset</option>
             {assets.map(a => (
               <option key={a.id} value={a.id}>
                 {a.unit_number}{[a.make, a.model].filter(Boolean).length ? ` — ${[a.make, a.model].filter(Boolean).join(' ')}` : ''}
@@ -314,9 +318,8 @@ export function ExpenseForm({
               key={pm.code}
               type="button"
               onClick={() => { edit('payment_method_code', pm.code); setCustomPm(false) }}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-                f.payment_method_code === pm.code ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-700 border-gray-200 hover:border-gray-400'
-              }`}
+              data-on={f.payment_method_code === pm.code}
+              className="rp-chip font-mono"
               title={pm.name}
             >
               {pm.code}
@@ -325,7 +328,7 @@ export function ExpenseForm({
           <button
             type="button"
             onClick={() => setCustomPm(!customPm)}
-            className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-gray-300 text-gray-500 hover:border-gray-500"
+            className="rp-chip border-dashed"
           >
             + Other
           </button>
@@ -342,12 +345,12 @@ export function ExpenseForm({
         <div className="mt-2 flex items-center gap-2">
           <label className="text-xs text-gray-500 inline-flex items-center gap-1.5">Card last 4 {A('card_last4')}</label>
           <input
-            className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="rp-input !w-20 font-mono text-xs"
             inputMode="numeric" maxLength={4} placeholder="––––"
             value={f.card_last4}
             onChange={e => edit('card_last4', e.target.value.replace(/\D/g, '').slice(0, 4))}
           />
-          {f.payment_method_code && <span className="text-xs text-blue-600">Selected: {f.payment_method_code}</span>}
+          {f.payment_method_code && <span className="text-xs text-muted-foreground">Selected: <b className="font-mono text-foreground">{f.payment_method_code}</b></span>}
         </div>
       </div>
 
@@ -363,9 +366,9 @@ export function ExpenseForm({
 
       <div className="flex items-center gap-3 pt-2">
         <Button type="submit" disabled={isPending || scanning}>
-          {isPending ? 'Saving…' : scanning ? 'Reading receipt…' : 'Submit Expense'}
+          {isPending ? 'Sending…' : scanning ? 'Reading receipt…' : 'Submit Receipt'}
         </Button>
-        <Link href="/expenses" className="text-sm text-gray-500 hover:text-gray-700">Cancel</Link>
+        <Link href={cancelHref} className="text-sm text-muted-foreground hover:text-foreground">Cancel</Link>
       </div>
     </form>
   )
