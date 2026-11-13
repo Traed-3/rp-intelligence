@@ -14,7 +14,7 @@ const KIND_LABEL: Record<string, string> = {
 
 export default async function PartDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { company_id, canWrite: mayWrite, role } = await requireInventory()
+  const { company_id, canEditCatalog: mayWrite, role } = await requireInventory()
   // Techs, mechanics and shop employees see cost only: no sell price, markup or billed-to-customer history, and no price editing.
   const hideSell = noAccountingOrHr(role)
   const canWrite = mayWrite && !hideSell

@@ -17,7 +17,7 @@ export default async function PartsPage({
   searchParams: Promise<{ q?: string; cat?: string; status?: string; source?: string; page?: string }>
 }) {
   const { q = '', cat = '', status = '', source = '', page = '1' } = await searchParams
-  const { company_id, canWrite, role } = await requireInventory()
+  const { company_id, canEditCatalog: canWrite, role } = await requireInventory()
   const hideSell = noAccountingOrHr(role)   // techs, mechanics, shop: cost only, never what we charge
   const admin = createAdminClient()
   const pageNo = Math.max(1, parseInt(page, 10) || 1)

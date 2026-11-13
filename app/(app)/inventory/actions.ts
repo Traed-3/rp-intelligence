@@ -13,7 +13,7 @@ const num = (fd: FormData, k: string) => { const v = str(fd, k); if (v == null) 
 
 /** Create or update a catalog part. */
 export async function savePart(id: string | null, _state: ActionState, formData: FormData): Promise<ActionState> {
-  const { company_id, canWrite } = await requireInventory()
+  const { company_id, canEditCatalog: canWrite } = await requireInventory()
   if (!canWrite) return { error: 'You do not have permission to edit parts.' }
 
   const description = str(formData, 'description')
@@ -75,7 +75,7 @@ export async function savePart(id: string | null, _state: ActionState, formData:
 }
 
 export async function deletePart(id: string): Promise<void> {
-  const { company_id, canWrite } = await requireInventory()
+  const { company_id, canEditCatalog: canWrite } = await requireInventory()
   if (!canWrite) return
   const admin = createAdminClient()
   // Parts referenced by ledger rows cannot be deleted (FK RESTRICT); deactivate instead.

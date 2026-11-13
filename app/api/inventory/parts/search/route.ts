@@ -1,3 +1,4 @@
+import { noAccountingOrHr } from '@/lib/role-access'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const admin = createAdminClient()
-  const { data: profile } = await admin.from('profiles').select('company_id').eq('id', user.id).single()
+  const { data: profile } = await admin.from('profiles').select('company_id, role').eq('id', user.id).single()
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 403 })
 
   const q = (request.nextUrl.searchParams.get('q') ?? '').trim()
@@ -52,5 +53,10 @@ export async function GET(request: NextRequest) {
       return a.description.localeCompare(b.description)
     })
     .slice(0, limit)
+  // Techs, mechanics and shop employees get cost only: never the sell price, markup or a suggested customer price.
+  // (A field ticket line saved without a price is priced on the server from the catalog.)
+  if (noAccountingOrHr(profile.role)) {
+    return NextResponse.json({ parts: parts.map(({ sell_price: _s, markup_pct: _m, suggested_price: _p, ...rest }) => rest) })
+  }
   return NextResponse.json({ parts })
 }

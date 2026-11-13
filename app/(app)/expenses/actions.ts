@@ -125,6 +125,7 @@ export async function createExpense(_state: State, formData: FormData): Promise<
 export async function createFuelEntry(_state: State, formData: FormData): Promise<State> {
   const profile = await getProfile()
   if (!profile) return { error: 'Not authenticated.' }
+  if (noAccountingOrHr(profile.role)) return { error: 'You do not have access to Expenses.' }
 
   const assetId = str(formData.get('asset_id'))
   if (!assetId) return { error: 'Asset is required.' }

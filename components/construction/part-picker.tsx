@@ -16,7 +16,7 @@ export type PickedPart = {
   cost_vendor: string | null
   cost_date: string | null
   price_status: string | null
-  suggested_price: number | null
+  suggested_price?: number | null
   category?: number | null
   taxable?: boolean | null
   cost_invoice_ref?: string | null
@@ -112,7 +112,7 @@ export function PartPicker({
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-medium text-gray-900 truncate">{p.description}</span>
-                  <span className="tabular-nums text-gray-900 whitespace-nowrap">{p.suggested_price != null ? money(p.suggested_price) : <span className="text-pink-600">price needed</span>}</span>
+                  <span className="tabular-nums text-gray-900 whitespace-nowrap">{p.suggested_price === undefined ? null /* prices are not sent to field roles */ : p.suggested_price != null ? money(p.suggested_price) : <span className="text-pink-600">price needed</span>}</span>
                 </div>
                 <div className="text-xs text-gray-500 flex flex-wrap gap-x-2">
                   <span className="font-mono">{p.part_number ?? '—'}</span>
