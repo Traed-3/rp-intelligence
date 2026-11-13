@@ -17,7 +17,8 @@ function refresh(...extra: string[]) { for (const p of ['/inventory', '/inventor
  * Posts one +qty ledger row and refreshes the part's last/avg cost when a cost is given.
  */
 export async function receiveStock(_s: ActionState, formData: FormData): Promise<ActionState> {
-  const { company_id, id: userId, canWrite } = await requireInventory()
+  // Receiving sets the part's cost and lives on /inventory/receive, which is closed to techs, mechanics and shop employees.
+  const { company_id, id: userId, canEditCatalog: canWrite } = await requireInventory()
   if (!canWrite) return { error: 'You do not have permission to receive stock.' }
   const part_id = str(formData, 'part_id'), location_id = str(formData, 'location_id'), qty = num(formData, 'qty')
   if (!part_id) return { error: 'Pick a part from the catalog (type a part number or description and choose a result).' }

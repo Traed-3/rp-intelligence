@@ -41,10 +41,6 @@ export async function requireFieldSurveys(): Promise<ConProfile & { canWrite: bo
   const admin = createAdminClient()
   const { data: profile } = await admin.from('profiles').select('id, company_id, role').eq('id', user.id).single()
   if (!profile || !canUseFieldSurveys(profile)) redirect('/dashboard')
-  // The locked-down role is never module-blocked (its only page is this one); everyone else honors Settings -> Users blocks.
-  if (!isSurveyOnly(profile.role)) {
-    const { data: block } = await admin.from('profile_module_blocks').select('module').eq('profile_id', user.id).eq('module', 'construction').maybeSingle()
-    if (block) redirect('/dashboard')
-  }
+  // Forms is its own section: a Construction module block (Settings -> Users) does not take it away.
   return { ...(profile as ConProfile), canWrite: canEditFieldSurveys(profile), surveyOnly: isSurveyOnly(profile.role), ownOnly: surveyOwnOnly(profile.role), fullAccess: canReadConstruction(profile) }
 }

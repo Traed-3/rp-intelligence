@@ -3,6 +3,7 @@ import { Plus, Search } from 'lucide-react'
 import { ClickableRow } from '@/components/clickable-row'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireInventory } from '@/lib/inventory-guard'
+import { noAccountingOrHr } from '@/lib/role-access'
 import { PartForm } from '@/components/inventory/part-form'
 import { savePart } from '../actions'
 import { PART_CATEGORIES, PRICE_STATUS, SEED_TAG_LABEL, categoryLabel, money, fmtDate, priceAgeDays, PRICE_STALE_DAYS, type Part } from '@/lib/inventory'
@@ -16,7 +17,8 @@ export default async function PartsPage({
   searchParams: Promise<{ q?: string; cat?: string; status?: string; source?: string; page?: string }>
 }) {
   const { q = '', cat = '', status = '', source = '', page = '1' } = await searchParams
-  const { company_id, canWrite } = await requireInventory()
+  const { company_id, canEditCatalog: canWrite, role } = await requireInventory()
+  const hideSell = noAccountingOrHr(role)   // techs, mechanics, shop: cost only, never what we charge
   const admin = createAdminClient()
   const pageNo = Math.max(1, parseInt(page, 10) || 1)
 
@@ -108,7 +110,7 @@ export default async function PartsPage({
                   <th className={`${th} hidden lg:table-cell`}>Category</th>
                   <th className={`${th} text-right`}>Cost</th>
                   <th className={`${th} hidden md:table-cell`}>Priced from</th>
-                  <th className={`${th} text-right hidden sm:table-cell`}>Sell</th>
+                  {!hideSell && <th className={`${th} text-right hidden sm:table-cell`}>Sell</th>}
                   <th className={th}>Status</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -133,7 +135,7 @@ export default async function PartsPage({
                         <div className="truncate max-w-[14rem]">{p.cost_vendor ?? (p.sku ? SEED_TAG_LABEL[p.sku] ?? p.sku : '—')}</div>
                         <div className={`text-xs ${stale ? 'text-amber-600' : 'text-gray-400'}`}>{p.cost_date ? fmtDate(p.cost_date) : ''}{stale ? ' · verify' : ''}</div>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-gray-700 hidden sm:table-cell">{p.sell_price != null ? money(p.sell_price) : '—'}</td>
+                      {!hideSell && <td className="px-4 py-3 text-right tabular-nums text-gray-700 hidden sm:table-cell">{p.sell_price != null ? money(p.sell_price) : '—'}</td>}
                       <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full border ${st.className}`}>{st.label}</span></td>
                       <td className="px-4 py-3 text-right"><span className="text-xs font-medium text-blue-600">View →</span></td>
                     </ClickableRow>

@@ -6,6 +6,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY } from '@/li
 import { VALID_LANDING_PAGES, DEFAULT_LANDING_PAGE } from '@/lib/landing-pages'
 import { moduleForPath } from '@/lib/modules'
 import { isSurveyOnly, surveyOnlyMayVisit, SURVEY_ONLY_HOME } from '@/lib/field-surveys'
+import { isLockedRole, roleMayVisit, lockedRoleHome, lockedLanding } from '@/lib/role-access'
 
 // profiles has RLS enabled with zero policies defined (every other read of it
 // in this app goes through the service-role admin client for that reason) —
@@ -16,6 +17,16 @@ import { isSurveyOnly, surveyOnlyMayVisit, SURVEY_ONLY_HOME } from '@/lib/field-
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
+
+/** True when the session's sign-in method was an outside provider (Google). Reads the token the server already verified with getUser(). */
+function sessionUsedOAuth(accessToken: string): boolean {
+  try {
+    const claims = JSON.parse(Buffer.from(accessToken.split('.')[1] ?? '', 'base64url').toString('utf8')) as { amr?: { method?: string }[] }
+    return (claims.amr ?? []).some((a) => a?.method === 'oauth')
+  } catch {
+    return false
+  }
+}
 
 // In Next.js 16, middleware is renamed to "proxy" and uses the nodejs runtime.
 export async function proxy(request: NextRequest) {
@@ -72,6 +83,8 @@ export async function proxy(request: NextRequest) {
   if (user && isPublic && ['/api/gmail/', '/api/svc/', '/api/billing/', '/api/daily-summary'].some((p) => pathname.startsWith(p))) {
     const { data: who } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
     if (isSurveyOnly(who?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Techs, mechanics and shop employees: same deny-by-default list as the pages (lib/role-access.ts).
+    if (!roleMayVisit(who?.role, pathname)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   // Only for pages the login gate actually covers, plus /login itself (to
@@ -85,7 +98,7 @@ export async function proxy(request: NextRequest) {
     // already passes through, so it's the right spot to cut them off.
     const { data: profile } = await admin
       .from('profiles')
-      .select('is_active, default_landing_page, role')
+      .select('is_active, default_landing_page, role, must_change_password')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -108,12 +121,31 @@ export async function proxy(request: NextRequest) {
       return redirect
     }
 
+    // Google sign-in is off (11/13/26): a session that was started through Google is ended, whoever it belongs to.
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token && sessionUsedOAuth(session.access_token)) {
+      await supabase.auth.signOut()
+      const out = pathname === '/login' ? supabaseResponse : NextResponse.redirect(new URL('/login?google=off', request.url))
+      supabaseResponse.cookies.getAll().forEach((c) => out.cookies.set(c))
+      return out
+    }
+
+    // Temporary password (Settings -> Users): nothing else opens until the person has chosen their own.
+    if (profile.must_change_password) {
+      if (pathname === '/change-password') return supabaseResponse
+      if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Choose your own password first.' }, { status: 403 })
+      return NextResponse.redirect(new URL('/change-password', request.url))
+    }
+    if (pathname === '/change-password') return NextResponse.redirect(new URL('/', request.url))
+
     if (pathname === '/login') {
       // Rare path (already-signed-in user manually hits /login, e.g. an old
       // bookmark) — still honor their configured landing page for consistency
       // with the actual login flows in auth/callback and the password form.
-      const page = isSurveyOnly(profile?.role) ? SURVEY_ONLY_HOME : profile?.default_landing_page
-      const landingPage = page && (VALID_LANDING_PAGES as readonly string[]).includes(page) ? page : DEFAULT_LANDING_PAGE
+      const page = isSurveyOnly(profile?.role) ? SURVEY_ONLY_HOME
+        : isLockedRole(profile?.role) ? lockedLanding(profile?.role, profile?.default_landing_page)
+        : profile?.default_landing_page
+      const landingPage = page && ((VALID_LANDING_PAGES as readonly string[]).includes(page) || isLockedRole(profile?.role)) ? page : DEFAULT_LANDING_PAGE
       return NextResponse.redirect(new URL(landingPage, request.url))
     }
 
@@ -123,6 +155,14 @@ export async function proxy(request: NextRequest) {
       if (surveyOnlyMayVisit(pathname)) return supabaseResponse
       if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       return NextResponse.redirect(new URL(SURVEY_ONLY_HOME, request.url))
+    }
+
+    // Settings is owners, managers and admins only (every role). Techs, mechanics and shop employees are also deny by
+    // default (lib/role-access.ts): no accounting, no HR / DQF; shop employees only get the shop side.
+    // Anything a role may not open redirects home, API paths answer 403.
+    if (!roleMayVisit(profile?.role, pathname)) {
+      if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.redirect(new URL(lockedRoleHome(profile?.role), request.url))
     }
 
     // Per-user module blocks (Settings → Users). Checked after the /login
@@ -135,8 +175,10 @@ export async function proxy(request: NextRequest) {
         .eq('profile_id', user.id)
         .eq('module', moduleKey)
         .maybeSingle()
-      if (block) {
-        return NextResponse.redirect(new URL(`/dashboard?blocked=${moduleKey}`, request.url))
+      // A locked role whose own home is the blocked module stays put rather than bouncing between two redirects.
+      if (block && !(isLockedRole(profile?.role) && pathname === lockedRoleHome(profile?.role))) {
+        const home = isLockedRole(profile?.role) ? lockedRoleHome(profile?.role) : '/dashboard'
+        return NextResponse.redirect(new URL(`${home}?blocked=${moduleKey}`, request.url))
       }
     }
   }

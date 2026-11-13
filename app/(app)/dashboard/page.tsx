@@ -1,3 +1,4 @@
+import { canUseSettings } from '@/lib/role-access'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -273,7 +274,7 @@ export default async function CompanyDashboardPage({
       {cards.length === 0 ? (
         <div className="rp-empty">
           <p>Every dashboard card is switched off.</p>
-          <Link href="/settings/personalize" className="text-blue-600">Choose your cards</Link>
+          {canUseSettings(profile?.role) && <Link href="/settings/personalize" className="text-blue-600">Choose your cards</Link>}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -281,11 +282,11 @@ export default async function CompanyDashboardPage({
         </div>
       )}
 
-      <p className="text-center">
+      {canUseSettings(profile?.role) && <p className="text-center">
         <Link href="/settings/personalize" className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700">
           <SlidersHorizontal className="w-3.5 h-3.5" /> Personalize this dashboard
         </Link>
-      </p>
+      </p>}
     </div>
   )
 }

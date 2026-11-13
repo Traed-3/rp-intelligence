@@ -7,7 +7,8 @@ import { CON_READ_ROLES, CON_WRITE_ROLES } from '@/lib/construction'
 /** Role for people (Glen Blankenship, 10/2/26) who may use Field Surveys and nothing else in RP Intelligence. */
 export const SURVEY_ONLY_ROLE = 'field_surveyor'
 /** Roles that can run surveys without having the Construction module (the crew's phones). */
-export const SURVEY_TECH_ROLES: readonly string[] = ['construction_tech', SURVEY_ONLY_ROLE]
+// Service techs added 11/13/26 (Trae): the Forms section is for all service and construction techs.
+export const SURVEY_TECH_ROLES: readonly string[] = ['construction_tech', 'service_tech', SURVEY_ONLY_ROLE]
 
 type P = { id?: string | null; role?: string | null } | null | undefined
 

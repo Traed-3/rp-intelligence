@@ -18,8 +18,8 @@ function refresh(id?: string) {
 
 /** Manual "sync now": pull the last two weeks from every connected inbox, then read a few pending documents. */
 export async function runInboxSync(): Promise<SyncState> {
-  const { canWrite } = await requireInventory()
-  if (!canWrite) return { error: 'No permission.' }
+  const { canEditCatalog } = await requireInventory()
+  if (!canEditCatalog) return { error: 'No permission.' }
   try {
     const sync = await syncAllInboxes({ maxResults: 30, sinceDays: 14 })
     const ex = await extractPending(3)
@@ -34,8 +34,8 @@ export async function runInboxSync(): Promise<SyncState> {
 
 /** Ask Claude to read this document (again). */
 export async function reextractDocument(id: string): Promise<ActionState> {
-  const { company_id, canWrite } = await requireInventory()
-  if (!canWrite) return { error: 'No permission.' }
+  const { company_id, canEditCatalog } = await requireInventory()
+  if (!canEditCatalog) return { error: 'No permission.' }
   const admin = createAdminClient()
   await admin.from('billing_inbox_documents').update({ extract_status: 'pending', extract_error: null }).eq('id', id).eq('company_id', company_id)
   const r = await extractDocument(id)
@@ -44,8 +44,8 @@ export async function reextractDocument(id: string): Promise<ActionState> {
 }
 
 export async function dismissDocument(id: string, _s: ActionState, formData: FormData): Promise<ActionState> {
-  const { company_id, id: userId, canWrite } = await requireInventory()
-  if (!canWrite) return { error: 'No permission.' }
+  const { company_id, id: userId, canEditCatalog } = await requireInventory()
+  if (!canEditCatalog) return { error: 'No permission.' }
   const admin = createAdminClient()
   const { error } = await admin.from('billing_inbox_documents').update({ status: 'dismissed', note: str(formData, 'note'), processed_by: userId, processed_at: new Date().toISOString() }).eq('id', id).eq('company_id', company_id).eq('status', 'new')
   if (error) return { error: error.message }
@@ -54,8 +54,8 @@ export async function dismissDocument(id: string, _s: ActionState, formData: For
 }
 
 export async function reopenDocument(id: string): Promise<ActionState> {
-  const { company_id, canWrite } = await requireInventory()
-  if (!canWrite) return { error: 'No permission.' }
+  const { company_id, canEditCatalog } = await requireInventory()
+  if (!canEditCatalog) return { error: 'No permission.' }
   const admin = createAdminClient()
   await admin.from('billing_inbox_documents').update({ status: 'new', processed_by: null, processed_at: null }).eq('id', id).eq('company_id', company_id).eq('status', 'dismissed')
   refresh(id)
@@ -70,8 +70,8 @@ type PostLine = { part_id?: string | null; part_number?: string | null; descript
  *   mode=cost_only  → costs refreshed only (parts went straight to a job, nothing hits a shelf)
  */
 export async function postInboxDocument(id: string, _s: ActionState, formData: FormData): Promise<ActionState> {
-  const { company_id, id: userId, canWrite } = await requireInventory()
-  if (!canWrite) return { error: 'You do not have permission to receive stock.' }
+  const { company_id, id: userId, canEditCatalog } = await requireInventory()
+  if (!canEditCatalog) return { error: 'You do not have permission to receive stock.' }
   const mode = str(formData, 'mode') === 'cost_only' ? 'cost_only' : 'receive'
   const location_id = str(formData, 'location_id')
   let lines: PostLine[] = []

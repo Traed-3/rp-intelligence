@@ -63,6 +63,9 @@ export async function deleteUser(userId: string): Promise<{ error?: string }> {
   if (userId === profile.id) return { error: 'You cannot delete your own account.' }
 
   const admin = createAdminClient()
+  // Only people on this company's list can be removed from here.
+  const { data: target } = await admin.from('profiles').select('id').eq('id', userId).eq('company_id', profile.company_id).maybeSingle()
+  if (!target) return { error: 'User not found.' }
 
   // Delete from Supabase Auth — cascades to profiles table automatically
   const { error } = await admin.auth.admin.deleteUser(userId)
@@ -75,7 +78,8 @@ export async function deleteUser(userId: string): Promise<{ error?: string }> {
 // ── Set a user's password ─────────────────────────────────────────────────────
 // For people who sign in with the email + password form instead of Google. The password goes straight to
 // Supabase Auth and is never stored, returned or logged by the app.
-export async function setUserPassword(userId: string, password: string): Promise<{ error?: string }> {
+// `temporary` (the default) makes the person choose their own password at their next sign-in (profiles.must_change_password).
+export async function setUserPassword(userId: string, password: string, temporary = true): Promise<{ error?: string }> {
   const profile = await getProfile()
   if (!profile || !['owner', 'manager'].includes(profile.role)) return { error: 'Access denied.' }
 
@@ -92,8 +96,10 @@ export async function setUserPassword(userId: string, password: string): Promise
 
   const { error } = await admin.auth.admin.updateUserById(userId, { password })
   if (error) return { error: error.message }
+  revalidatePath('/settings/users')
 
-  console.log(`[users] password set for ${userId} by ${profile.id}`)   // ids only, never the password
+  await admin.from('profiles').update({ must_change_password: !!temporary }).eq('id', userId).eq('company_id', profile.company_id)
+  console.log(`[users] ${temporary ? 'temporary ' : ''}password set for ${userId} by ${profile.id}`)   // ids only, never the password
   return {}
 }
 
@@ -218,7 +224,7 @@ export async function createEmployee(
   if (authError || !authData.user) {
     // If user already exists in auth (different company), surface a clear message
     if (authError?.message?.includes('already been registered')) {
-      return { error: 'That email is already registered. Ask them to sign in with Google — they can be assigned a role from there.' }
+      return { error: 'That email already has a login. Look for them in the list below (they may be inactive).' }
     }
     return { error: authError?.message ?? 'Failed to create user account.' }
   }

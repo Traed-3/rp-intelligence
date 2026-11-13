@@ -1,5 +1,6 @@
 'use server'
 
+import { isLockedRole } from '@/lib/role-access'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -14,8 +15,10 @@ async function me() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not signed in')
   const admin = createAdminClient()
-  const { data: profile } = await admin.from('profiles').select('id, company_id, email').eq('id', user.id).single()
+  const { data: profile } = await admin.from('profiles').select('id, company_id, email, role').eq('id', user.id).single()
   if (!profile) throw new Error('No profile')
+  // My Plate is closed to techs, mechanics and shop employees (lib/role-access.ts): closed here too, not only by address.
+  if (isLockedRole(profile.role)) throw new Error('No access')
   return { admin, id: profile.id as string, company_id: profile.company_id as string, email: (profile.email as string | null)?.toLowerCase() ?? '' }
 }
 
