@@ -89,6 +89,9 @@ export default async function ExpensesPage({
             💳 Card audit →
           </Link>
         )}
+        <Link href="/expenses/receipts" className={`${canAuditCards(profile!.role) ? '' : 'ml-auto '}px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 bg-card text-gray-600 hover:border-gray-400`}>
+          🧾 Receipts by payment type →
+        </Link>
         <Link href="/expenses/report" className="px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 bg-card text-gray-600 hover:border-gray-400">
           📊 Report →
         </Link>

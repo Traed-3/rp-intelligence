@@ -506,6 +506,27 @@ used Aug 2024). Same questions, plus injuries, witnesses, the other driver's pho
 
 ---
 
+## RECEIPTS BY PAYMENT TYPE (added 2026-11-13)
+
+Expenses → Receipts by payment type (`/expenses/receipts?from&to&pay=HDP&who=<email>&show=open|checked&q`, or `month=2026-10`).
+The monthly job of ticking receipts off against the card statements and vendor account bills, done here instead of
+searching the receipts Gmail for "TEC <email>" / "HDP".
+- Reads `expenses` (hand-entered + every receipt emailed to Construction Receipts, imported by lib/receipt-expense-import.ts).
+  Emailed receipts are only imported from about 9/21/2026 on; older months need the backfill
+  (GET /api/billing/inbox-sync with since/before/apply=1) before they show here.
+- lib/receipt-report.ts: `parseFilters`, `loadReceiptReport` (spend by payment type for the range, each code split by
+  person when more than one person used it — every tech has their own TEC card; receipts grouped code → person with
+  subtotals), `receiptsHref`. Person key = submitter email (falls back to the name).
+- Each row: on-bill tick, date, sent by, vendor / what it was, charged to (truck, job, store, overhead bucket), amount,
+  and the receipt (thumbnail or PDF icon, opens in a new tab). "Compare to the bill" box = type the statement total, see the gap.
+- Tick-off: `expenses.statement_checked_at/_by` (migration receipt_statement_check.sql, APPLIED 2026-11-13 via Supabase MCP;
+  no FK on _by). Action app/(app)/expenses/receipts/actions.ts; roles `RECEIPT_CHECK_ROLES` (owner, manager, office_staff,
+  construction_manager, construction_admin). Everyone else who can open Expenses reads only. Separate from the older
+  Card audit tick (`billing_inbox_documents.card_matched_at`), which nobody has used.
+- Print: the Print button prints the summary + list with an empty box per receipt to tick by hand (filters, thumbnails
+  and nav hidden). CSV: GET /api/expenses/receipts-csv (same filters, includes the receipt link).
+- The expense detail page now shows PDF receipts in a frame (it used to put every receipt in an <img>, which broke PDFs).
+
 ## TICKET LOG (added 2026-11-13)
 
 Service -> "All tickets" (`/service/tickets/log`): a searchable record of every ticket emailed into rpinvoicing, with

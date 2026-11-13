@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { submitterLabel } from '@/lib/receipt-submitter'
+import { safeReceiptUrl } from '@/lib/receipt-url'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -19,6 +20,8 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
     .single()
 
   if (!expense) notFound()
+  // Only a link into our own receipts storage is opened, framed or shown.
+  const receiptUrl = safeReceiptUrl(expense.receipt_url)
 
   function Row({ label, value }: { label: string; value?: string | number | null }) {
     if (value == null || value === '') return null
@@ -86,10 +89,19 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
           )}
         </div>
 
-        {expense.receipt_url && (
+        {receiptUrl && (
           <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-3">Receipt</h2>
-            <img src={expense.receipt_url} alt="Receipt" className="max-w-full rounded-lg border border-gray-100" />
+            {/\.pdf(\?|$)/i.test(receiptUrl) ? (
+              <>
+                <iframe src={receiptUrl} title="Receipt" referrerPolicy="no-referrer" className="w-full h-[70vh] rounded-lg border border-gray-100" />
+                <a href={receiptUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-sm font-medium text-blue-600 hover:underline">Open the receipt in a new tab →</a>
+              </>
+            ) : (
+              <a href={receiptUrl} target="_blank" rel="noopener noreferrer">
+                <img src={receiptUrl} alt="Receipt" className="max-w-full rounded-lg border border-gray-100" />
+              </a>
+            )}
           </div>
         )}
       </div>
