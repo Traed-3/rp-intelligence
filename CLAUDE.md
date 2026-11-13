@@ -526,3 +526,31 @@ searching the receipts Gmail for "TEC <email>" / "HDP".
 - Print: the Print button prints the summary + list with an empty box per receipt to tick by hand (filters, thumbnails
   and nav hidden). CSV: GET /api/expenses/receipts-csv (same filters, includes the receipt link).
 - The expense detail page now shows PDF receipts in a frame (it used to put every receipt in an <img>, which broke PDFs).
+
+## TICKET LOG (added 2026-11-13)
+
+Service -> "All tickets" (`/service/tickets/log`): a searchable record of every ticket emailed into rpinvoicing, with
+the FRONT of the ticket, the BACK (parts / materials) and a parts list. Built on `svc_work_order_documents` (one row per
+ticket email; scans in the private `svc-work-order-docs` bucket).
+- Migration `supabase/migrations/svc_ticket_log.sql` (APPLIED 2026-11-13 via Supabase MCP): front_text, back_text,
+  other_text, parts jsonb [{qty, description, part_number, source}], pages jsonb [{name, kind, note}], ticket_wo_number,
+  ticket_site, work_date, technician, helper, truck, onsite_hours, crew_size, completion complete|rtn|unclear, rtn_needed,
+  con_job_id (construction crew tickets belong to a job), extract_version (1 = old one-block read, 2 = front/back/parts),
+  duplicate_of (the office forwards a tech's ticket on, so it lands twice; `svc_ticket_find_original()` = same files or
+  "Fwd: <original subject>" within 10 days; copies are hidden from the log and take the original's read),
+  tracker_row_id -> `ticket_tracker_entries`.
+- Reader: lib/svc-work-order-docs-extract.ts. Reads up to 10 pages, shrinks photos with sharp (fixes the >10 MB failures),
+  sorts each page (ticket front / back / part tag / packing list / printout / work order screen / site photo). `transcript`
+  stays the editable full text (front + back + other) and is only replaced while nobody has edited it.
+  The reading rules in SYSTEM come from a side-by-side of our reads against the Smartsheet tracker (Trae, 11/13/26):
+  "OS 11:30-13:00-1.5 x2" is on-site time (was read "05"), dates are this year and before the email date (was read 2016/2020/2024),
+  PUL / DSL / ATG (was PVL / OSL / AT6), quarter-hour times, vendor part-number prefixes. Add a rule there when a new
+  misread turns up; then re-queue with `update svc_work_order_documents set extract_status='pending' where ...`.
+- Smartsheet "Ticket Tracking" (Construction Department > Ticket and Expense Tracking, sheet 3752544083175300) = what the
+  construction crews type for each visit. Rows live in `ticket_tracker_entries` (loaded through the Smartsheet connector,
+  no API token in the app). The reader is shown the entry for the same site + day as a handwriting hint and the ticket
+  page shows it beside the scan. It only covers construction crews; no service-tech tracker is shared with Trae's login.
+- Queue: pg_cron `svc-sync-extract-docs` calls /api/svc/gmail-sync?pass=extract-docs&limit=N[&concurrency=N]; pending
+  rows are read newest first so today's tickets never wait behind a re-read.
+- Shown on: the ticket page (/service/tickets/inbox/[id], also reached from the log), the call page (/service/[id]
+  "Tickets sent in"), and a construction job's Daily Updates tab (rows with con_job_id).

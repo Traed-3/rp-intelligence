@@ -232,6 +232,7 @@ export default async function ServiceDispatchPage({
             Service Dispatch
           </h1>
           <Link href="/service/tickets" className="ml-3 text-sm text-blue-600 hover:text-blue-800 align-middle">Field tickets →</Link>
+          <Link href="/service/tickets/log" className="ml-3 text-sm text-blue-600 hover:text-blue-800 align-middle">All tickets →</Link>
           <Link href="/service/tickets/inbox" className="ml-3 text-sm text-blue-600 hover:text-blue-800 align-middle">
             Completed ticket review{needsReviewCount ? <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-[11px] font-bold rounded-full bg-amber-500 text-white">{needsReviewCount}</span> : ' →'}
           </Link>

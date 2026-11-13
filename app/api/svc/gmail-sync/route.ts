@@ -85,7 +85,8 @@ export async function GET(request: NextRequest) {
     }
     if (pass === 'extract-docs') {
       const limit = parseInt(request.nextUrl.searchParams.get('limit') ?? '5', 10)
-      const extracted = await extractPendingWorkOrderDocuments(limit)
+      // `concurrency` reads that many tickets side by side (default 3) — the Nov 2026 re-read of the whole log uses more.
+      const extracted = await extractPendingWorkOrderDocuments(limit, { concurrency: num('concurrency') })
       return NextResponse.json({ ok: true, timestamp: new Date().toISOString(), extracted })
     }
     if (pass === 'lookup') {

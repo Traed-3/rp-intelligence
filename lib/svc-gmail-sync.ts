@@ -27,7 +27,7 @@ import { CON_DONE_STAGES, woTokens } from '@/lib/svc-construction-link'
 
 export const WORK_ORDER_DOCS_BUCKET = 'svc-work-order-docs'
 const MAX_ATTACHMENT_BYTES = 12 * 1024 * 1024
-const MAX_ATTACHMENTS = 6
+const MAX_ATTACHMENTS = 12
 
 function safeName(name: string) {
   return name.replace(/[^\w.\-() ]+/g, '_').replace(/\s+/g, ' ').trim().slice(0, 120) || 'attachment'
@@ -66,7 +66,7 @@ async function captureWorkOrderDocument(
   // The one-time catch-up files old tickets on their calls but does not queue hundreds of automatic transcripts.
   const extractable = readable && !backfill
 
-  const { error: insertErr } = await admin.from('svc_work_order_documents').insert({
+  const { data: inserted, error: insertErr } = await admin.from('svc_work_order_documents').insert({
     company_id: COMPANY_ID, work_order_id: workOrderId,
     gmail_message_id: msgId, gmail_thread_id: msg.threadId,
     sender: from.name || from.email, sender_email: from.email, subject, received_at: receivedAt.toISOString(),
@@ -79,8 +79,15 @@ async function captureWorkOrderDocument(
     // linked / dismissed), not the work-order status. 'dispatched' violated its CHECK constraint and
     // every insert since 9/22 failed silently, so check the error instead of discarding it.
     status: 'new',
-  })
+  }).select('id').single()
   if (insertErr) throw new Error(`svc_work_order_documents insert: ${insertErr.message}`)
+
+  // The office forwards a tech's ticket on, so the same ticket often lands twice. The later copy points
+  // at the first (migration svc_ticket_log.sql) — the log hides it and the reader does not pay to read it again.
+  if (inserted?.id) {
+    const { data: original } = await admin.rpc('svc_ticket_find_original', { p_id: inserted.id })
+    if (original) await admin.from('svc_work_order_documents').update({ duplicate_of: original }).eq('id', inserted.id)
+  }
 }
 
 // Single-company deployment today (same constant used by the fleet gmail-sync) —

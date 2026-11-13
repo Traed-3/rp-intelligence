@@ -19,6 +19,7 @@ import { DeleteButton } from '@/components/construction/delete-button'
 import { ConfirmButton } from '@/components/construction/confirm-button'
 import { AssignSubcontractor } from '@/components/construction/assign-subcontractor'
 import { Button } from '@/components/ui/button'
+import { TicketDocsCard, TICKET_DOC_COLUMNS, type TicketDocRow } from '@/components/svc/ticket-docs-card'
 import { Pencil, Plus, FileText, Image as ImageIcon } from 'lucide-react'
 import {
   changeJobStage, saveMaterial, setMaterialStatus, deleteMaterial,
@@ -83,6 +84,10 @@ export default async function JobDetailPage({
     admin.from('con_permit_projects').select('id, project_type, scheduled_work_date, ready_to_work, site_id, con_permit_sites(id, site_number, name)').eq('job_id', id),
     admin.from('con_job_stage_history').select('*').eq('job_id', id).order('changed_at', { ascending: false }).limit(20),
   ])
+
+  // Field tickets the crew emailed in for this job (forwarded copies left out) — shown on the Daily Updates tab.
+  const { data: ticketDocs } = await admin.from('svc_work_order_documents').select(TICKET_DOC_COLUMNS)
+    .eq('company_id', company_id).eq('con_job_id', id).is('duplicate_of', null).order('received_at', { ascending: false })
 
   const permitProjectIds = (permitProjects ?? []).map((p) => p.id)
   const { data: jobPermits } = permitProjectIds.length
@@ -359,6 +364,7 @@ export default async function JobDetailPage({
         const totalManHours = updates.reduce((s, u) => s + hoursOf(u), 0)
         return (
           <div className="space-y-5">
+            <TicketDocsCard docs={(ticketDocs ?? []) as unknown as TicketDocRow[]} />
             <div className="rp-card overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="font-semibold text-gray-900">Daily Updates ({updates.length})</h2>
