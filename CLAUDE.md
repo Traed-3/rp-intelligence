@@ -135,8 +135,8 @@ LOGIN, SETTINGS AND FORMS (Trae, 2026-11-13):
 - Settings (ALL of /settings, Personalize and Alerts included) = SETTINGS_ROLES in lib/role-access.ts:
   owner, manager, construction_manager, construction_admin. Everyone else is redirected home.
 - Forms section: /forms (menu "Forms") is the hub for field forms. Tiles: ICON Boot Surveys (/construction/surveys),
-  Hydrostatic Test Report and Spill Bucket & Overfill Tests (/construction/surveys/tests); Site Surveys, Pre-Trip
-  Inspection and Accident Report are placeholders ("Coming soon"). Open to service_tech + construction_tech
+  Hydrostatic Test Report and Spill Bucket & Overfill Tests (/construction/surveys/tests), Pre-Trip Inspection
+  (/forms/pre-trip); Site Surveys and Accident Report are placeholders ("Coming soon"). Open to service_tech + construction_tech
   (SURVEY_TECH_ROLES) and the construction roles; not mechanics or shop employees. A Construction module block does
   not take Forms away. New forms: add the page, then a tile in app/(app)/forms/page.tsx.
 
@@ -461,3 +461,21 @@ auto-filled ones carry a violet "auto" tag (hover = why) that drops off when edi
   CLI: `npx tsx --env-file=.env.local scripts/receipt-cards-backfill.mts [maxReads]` (needs ANTHROPIC_API_KEY for reads).
 - expenses gained card_last4, ai_extracted (what was read), ai_filled (fields still auto at submit).
 - Migration `supabase/migrations/receipt_scan.sql` (APPLIED 2026-11-11 via Supabase MCP).
+
+---
+
+## PRE-TRIP INSPECTION FORM (added 2026-11-13)
+
+Forms -> Pre-Trip Inspection: the paper "Rappahannock Petroleum Vehicle / Trailer Pre trip inspection (Non CDL)" sheets
+(docs/reference/Vehicle_Pre_trip_inspection_Non_CDL.pdf), filled on the phone.
+- Routes `/forms/pre-trip` (list + New vehicle / New trailer) and `/forms/pre-trip/[id]` (the sheet). Same
+  `requireFieldSurveys` guard as the rest of Forms; techs see their own, construction office roles see everyone's.
+- Checklists (25 vehicle lines, 16 trailer lines) and finish rules live in lib/pretrip.ts. Each line is OK / Remark / N/A.
+  Finish needs the number, date, checked-by, every line marked, and Remarks text when any line is marked Remark.
+- Table `pretrip_inspections` (migration supabase/migrations/pretrip_inspections.sql): kind vehicle|trailer, unit_number
+  (asset_id set when it matches assets.unit_number), equipment (trailer), results jsonb {line key: ok|remark|na},
+  remarks, signature PNG data URL (optional), status draft|complete, emailed_to/at.
+- PDF: lib/pretrip-pdf.tsx prints the paper layout (yellow number bar, OK / Remark / N/A boxes, Remarks, Date / Checked by).
+  GET /forms/pre-trip/[id]/pdf draws it live from the row (`?download=1` to save). Nothing is stored in a bucket.
+- Email: the finished screen has an "Email PDF" box (`emailInspection`, Resend). No default address; nothing sends
+  unless someone types one.
