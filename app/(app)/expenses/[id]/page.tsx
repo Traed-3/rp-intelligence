@@ -89,7 +89,16 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
         {expense.receipt_url && (
           <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 mb-3">Receipt</h2>
-            <img src={expense.receipt_url} alt="Receipt" className="max-w-full rounded-lg border border-gray-100" />
+            {/\.pdf(\?|$)/i.test(expense.receipt_url) ? (
+              <>
+                <iframe src={expense.receipt_url} title="Receipt" className="w-full h-[70vh] rounded-lg border border-gray-100" />
+                <a href={expense.receipt_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-sm font-medium text-blue-600 hover:underline">Open the receipt in a new tab →</a>
+              </>
+            ) : (
+              <a href={expense.receipt_url} target="_blank" rel="noopener noreferrer">
+                <img src={expense.receipt_url} alt="Receipt" className="max-w-full rounded-lg border border-gray-100" />
+              </a>
+            )}
           </div>
         )}
       </div>
