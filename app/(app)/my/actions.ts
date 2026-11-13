@@ -1,6 +1,7 @@
 'use server'
 
-import { isLockedRole } from '@/lib/role-access'
+import { canAssignPlate } from '@/lib/role-access'
+import { canReadConstruction } from '@/lib/construction'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -10,16 +11,20 @@ import { PLATE_PARTNERS } from '@/lib/my-plate'
 
 const KINDS = new Set(['quote', 'price', 'order', 'bid', 'survey', 'followup', 'admin'])
 
-async function me() {
+/**
+ * Who is acting. Everyone signed in has a plate and may work their own rows. `construction: true` is for the
+ * quote / price / order / partner-plate actions, which stay with the Construction roles.
+ */
+async function me(opts: { construction?: boolean } = {}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not signed in')
   const admin = createAdminClient()
-  const { data: profile } = await admin.from('profiles').select('id, company_id, email, role').eq('id', user.id).single()
-  if (!profile) throw new Error('No profile')
-  // My Plate is closed to techs, mechanics and shop employees (lib/role-access.ts): closed here too, not only by address.
-  if (isLockedRole(profile.role)) throw new Error('No access')
-  return { admin, id: profile.id as string, company_id: profile.company_id as string, email: (profile.email as string | null)?.toLowerCase() ?? '' }
+  const { data: profile } = await admin.from('profiles').select('id, company_id, email, role, full_name, is_active').eq('id', user.id).single()
+  if (!profile || profile.is_active === false) throw new Error('No profile')
+  const con = canReadConstruction(profile)
+  if (opts.construction && !con) throw new Error('No access')
+  return { admin, id: profile.id as string, company_id: profile.company_id as string, email: (profile.email as string | null)?.toLowerCase() ?? '', role: profile.role as string, name: (profile.full_name as string | null) ?? '', con }
 }
 
 function today() { return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) }
@@ -32,16 +37,29 @@ async function mine(admin: ReturnType<typeof createAdminClient>, id: string, own
 }
 
 export async function addTask(formData: FormData): Promise<void> {
-  const { admin, id, company_id } = await me()
+  const { admin, id, company_id, role, name, con } = await me()
   const title = str(formData.get('title'))
   if (!title) return
-  const kind = str(formData.get('kind')) ?? 'followup'
+  // Quote / price / order rows and the signal links (action, source_key) belong to the Construction roles; everyone else adds plain to-dos.
+  const kind = con ? str(formData.get('kind')) ?? 'followup' : 'followup'
   const priority = Number(formData.get('priority') ?? 2)
-  const source_key = str(formData.get('source_key'))
+  const source_key = con ? str(formData.get('source_key')) : null
   let action: Record<string, unknown> | null = null
-  try { const raw = str(formData.get('action')); action = raw ? JSON.parse(raw) : null } catch { action = null }
+  if (con) { try { const raw = str(formData.get('action')); action = raw ? JSON.parse(raw) : null } catch { action = null } }
+
+  // "For:" puts the task on someone else's plate. Owners, managers and admins only (PLATE_ASSIGN_ROLES); the person must
+  // be an active login in this company. Who assigned it rides in `action` (handed_from is reserved for plate-to-plate moves).
+  let owner_id = id
+  const forId = str(formData.get('for'))
+  if (forId && forId !== id) {
+    if (!canAssignPlate(role)) throw new Error('Only owners and managers can assign to someone else')
+    const { data: target } = await admin.from('profiles').select('id').eq('id', forId).eq('company_id', company_id).eq('is_active', true).maybeSingle()
+    if (!target) throw new Error('That person is not an active login')
+    owner_id = target.id as string
+    action = { ...(action ?? {}), assigned_by: id, assigned_by_name: name, assigned_at: new Date().toISOString() }
+  }
   const row = {
-    company_id, owner_id: id, title, detail: str(formData.get('detail')), kind: KINDS.has(kind) ? kind : 'followup',
+    company_id, owner_id, title, detail: str(formData.get('detail')), kind: KINDS.has(kind) ? kind : 'followup',
     site_number: str(formData.get('site_number')), due_date: str(formData.get('due_date')),
     priority: [1, 2, 3].includes(priority) ? priority : 2, source: source_key ? 'signal' : 'manual', source_key, action,
     quote_id: (action?.quote_id as string | undefined) ?? null, job_id: (action?.job_id as string | undefined) ?? null,
@@ -143,7 +161,7 @@ async function partnerId(admin: ReturnType<typeof createAdminClient>, email: str
  * Today the only name on the list is the plate partner; the list grows as more people come into the app.
  */
 export async function assignTask(id: string, formData: FormData): Promise<void> {
-  const { admin, id: owner, company_id, email } = await me(); await mine(admin, id, owner)
+  const { admin, id: owner, company_id, email } = await me({ construction: true }); await mine(admin, id, owner)
   const to = str(formData.get('to'))
   if (!to) return
   const partner = await partnerId(admin, email, company_id)
@@ -156,7 +174,7 @@ export async function assignTask(id: string, formData: FormData): Promise<void> 
 
 /** From the partner's plate: "Mine" pulls a row back to me, "Done" closes it for them (Starsky is not in the app yet). */
 export async function takeFromPartner(id: string): Promise<void> {
-  const { admin, id: owner, company_id, email } = await me()
+  const { admin, id: owner, company_id, email } = await me({ construction: true })
   const partner = await partnerId(admin, email, company_id); await mine(admin, id, partner)
   const now = new Date().toISOString()
   const { error } = await admin.from('con_tasks').update({ owner_id: owner, handed_from: partner, handed_at: now, updated_at: now }).eq('id', id)
@@ -165,7 +183,7 @@ export async function takeFromPartner(id: string): Promise<void> {
 }
 
 export async function completePartnerTask(id: string): Promise<void> {
-  const { admin, company_id, email } = await me()
+  const { admin, company_id, email } = await me({ construction: true })
   const partner = await partnerId(admin, email, company_id); await mine(admin, id, partner)
   const now = new Date().toISOString()
   await admin.from('con_tasks').update({ status: 'done', done_at: now, updated_at: now }).eq('id', id)
@@ -175,7 +193,7 @@ export async function completePartnerTask(id: string): Promise<void> {
 // ── resolvers: handle the need from the row itself ───────────────────────────
 
 async function myTask(id: string) {
-  const { admin, id: owner, company_id } = await me()
+  const { admin, id: owner, company_id } = await me({ construction: true })
   const { data } = await admin.from('con_tasks').select('*').eq('id', id).eq('owner_id', owner).maybeSingle()
   if (!data) throw new Error('Not your task')
   return { admin, owner, company_id, task: data as { id: string; title: string; detail: string | null; action: Record<string, unknown> | null; quote_id: string | null; job_id: string | null; site_number: string | null } }

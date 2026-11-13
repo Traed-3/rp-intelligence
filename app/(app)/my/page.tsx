@@ -1,6 +1,10 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireConstruction } from '@/lib/construction-guard'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { canReadConstruction, canWriteConstruction } from '@/lib/construction'
+import { canAssignPlate } from '@/lib/role-access'
+import { SimplePlate, platePeople } from './simple-plate'
 import { buildPlate, buildSignals, businessDaysSince, dueDelta, isYesNo, firstName, KIND_CLASS, KIND_LABEL, PLATE_PARTNERS, type TaskRow, type TaskKind } from '@/lib/my-plate'
 import { packingSlipSiteKey } from '@/lib/construction-dashboard'
 import { addTask, completeTask, completeTasks, dropTask, reopenTask, setDue, setPriority, snoozeTask, waitTask, answerTask, resolvePriceLine, draftOrderEmail, markOrderSent, assignTask, saveNote, takeFromPartner, completePartnerTask } from './actions'
@@ -42,8 +46,18 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
   const { kind: kindParam, from: fromParam, due: dueParam, who: whoParam } = await searchParams
   const kindFilter = kindParam && kindParam in KIND_LABEL ? kindParam as TaskKind : null
   const filters: Filters = { kind: kindFilter, sd: fromParam === 'sd', over: dueParam === 'over' }
-  const profile = await requireConstruction()
+  // Everyone who signs in has a plate (Trae 11/13/26). The Construction roles get this full page (quotes, prices,
+  // orders, signals, partner plate); everyone else gets the simple to-do plate and none of that data is loaded.
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
   const admin = createAdminClient()
+  const { data: who } = await admin.from('profiles').select('id, company_id, role').eq('id', user.id).single()
+  if (!who) redirect('/login')
+  const { data: conBlock } = await admin.from('profile_module_blocks').select('module').eq('profile_id', user.id).eq('module', 'construction').maybeSingle()
+  if (!canReadConstruction(who) || conBlock) return <SimplePlate profile={who as { id: string; company_id: string; role: string }} />
+  const profile = { ...(who as { id: string; company_id: string; role: string }), canWrite: canWriteConstruction(who) }
+  const assignPeople = canAssignPlate(profile.role) ? await platePeople(profile.company_id) : []
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
   const since120 = new Date(Date.now() - 120 * 86_400_000).toISOString()
 
@@ -193,6 +207,14 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
                   <option value="1">Hot</option><option value="2">Normal</option><option value="3">Low</option>
                 </select>
               </div>
+              {assignPeople.length > 0 && (
+                <label className="block text-xs text-muted-foreground">For
+                  <select name="for" defaultValue={profile.id} className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-foreground">
+                    <option value={profile.id}>Me</option>
+                    {assignPeople.filter(p => p.id !== profile.id).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </label>
+              )}
               <textarea name="detail" rows={2} placeholder="Detail, numbers, who to call (start with SD if Starsky asked)" className="w-full rounded-md border border-gray-300 px-2.5 py-1.5" />
               <button className="w-full rounded-md bg-primary text-primary-foreground py-1.5 text-sm font-semibold hover:bg-primary/90">Add</button>
             </form>
