@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { syncDispatcher, syncInvoicing, archiveStaleWorkOrders } from '@/lib/svc-gmail-sync'
+import { syncDispatcher, syncInvoicing, archiveStaleWorkOrders, captureMissingWorkOrderDocuments } from '@/lib/svc-gmail-sync'
 import { reconcileWorkOrders } from '@/lib/svc-reconcile'
 import { extractPendingWorkOrderDocuments } from '@/lib/svc-work-order-docs-extract'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -88,6 +88,11 @@ export async function GET(request: NextRequest) {
       // `concurrency` reads that many tickets side by side (default 3) — the Nov 2026 re-read of the whole log uses more.
       const extracted = await extractPendingWorkOrderDocuments(limit, { concurrency: num('concurrency') })
       return NextResponse.json({ ok: true, timestamp: new Date().toISOString(), extracted })
+    }
+    if (pass === 'capture-missing') {
+      // Catch-up: ticket emails that were logged without their attachments being stored (Sept–Oct 2026 gap).
+      const captured = await captureMissingWorkOrderDocuments(num('limit') ?? 12)
+      return NextResponse.json({ ok: true, timestamp: new Date().toISOString(), captured })
     }
     if (pass === 'lookup') {
       // Read-only diagnostic: search rpinvoicing for a raw Gmail query (e.g. a

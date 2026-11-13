@@ -554,3 +554,7 @@ ticket email; scans in the private `svc-work-order-docs` bucket).
   rows are read newest first so today's tickets never wait behind a re-read.
 - Shown on: the ticket page (/service/tickets/inbox/[id], also reached from the log), the call page (/service/[id]
   "Tickets sent in"), and a construction job's Daily Updates tab (rows with con_job_id).
+- Catch-up (11/13/26): capture was broken ~Sept 7 - Oct 11 2026, so ~1,500 logged ticket emails had no scan stored.
+  `captureMissingWorkOrderDocuments` (GET /api/svc/gmail-sync?pass=capture-missing&limit=N) goes back to Gmail for every
+  `svc_gmail_imports` row with has_attachments=false and no `parsed.att_checked`, stores the attachments and queues the read.
+  `has_attachments` is now set at intake; emails that truly had nothing attached show in the log under "Sent without a ticket".

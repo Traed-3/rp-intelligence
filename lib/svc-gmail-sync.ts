@@ -604,6 +604,7 @@ export async function syncInvoicing(opts: SvcPassOptions = {}): Promise<SvcSyncR
         subject,
         received_at:        receivedAt.toISOString(),
         parsed,
+        has_attachments:    listAttachments(msg).length > 0,
         status:             importStatus,
         matched_work_order_id: matchedWorkOrderId,
       })
@@ -708,3 +709,51 @@ export async function archiveStaleWorkOrders(days = 60, dryRun = true, archivedB
   return result
 }
 
+
+
+/**
+ * Catch-up for ticket emails that were logged but whose attachments were never stored (the capture step was
+ * broken from early September to mid October 2026, so about five weeks of tickets had no scan on file).
+ * Goes back to Gmail for each one, stores the attachments and queues the ticket to be read. An email that
+ * truly has no attachment is marked checked so it is not fetched again — those show in the ticket log under
+ * "Sent without a ticket".
+ */
+export async function captureMissingWorkOrderDocuments(limit = 12): Promise<{ checked: number; captured: number; noAttachment: number; remaining: number; errors: string[] }> {
+  const admin = createAdminClient()
+  const deadline = Date.now() + 40_000
+  const out = { checked: 0, captured: 0, noAttachment: 0, remaining: 0, errors: [] as string[] }
+  const pending = () => admin.from('svc_gmail_imports')
+    .select('id, gmail_message_id, subject, sender, received_at, parsed, matched_work_order_id', { count: 'exact' })
+    .eq('company_id', COMPANY_ID).eq('mailbox', 'rpinvoicing').eq('has_attachments', false).is('parsed->>att_checked', null)
+  const { data: rows } = await pending().order('received_at', { ascending: false }).limit(limit)
+
+  for (const row of rows ?? []) {
+    if (Date.now() > deadline) break
+    const mark = async (extra: Record<string, unknown>, hasAttachments: boolean) =>
+      admin.from('svc_gmail_imports').update({ has_attachments: hasAttachments, parsed: { ...((row.parsed as object) ?? {}), att_checked: true, ...extra } }).eq('id', row.id)
+    try {
+      out.checked++
+      const { data: existing } = await admin.from('svc_work_order_documents').select('id').eq('gmail_message_id', row.gmail_message_id).maybeSingle()
+      if (existing) { await mark({}, true); continue }
+      const msg = await getMessage('invoicing', row.gmail_message_id)
+      const count = listAttachments(msg).length
+      if (!count) { await mark({ att_count: 0 }, false); out.noAttachment++; continue }
+      const headers = msg.payload?.headers ?? []
+      const { name, email } = parseSender(getHeader(headers, 'From'))
+      const dateStr = getHeader(headers, 'Date')
+      await captureWorkOrderDocument(admin, msg, row.gmail_message_id, getHeader(headers, 'Subject') || row.subject || '', { name, email },
+        dateStr ? new Date(dateStr) : new Date(row.received_at), row.matched_work_order_id ?? null, false)
+      await mark({ att_count: count }, true)
+      out.captured++
+    } catch (e: any) {
+      const m = String(e?.message ?? e)
+      if (/Quota exceeded|rateLimitExceeded/i.test(m)) { out.errors.push(m.slice(0, 160)); break }
+      // A message that is gone from the mailbox can never be captured — stop asking for it.
+      if (/ 404 |Not Found|notFound/i.test(m)) await mark({ att_error: 'message no longer in the mailbox' }, false)
+      else out.errors.push(`${row.gmail_message_id}: ${m.slice(0, 160)}`)
+    }
+  }
+  const { count } = await pending().limit(1)
+  out.remaining = count ?? 0
+  return out
+}
