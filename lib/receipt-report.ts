@@ -13,6 +13,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { noAccountingOrHr } from '@/lib/role-access'
 import { safeReceiptUrl } from '@/lib/receipt-url'
+import { chargedTo, type ChargeKind } from '@/lib/expense-display'
 
 /** Who may tick receipts off against a bill. Everyone else who can open Expenses can still read the report. */
 export const RECEIPT_CHECK_ROLES: readonly string[] = ['owner', 'manager', 'office_staff', 'construction_manager', 'construction_admin']
@@ -42,6 +43,7 @@ export type ReceiptRow = {
   vendor: string
   description: string
   chargedTo: string
+  chargedKind: ChargeKind
   cardLast4: string | null
   receiptUrl: string | null
   receiptIsImage: boolean
@@ -117,6 +119,8 @@ export function rangeLabel(f: Pick<ReceiptFilters, 'from' | 'to'>) {
   return m.from === f.from && m.to === f.to ? m.label : `${shortDate(f.from)} – ${shortDate(f.to)}`
 }
 export const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+/** Whole dollars, for the big stat tiles where cents only crowd the box. */
+export const dollars = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 
 /** Who is asking? `null` when signed out; `allowed` false for roles that never see accounting. */
 export async function receiptReportViewer() {
@@ -134,6 +138,8 @@ type Raw = {
   payment_method_code: string | null; card_last4: string | null; receipt_url: string | null
   submitter_name: string | null; submitter_email: string | null; statement_checked_at: string | null
   assets: { unit_number: string | null } | null
+  con_jobs: { site_number: string | null } | null
+  expense_categories: { name: string | null } | null
   profiles: { full_name: string | null; email: string | null } | null
 }
 
@@ -141,6 +147,7 @@ function toRow(e: Raw): ReceiptRow {
   const email = (e.submitter_email || e.profiles?.email || '').toLowerCase() || null
   const who = e.submitter_name || e.profiles?.full_name || email || 'Unknown'
   const url = safeReceiptUrl(e.receipt_url)
+  const to = chargedTo(e)
   return {
     id: e.id,
     date: e.expense_date,
@@ -151,10 +158,8 @@ function toRow(e: Raw): ReceiptRow {
     email,
     vendor: e.vendor ?? '',
     description: e.description ?? '',
-    chargedTo: e.expense_type === 'asset' ? (e.assets?.unit_number ?? 'Truck')
-      : e.expense_type === 'project' ? (e.project_number ?? e.store_number ?? 'Project')
-      : e.expense_type === 'store' ? (e.store_number ?? 'Store')
-      : (e.category_custom ?? 'General'),
+    chargedTo: to.label,
+    chargedKind: to.kind,
     cardLast4: e.card_last4,
     receiptUrl: url,
     receiptIsImage: !!url && /\.(jpe?g|png|gif|webp)(\?|$)/i.test(url),
@@ -185,7 +190,7 @@ export async function loadReceiptReport(companyId: string, f: ReceiptFilters) {
   // PostgREST hands back at most 1,000 rows a request, so page through long ranges.
   for (let page = 0; page < 20; page++) {
     const { data, error } = await admin.from('expenses')
-      .select('id, expense_date, amount, vendor, description, expense_type, store_number, project_number, category_custom, payment_method_code, card_last4, receipt_url, submitter_name, submitter_email, statement_checked_at, assets(unit_number), profiles!expenses_submitted_by_fkey(full_name, email)')
+      .select('id, expense_date, amount, vendor, description, expense_type, store_number, project_number, category_custom, payment_method_code, card_last4, receipt_url, submitter_name, submitter_email, statement_checked_at, assets(unit_number), con_jobs(site_number), expense_categories(name), profiles!expenses_submitted_by_fkey(full_name, email)')
       .eq('company_id', companyId)
       .gte('expense_date', f.from).lte('expense_date', f.to)
       .order('expense_date').order('created_at').order('id')

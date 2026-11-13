@@ -12,7 +12,7 @@ export function ReceiptCheck({ id, checked, canEdit }: { id: string; checked: bo
 
   if (!canEdit) {
     return on
-      ? <CheckCircle2 className="w-5 h-5 text-green-600" aria-label="On the bill" />
+      ? <CheckCircle2 className="w-5 h-5 text-success" aria-label="On the bill" />
       : <Circle className="w-5 h-5 text-gray-200" aria-label="Not checked off" />
   }
   return (
@@ -30,8 +30,8 @@ export function ReceiptCheck({ id, checked, canEdit }: { id: string; checked: bo
       className="align-middle"
     >
       {on
-        ? <CheckCircle2 className="w-5 h-5 text-green-600" />
-        : <Circle className={`w-5 h-5 ${failed ? 'text-red-500' : 'text-gray-300 hover:text-green-500'}`} />}
+        ? <CheckCircle2 className="w-5 h-5 text-success" />
+        : <Circle className={`w-5 h-5 ${failed ? 'text-danger' : 'text-gray-300 hover:text-success'}`} />}
     </button>
   )
 }
@@ -49,7 +49,7 @@ export function ReceiptCheckAll({ ids, checked, label }: { ids: string[]; checke
         if (!window.confirm(`${label}? That is ${ids.length} receipt${ids.length === 1 ? '' : 's'}.`)) return
         start(async () => { const res = await setStatementChecked(ids, checked); setError(res.error ?? null) })
       }}
-      className={`text-xs font-medium hover:underline disabled:opacity-50 ${checked ? 'text-green-700' : 'text-gray-500'}`}
+      className={`text-xs font-medium hover:underline disabled:opacity-50 ${checked ? 'text-success' : 'text-muted-foreground'}`}
     >
       {pending ? 'Saving…' : error ?? label}
     </button>

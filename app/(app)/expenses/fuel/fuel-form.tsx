@@ -4,8 +4,8 @@ import { useActionState, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 type State = { error: string } | null
-const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
-const lbl = 'block text-sm font-medium text-gray-700 mb-1'
+const inp = 'rp-input'
+const lbl = 'rp-label block mb-1.5'
 
 type Asset = { id: string; unit_number: string; name: string | null; make: string | null; model: string | null; current_mileage: number | null }
 type PM    = { id: string; code: string; name: string }
@@ -42,7 +42,7 @@ export function FuelForm({
   return (
     <form action={formAction} className="space-y-5">
       {state?.error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{state.error}</div>
+        <div className="rounded-lg border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-danger">{state.error}</div>
       )}
       <input type="hidden" name="oil_level" value={oilLevel ?? ''} />
       <input type="hidden" name="payment_method_code" value={pmCode} />
@@ -137,9 +137,8 @@ export function FuelForm({
               key={pm.code}
               type="button"
               onClick={() => setPmCode(pmCode === pm.code ? '' : pm.code)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-                pmCode === pm.code ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-700 border-gray-200 hover:border-gray-400'
-              }`}
+              data-on={pmCode === pm.code}
+              className="rp-chip font-mono"
               title={pm.name}
             >
               {pm.code}
@@ -154,7 +153,7 @@ export function FuelForm({
       </div>
 
       <Button type="submit" className="w-full" size="lg" disabled={isPending}>
-        {isPending ? 'Saving…' : '⛽ Submit Fuel Entry'}
+        {isPending ? 'Saving…' : 'Submit Fuel Entry'}
       </Button>
     </form>
   )

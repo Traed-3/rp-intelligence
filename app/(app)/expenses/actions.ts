@@ -118,7 +118,8 @@ export async function createExpense(_state: State, formData: FormData): Promise<
   }).catch(() => {})
 
   revalidatePath('/expenses')
-  redirect(locked ? '/expenses/new?sent=1' : `/expenses/${expense.id}`)
+  // Techs (and anyone who came in through Forms) land back on the form, ready for the next receipt.
+  redirect(locked || formData.get('from') === 'forms' ? '/expenses/new?sent=1&from=forms' : `/expenses/${expense.id}`)
 }
 
 // ── Create fuel entry ─────────────────────────────────────────────────────────
