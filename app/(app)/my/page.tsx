@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { canReadConstruction, canWriteConstruction } from '@/lib/construction'
 import { canAssignPlate } from '@/lib/role-access'
-import { SimplePlate, platePeople } from './simple-plate'
+import { SimplePlate, ClockButton, platePeople } from './simple-plate'
 import { buildPlate, buildSignals, businessDaysSince, dueDelta, isYesNo, firstName, KIND_CLASS, KIND_LABEL, PLATE_PARTNERS, type TaskRow, type TaskKind } from '@/lib/my-plate'
 import { packingSlipSiteKey } from '@/lib/construction-dashboard'
 import { addTask, completeTask, completeTasks, dropTask, reopenTask, setDue, setPriority, snoozeTask, waitTask, answerTask, resolvePriceLine, draftOrderEmail, markOrderSent, assignTask, saveNote, takeFromPartner, completePartnerTask } from './actions'
@@ -134,6 +134,8 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
           <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{plate.doneToday.length}</b> done today</span>
         </div>
       </header>
+
+      <ClockButton profileId={profile.id} />
 
       {partner && <PlateSwitch partner={partner} count={partnerLive} mine />}
 
