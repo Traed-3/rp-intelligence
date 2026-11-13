@@ -12,6 +12,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { noAccountingOrHr } from '@/lib/role-access'
+import { safeReceiptUrl } from '@/lib/receipt-url'
 
 /** Who may tick receipts off against a bill. Everyone else who can open Expenses can still read the report. */
 export const RECEIPT_CHECK_ROLES: readonly string[] = ['owner', 'manager', 'office_staff', 'construction_manager', 'construction_admin']
@@ -139,7 +140,7 @@ type Raw = {
 function toRow(e: Raw): ReceiptRow {
   const email = (e.submitter_email || e.profiles?.email || '').toLowerCase() || null
   const who = e.submitter_name || e.profiles?.full_name || email || 'Unknown'
-  const url = e.receipt_url || null
+  const url = safeReceiptUrl(e.receipt_url)
   return {
     id: e.id,
     date: e.expense_date,

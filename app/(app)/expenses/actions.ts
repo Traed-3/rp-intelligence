@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { learnCardFromExpense, cleanLast4 } from '@/lib/receipt-scan'
 import { resolveSubmitter } from '@/lib/receipt-submitter'
+import { safeReceiptUrl } from '@/lib/receipt-url'
 
 type State = { error: string } | null
 
@@ -100,7 +101,7 @@ export async function createExpense(_state: State, formData: FormData): Promise<
     payment_method_code: pmCode?.toUpperCase() ?? null,
     // Linked shop ticket only applies to non-project expenses
     repair_ticket_id:    expenseType === 'project' ? null : str(formData.get('repair_ticket_id')),
-    receipt_url:         str(formData.get('receipt_url')),
+    receipt_url:         safeReceiptUrl(str(formData.get('receipt_url'))),
     notes:               str(formData.get('notes')),
     card_last4:          cardLast4,
     ai_extracted:        aiExtracted,
