@@ -10,6 +10,7 @@ import { linkConstructionJob } from '@/app/(app)/service/actions'
 import { loadConstructionLinks, woTokens } from '@/lib/svc-construction-link'
 import { CON_STAGE_LABEL, CON_DONE_STAGES } from '@/lib/con-stage'
 import { canWriteConstruction } from '@/lib/construction'
+import { TicketDocsCard, TICKET_DOC_COLUMNS, type TicketDocRow } from '@/components/svc/ticket-docs-card'
 
 function fmt(d: string | null): string {
   if (!d) return '—'
@@ -53,6 +54,10 @@ export default async function WorkOrderDetailPage({
     .filter((j: any) => String(j.site_number ?? '').replace(/\D/g, '').includes(siteDigits))
     .filter((j: any) => !woTokens(j.work_order_number).length)   // already tied to a different call
     .slice(0, 5)
+
+  // Every ticket emailed in for this call (forwarded copies left out), newest first.
+  const { data: ticketDocs } = await admin.from('svc_work_order_documents').select(TICKET_DOC_COLUMNS)
+    .eq('company_id', profile!.company_id).eq('work_order_id', id).is('duplicate_of', null).order('received_at', { ascending: false })
 
   const tech = (w as any).svc_technicians as { full_name: string; personal_email: string | null } | null
 
@@ -163,6 +168,8 @@ export default async function WorkOrderDetailPage({
           <p className="text-sm text-gray-400">No technician matched yet — the confirmation email's sender didn't match anyone in the roster.</p>
         )}
       </div>
+
+      <TicketDocsCard docs={(ticketDocs ?? []) as unknown as TicketDocRow[]} className="mb-5" />
 
       {w.completion_note_raw && (
         <div className="rp-card p-5 mb-5">

@@ -42,6 +42,7 @@ export default async function WorkOrderDocInboxPage({ searchParams }: { searchPa
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
           Photos/scans techs forward into rpinvoicing — confirm the manager's signature and type up the ticket before it heads to invoicing.
+          {' '}<Link href="/service/tickets/log" className="text-blue-600 hover:text-blue-800">Search all tickets →</Link>
         </p>
       </div>
 
