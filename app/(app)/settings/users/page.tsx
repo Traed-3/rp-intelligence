@@ -28,7 +28,12 @@ export default async function UsersSettingsPage() {
     .eq('company_id', profile!.company_id)
     .order('is_active', { ascending: false })   // active people first, inactive at the bottom
     .order('full_name')
+  // Who has ever signed in (Supabase Auth keeps the last sign-in time). Never signed in = "Not active".
+  const { data: authList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  const lastSignIn = new Map((authList?.users ?? []).map(a => [a.id, a.last_sign_in_at ?? null]))
+  const stateOf = (u: { id: string; is_active: boolean }) => (!u.is_active ? 'disabled' : lastSignIn.get(u.id) ? 'active' : 'never') as 'disabled' | 'never' | 'active'
   const inactiveCount = (users ?? []).filter(u => !u.is_active).length
+  const neverCount = (users ?? []).filter(u => stateOf(u) === 'never').length
 
   const { data: allBlocks } = await admin
     .from('profile_module_blocks')
@@ -64,7 +69,10 @@ export default async function UsersSettingsPage() {
         </ol>
       </div>
 
-      <p className="mb-2 text-xs text-gray-500">{(users ?? []).length - inactiveCount} active · {inactiveCount} inactive (shown at the bottom, struck through){profile!.role === 'owner' ? '. Remove deletes a login for good.' : ''}</p>
+      <p className="mb-2 text-xs text-gray-500">
+        <span className="inline-block w-2.5 h-2.5 rounded-sm bg-green-200 border border-green-300 align-middle mr-1" />{(users ?? []).length - inactiveCount - neverCount} active and signed in
+        <span className="inline-block w-2.5 h-2.5 rounded-sm bg-red-200 border border-red-300 align-middle ml-3 mr-1" />{neverCount} not active (never signed in) · {inactiveCount} disabled{profile!.role === 'owner' ? '. Remove deletes a login for good.' : ''}
+      </p>
       <div className="rp-card overflow-hidden">
         <table className="rp-table w-full text-sm">
           <thead>
@@ -81,6 +89,8 @@ export default async function UsersSettingsPage() {
           <tbody className="divide-y divide-gray-50">
             {(users ?? []).map(u => {
               const isSelf = u.id === profile!.id
+              const state = stateOf(u)   // green row = active and has signed in; red row = not active yet, or disabled
+              const seen = lastSignIn.get(u.id)
               const lockedOwner = !canManageUser(profile!.role, u.role)   // a manager can see an owner but not change them
               async function handleRoleChange(newRole: string) {
                 'use server'
@@ -95,11 +105,12 @@ export default async function UsersSettingsPage() {
                 await updateDefaultLandingPage(u.id, page)
               }
               return (
-                <tr key={u.id} className={u.is_active ? 'hover:bg-gray-50' : 'bg-gray-50/70'}>
+                <tr key={u.id} className={state === 'active' ? 'bg-green-50 dark:bg-green-950/30' : 'bg-red-50 dark:bg-red-950/30'}>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`font-medium ${u.is_active ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{u.full_name}</span>
-                      {!u.is_active && <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-red-200 bg-red-50 text-red-700">Inactive · cannot sign in</span>}
+                      {state === 'disabled' && <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-red-300 bg-red-100 text-red-800">Disabled · cannot sign in</span>}
+                      {state === 'never' && <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-red-300 bg-red-100 text-red-800">Not active · has not signed in</span>}
                       {u.is_active && (u as any).must_change_password && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-800" title="Has a temporary password and has not chosen their own yet">Temporary password</span>}{(u as any).job_title && <span className="ml-2 text-xs text-gray-400">{(u as any).job_title}</span>}
                       {isSelf && <span className="text-xs text-gray-400">(you)</span>}
                       {!lockedOwner && <EditUserButton user={{ id: u.id, full_name: u.full_name, email: u.email, phone: (u as any).phone ?? null, job_title: (u as any).job_title ?? null }} />}
@@ -108,7 +119,7 @@ export default async function UsersSettingsPage() {
                         <SetPasswordButton userId={u.id} fullName={u.full_name} email={u.email} />
                       )}
                     </div>
-                    {(u as any).phone && <p className="text-xs text-gray-400 mt-0.5">{(u as any).phone}</p>}
+                    <p className="text-xs text-gray-500 mt-0.5">{(u as any).phone || 'no phone'}{seen ? ` · last signed in ${new Date(seen).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</p>
                   </td>
                   <td className="px-4 py-3 text-gray-500 hidden sm:table-cell text-xs">{u.email}</td>
                   <td className="px-4 py-3">
@@ -133,10 +144,10 @@ export default async function UsersSettingsPage() {
                   </td>
                   <td className="px-4 py-3">
                     {isSelf || lockedOwner ? (
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${u.is_active ? 'text-green-700 bg-green-50 border-green-200' : 'text-gray-500 bg-gray-100 border-gray-200'}`}>{u.is_active ? 'Active' : 'Inactive'}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${state === 'active' ? 'text-green-800 bg-green-100 border-green-300' : 'text-red-800 bg-red-100 border-red-300'}`}>{state === 'active' ? 'Active' : state === 'never' ? 'Not active' : 'Disabled'}</span>
                     ) : (
 <form action={handleToggleActive} className="flex flex-col items-start gap-1">
-                        <span className={`text-xs px-2 py-0.5 rounded-full border ${u.is_active ? 'text-green-700 bg-green-50 border-green-200' : 'text-red-700 bg-red-50 border-red-200'}`}>{u.is_active ? 'Active' : 'Inactive'}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${state === 'active' ? 'text-green-800 bg-green-100 border-green-300' : 'text-red-800 bg-red-100 border-red-300'}`}>{state === 'active' ? 'Active' : state === 'never' ? 'Not active' : 'Disabled'}</span>
                         <button
                           type="submit"
                           title={u.is_active ? 'Signs them out and blocks sign-in' : 'Lets them sign in again'}
