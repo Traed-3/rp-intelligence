@@ -135,8 +135,8 @@ LOGIN, SETTINGS AND FORMS (Trae, 2026-11-13):
 - Settings (ALL of /settings, Personalize and Alerts included) = SETTINGS_ROLES in lib/role-access.ts:
   owner, manager, construction_manager, construction_admin. Everyone else is redirected home.
 - Forms section: /forms (menu "Forms") is the hub for field forms. Tiles: ICON Boot Surveys (/construction/surveys),
-  Hydrostatic Test Report and Spill Bucket & Overfill Tests (/construction/surveys/tests), Accident Report
-  (/forms/accident); Site Surveys and Pre-Trip Inspection are placeholders ("Coming soon"). Open to service_tech + construction_tech
+  Hydrostatic Test Report and Spill Bucket & Overfill Tests (/construction/surveys/tests), Pre-Trip Inspection
+  (/forms/pre-trip), Accident Report (/forms/accident); Site Surveys is a placeholder ("Coming soon"). Open to service_tech + construction_tech
   (SURVEY_TECH_ROLES) and the construction roles; not mechanics or shop employees. A Construction module block does
   not take Forms away. New forms: add the page, then a tile in app/(app)/forms/page.tsx.
 
@@ -464,6 +464,24 @@ auto-filled ones carry a violet "auto" tag (hover = why) that drops off when edi
 
 ---
 
+## PRE-TRIP INSPECTION FORM (added 2026-11-13)
+
+Forms -> Pre-Trip Inspection: the paper "Rappahannock Petroleum Vehicle / Trailer Pre trip inspection (Non CDL)" sheets
+(docs/reference/Vehicle_Pre_trip_inspection_Non_CDL.pdf), filled on the phone.
+- Routes `/forms/pre-trip` (list + New vehicle / New trailer) and `/forms/pre-trip/[id]` (the sheet). Same
+  `requireFieldSurveys` guard as the rest of Forms; techs see their own, construction office roles see everyone's.
+- Checklists (25 vehicle lines, 16 trailer lines) and finish rules live in lib/pretrip.ts. Each line is OK / Remark / N/A.
+  Finish needs the number, date, checked-by, every line marked, and Remarks text when any line is marked Remark.
+- Table `pretrip_inspections` (migration supabase/migrations/pretrip_inspections.sql): kind vehicle|trailer, unit_number
+  (asset_id set when it matches assets.unit_number), equipment (trailer), results jsonb {line key: ok|remark|na},
+  remarks, signature PNG data URL (optional), status draft|complete, emailed_to/at.
+- PDF: lib/pretrip-pdf.tsx prints the paper layout (yellow number bar, OK / Remark / N/A boxes, Remarks, Date / Checked by).
+  GET /forms/pre-trip/[id]/pdf draws it live from the row (`?download=1` to save). Nothing is stored in a bucket.
+- Email: the finished screen has an "Email PDF" box (`emailInspection`, Resend). No default address; nothing sends
+  unless someone types one.
+
+---
+
 ## ACCIDENT REPORT FORM (added 2026-11-13)
 
 Forms -> Accident Report: replaces the Smartsheet "RPS Work Vehicle Accident Report" form (sheet 6208378130196356, last
@@ -475,7 +493,7 @@ used Aug 2024). Same questions, plus injuries, witnesses, the other driver's pho
   question key is a column on `accident_reports`. To add a question: add the column, then the entry in that list.
 - Submit needs every required answer (follow-ups only when their Yes/No is Yes) and the employee signature. Answering
   No clears what was typed under it. A submitted report can only be reopened by the construction office roles.
-- Table `accident_reports` (migration supabase/migrations/accident_reports.sql): service-role only (RLS on, no policies)
+- Table `accident_reports` (migration supabase/migrations/accident_reports.sql, APPLIED 2026-11-13 via Supabase MCP): service-role only (RLS on, no policies)
   because it holds other drivers' license and insurance numbers. `photos` jsonb lists files in the private
   `construction-docs` bucket under <company>/accident-reports/<id>/ (shrunk in the browser, re-encoded to JPEG with EXIF
   stripped on the server, max 24). Thumbnails: GET /forms/accident/[id]/photo/[n] (signed redirect).

@@ -13,8 +13,8 @@ const TILES: Tile[] = [
   { href: '/construction/surveys/tests', icon: Droplets, title: 'Hydrostatic Test Report', body: 'Sump and UDC integrity tests on the state form: Maryland MDE, Virginia DEQ, West Virginia DEP.' },
   { href: '/construction/surveys/tests', icon: ShieldCheck, title: 'Spill Bucket & Overfill Tests', body: 'Spill bucket and Stage I bucket tests on the same state forms. Finish makes the PDF and emails it.' },
   { icon: ClipboardList, title: 'Site Surveys', body: 'Spill bucket and tank top site surveys.' },
-  { icon: Truck, title: 'Pre-Trip Inspection', body: 'Daily truck and trailer walk-around.' },
-  { href: '/forms/accident', icon: TriangleAlert, title: 'Accident Report', body: 'Work vehicle accident: what happened, other driver, police, photos. Makes a PDF.' },
+  { href: '/forms/pre-trip', icon: Truck, title: 'Pre-Trip Inspection', body: 'Daily truck and trailer walk-around. Mark each line OK, Remark or N/A; finish makes the PDF.' },
+  { href: '/forms/accident', icon: TriangleAlert, title: 'Accident Report', body: 'Work vehicle accident: what happened, other driver, police, photos. Submitting emails the PDF to the office.' },
 ]
 
 export default async function FormsPage() {
