@@ -255,6 +255,31 @@ export const SECTIONS: Section[] = [
  *  locked-down survey-only role (it is held to /construction/surveys), and not a role the lockdown keeps out of /forms. */
 export const SITE_SURVEY_PATH = '/forms/site-survey'
 
+/** A site found in Construction's site list, in the shape the form fills in. */
+export type SiteHit = { site_number: string; site_name: string | null; address: string | null }
+type SiteRecord = { site_number: string | null; store_brand: string | null; address: string | null; city: string | null; state: string | null; zip: string | null; customer_id?: string | null }
+const tidy = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, ' ').replace(/[\s,]+$/, '').trim()
+/** "1613 DIXON STREET" -> "1613 Dixon Street": the site list is half shouting; leave anything already in mixed case alone. */
+const unshout = (v: string) => (/[a-z]/.test(v) ? v : v.toLowerCase().replace(/(^|[\s\-/(.])([a-z])/g, (_, a, b) => a + b.toUpperCase()).replace(/\b(Us|Rt|Nw|Ne|Sw|Se)\b/g, m => m.toUpperCase()))
+export function siteAddress(r: Pick<SiteRecord, 'address' | 'city' | 'state' | 'zip'>): string | null {
+  const street = unshout(tidy(r.address)), city = unshout(tidy(r.city))
+  return [street, city, [tidy(r.state).toUpperCase(), tidy(r.zip)].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null
+}
+/** One hit per site number (the list has a few doubles: keep the one tied to a customer), exact number match first. */
+export function siteHits(rows: SiteRecord[], q: string): SiteHit[] {
+  const want = q.trim().toLowerCase()
+  const by = new Map<string, SiteRecord>()
+  for (const r of rows) {
+    const k = (r.site_number ?? '').trim().toLowerCase()
+    if (!k) continue
+    const have = by.get(k)
+    if (!have || (!have.customer_id && r.customer_id) || (!tidy(have.address) && tidy(r.address))) by.set(k, r)
+  }
+  const rank = (n: string) => (n === want ? 0 : n.startsWith(want) ? 1 : 2)
+  return [...by.values()].map(r => ({ site_number: r.site_number!.trim(), site_name: tidy(r.store_brand) || null, address: siteAddress(r) }))
+    .sort((a, b) => rank(a.site_number.toLowerCase()) - rank(b.site_number.toLowerCase()) || a.site_number.localeCompare(b.site_number, undefined, { numeric: true }))
+}
+
 export const sectionByKey = (k: string) => SECTIONS.find(s => s.key === k)
 
 /** An answer the form does not have a box for: the tech types the label and the answer. */

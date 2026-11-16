@@ -3,9 +3,10 @@
 import { useActionState, useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { Camera, ChevronDown, Copy, Plus, Trash2 } from 'lucide-react'
 import {
-  type Section, type Field, type Item, type Extra, type Row, penRef, type SurveyData, type SurveyPhoto, type SiteSurveyRow,
+  type SiteHit, type Section, type Field, type Item, type Extra, type Row, penRef, type SurveyData, type SurveyPhoto, type SiteSurveyRow,
   SECTIONS, blankItem, blankData, itemFilled, itemName, photoRef, newId,
 } from '@/lib/site-survey'
+import { SitePicker } from '@/components/forms/site-picker'
 import type { SaveResult, PhotoResult, FinishResult, EmailResult } from '@/app/(app)/forms/site-survey/actions'
 
 const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-card disabled:bg-gray-50 disabled:text-gray-600'
@@ -20,6 +21,7 @@ export type SurveyActions = {
   updatePhoto: (photoId: string, caption: string) => Promise<PhotoResult>
   removePhoto: (photoId: string) => Promise<PhotoResult>
   finish: () => Promise<FinishResult>
+  findSites: (q: string) => Promise<SiteHit[]>
 }
 
 /** Phone photos are shrunk before they upload so a sump full of pictures goes up on one bar of signal. */
@@ -222,6 +224,18 @@ export function SiteSurveyForm({ row, locked, actions }: { row: SiteSurveyRow; l
   }, [saveState])
 
   const setHead = (k: keyof Header, v: string) => { setHeader(h => ({ ...h, [k]: v })); dirty() }
+  // What the site lookup last filled in. Typing a valid number fills the brand and address on its own, but never over
+  // something the tech typed: a box is only replaced when it is empty or still holds what the lookup put there.
+  const filled = useRef<{ site_name: string; address: string }>({ site_name: '', address: '' })
+  const fillSite = (h: SiteHit, picked: boolean) => {
+    setHeader(cur => {
+      const mine = (k: 'site_name' | 'address') => picked || !cur[k].trim() || cur[k] === filled.current[k]
+      const next = { ...cur, site_number: picked ? h.site_number : cur.site_number, site_name: mine('site_name') && h.site_name ? h.site_name : cur.site_name, address: mine('address') && h.address ? h.address : cur.address }
+      filled.current = { site_name: h.site_name ?? '', address: h.address ?? '' }
+      return next
+    })
+    dirty()
+  }
   const setOne = (sk: string, k: string, v: string) => { setData(d => ({ ...d, one: { ...d.one, [sk]: { ...(d.one[sk] ?? {}), [k]: v } } })); dirty() }
   const setExtra = (sk: string, list: Extra[]) => { setData(d => ({ ...d, extra: { ...d.extra, [sk]: list } })); dirty() }
   const setList = (sk: string, fn: (items: Item[]) => Item[]) => { setData(d => ({ ...d, lists: { ...d.lists, [sk]: fn(d.lists[sk] ?? []) } })); dirty() }
@@ -241,7 +255,10 @@ export function SiteSurveyForm({ row, locked, actions }: { row: SiteSurveyRow; l
   return (
     <div className="space-y-4">
       <div className="rp-card p-4 grid grid-cols-2 sm:grid-cols-3 gap-3 bg-amber-50/60">
-        <div><label className={lbl}>Site #</label><input value={header.site_number} disabled={locked} onChange={e => setHead('site_number', e.target.value)} placeholder="40017, SU-13400" className={inp} /></div>
+        <div>
+          <label className={lbl}>Site # (or search by street, city, brand)</label>
+          <SitePicker value={header.site_number} disabled={locked} onChange={v => setHead('site_number', v)} onPick={h => fillSite(h, true)} onExact={h => fillSite(h, false)} search={actions.findSites} placeholder="40017, SU-13400" className={inp} />
+        </div>
         <div><label className={lbl}>Brand / name</label><input value={header.site_name} disabled={locked} onChange={e => setHead('site_name', e.target.value)} placeholder="7-Eleven" className={inp} /></div>
         <div><label className={lbl}>Survey date</label><input type="date" value={header.survey_date} disabled={locked} onChange={e => setHead('survey_date', e.target.value)} className={inp} /></div>
         <div className="col-span-2 sm:col-span-3"><label className={lbl}>Address</label><input value={header.address} disabled={locked} onChange={e => setHead('address', e.target.value)} placeholder="8601 Patterson Ave, Richmond, VA 23229" className={inp} /></div>

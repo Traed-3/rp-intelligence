@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { ClipboardList } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireFieldSurveys } from '@/lib/construction-guard'
 import { type SiteSurveyRow, surveyTitle, surveyCounts, fmtDate } from '@/lib/site-survey'
-import { createSurvey } from './actions'
+import { StartSurvey } from '@/components/forms/site-picker'
+import { createSurvey, findSites } from './actions'
 
 export const dynamic = 'force-dynamic'
 const STATUS: Record<string, string> = { draft: 'rp-stage rp-stage-needs-scheduled', complete: 'rp-stage rp-stage-complete' }
@@ -26,14 +26,7 @@ export default async function SiteSurveyListPage() {
         <Link href="/forms" className="text-sm text-gray-500 hover:text-gray-700">← Forms</Link>
       </div>
 
-      <form action={createSurvey} className="rp-card p-4 mb-5 flex flex-wrap items-end gap-3">
-        <span className="rounded-lg p-2 bg-primary/10 text-primary"><ClipboardList className="w-5 h-5" /></span>
-        <div className="flex-1 min-w-[12rem]">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Site number (fills in the address when the site is in Construction)</label>
-          <input name="site_number" placeholder="40017, SU-13400" autoComplete="off" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-card" />
-        </div>
-        <button className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">Start a site survey</button>
-      </form>
+      <StartSurvey action={createSurvey} search={findSites} />
 
       <div className="rp-card overflow-hidden">
         <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide bg-foreground text-background">{profile.fullAccess ? 'Site surveys' : 'My site surveys'}</div>
