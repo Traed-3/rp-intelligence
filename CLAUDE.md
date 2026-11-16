@@ -619,6 +619,11 @@ Forms -> Site Surveys: one flexible survey that holds every kind of site survey 
   (Trae): lists in `STARTS_WITH_ONE` open with one blank card, the rest start empty; "Add another" and "Copy the last one".
   Every section and every list item also takes extra fields the form does not have (label + answer). Pick lists are
   datalists, so anything can be typed. To add a question: add it to the section's `fields`. No migration needed.
+- Site lookup (Trae, 11/16/26): the Site # box on the list page and on the form is a search (components/forms/site-picker.tsx
+  -> `findSites` action -> con_sites by number, street, city or brand; `siteHits` drops the doubled site numbers and
+  tidies the shouting addresses). A number that matches a site exactly fills brand and address with no tap; it never
+  replaces an address the tech typed (only a box that is empty or still holds what the lookup put there). Picking from
+  the list always fills. A number not in the list is kept as typed.
 - Penetrations (Trae, 11/16/26: one "electrical purpose" box is no good with several conduits): STP sump, UDC and other-sump
   cards carry a `rows` field `pens`, one line per pipe or conduit (kind Product / Vapor-vent / Conduit, size, what it
   carries, make, fitting, studs, condition, notes), numbered P1, V1, C1, C2 like ICON's sheet (`penRef`). Stored on the
