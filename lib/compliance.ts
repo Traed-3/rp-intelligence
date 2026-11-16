@@ -128,9 +128,19 @@ export type ComplianceSettings = {
   access_profile_ids: string[]
 }
 
+export const ON_DUTY_TYPE_NAME = 'Drivers Statement of On-Duty Hours'
+export const ON_DUTY_KEEP_MONTHS = 6
+
 /** Does this requirement belong in this employee's file even if nobody added it by hand? */
-export function isRequiredFor(t: Pick<RequirementType, 'applies_to' | 'departments' | 'is_active'>, e: Pick<Employee, 'is_dot_driver' | 'is_cdl' | 'department'>): boolean {
+export function isRequiredFor(
+  t: Pick<RequirementType, 'applies_to' | 'departments' | 'is_active' | 'name'>,
+  e: Pick<Employee, 'is_dot_driver' | 'is_cdl' | 'department' | 'hire_date'>,
+  today = todayET(),
+): boolean {
   if (!t.is_active) return false
+  // The 7-day on-duty statement is taken at hire and only has to be kept 6 months, so it is required for a
+  // DOT driver hired in the last 6 months and drops back to optional after that (Trae, 11/16/26).
+  if (t.name === ON_DUTY_TYPE_NAME) return e.is_dot_driver && !!e.hire_date && e.hire_date <= today && addMonthsISO(e.hire_date, ON_DUTY_KEEP_MONTHS) >= today
   if (t.applies_to === 'dot') return e.is_dot_driver
   if (t.applies_to === 'cdl') return e.is_dot_driver && e.is_cdl
   if (t.applies_to === 'all') return !t.departments?.length || t.departments.includes(e.department)

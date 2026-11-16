@@ -49,7 +49,7 @@ export function buildFiles(employees: Employee[], types: RequirementType[], item
     const rows: Row[] = []
     for (const type of types) {
       const item = mine.get(type.id) ?? null
-      const required = isRequiredFor(type, employee)
+      const required = isRequiredFor(type, employee, today)
       if (!required && !item) continue
       const soon = Math.max(0, ...noticeDaysFor(type, settings))
       const { health, exp, daysLeft } = itemHealth(item, type, soon, today)
