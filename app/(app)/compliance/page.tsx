@@ -5,7 +5,7 @@ import { loadFiles, type EmployeeFile, type Row } from '@/lib/compliance-data'
 import { departmentLabel, fmtDate } from '@/lib/compliance'
 import { ClickableRow } from '@/components/clickable-row'
 import { HealthChip } from '@/components/compliance/health-chip'
-import { ShieldCheck, Truck, BadgeCheck, Settings, Grid3x3, UserPlus, AlertTriangle, Clock, FileWarning, ClipboardCheck } from 'lucide-react'
+import { ShieldCheck, Truck, BadgeCheck, Settings, Grid3x3, UserPlus, AlertTriangle, Clock, FileWarning, ClipboardCheck, FileDown } from 'lucide-react'
 
 const VIEWS = [
   { value: '',        label: 'Everyone' },
@@ -100,6 +100,7 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/compliance/audit" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-sm font-semibold text-blue-700 hover:border-blue-400"><ClipboardCheck className="w-4 h-4" />DOT file audit</Link>
+          <Link href="/compliance/forms" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-card text-sm font-medium text-gray-700 hover:border-blue-300"><FileDown className="w-4 h-4" />Forms</Link>
           <Link href="/compliance/matrix" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-card text-sm font-medium text-gray-700 hover:border-blue-300"><Grid3x3 className="w-4 h-4" />Matrix</Link>
           <Link href="/compliance/settings" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-card text-sm font-medium text-gray-700 hover:border-blue-300"><Settings className="w-4 h-4" />Notices &amp; settings</Link>
           {me.canWrite && <Link href="/compliance/employees/new" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90"><UserPlus className="w-4 h-4" />Add employee</Link>}

@@ -78,6 +78,7 @@ export default async function DqfAuditPage({ searchParams }: { searchParams: Pro
           </p>
         </div>
         <div className="flex gap-2 print:hidden">
+          <Link href="/compliance/forms" className="px-3 py-2 rounded-lg border border-gray-200 bg-card text-sm font-medium text-gray-700 hover:border-blue-300">Blank forms</Link>
           <Link href={expandAll ? '/compliance/audit' : '/compliance/audit?all=1'} className="px-3 py-2 rounded-lg border border-gray-200 bg-card text-sm font-medium text-gray-700 hover:border-blue-300">{expandAll ? 'Collapse' : 'Expand all'}</Link>
         </div>
       </div>

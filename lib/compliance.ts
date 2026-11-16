@@ -92,6 +92,11 @@ export type Employee = {
   termination_date: string | null
   notify_employee: boolean
   notes: string | null
+  // No DOT-regulated employer in the 3 years before hire: a note in the file takes the place of the
+  // previous-employer safety history (49 CFR 391.23(a)(2)).
+  no_prior_dot_employer: boolean
+  no_prior_dot_noted_at: string | null
+  no_prior_dot_noted_by: string | null
 }
 
 export type EmployeeItem = {

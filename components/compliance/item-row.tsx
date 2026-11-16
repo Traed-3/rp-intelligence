@@ -3,15 +3,16 @@
 import { useActionState, useRef, useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { HR_BUCKET, ITEM_STATUSES, fmtDate, type EmployeeItem, type Health, type RequirementType } from '@/lib/compliance'
-import { saveItem, prepareUpload, attachDocument, removeItem, type ActionState } from '@/app/(app)/compliance/actions'
+import { saveItem, prepareUpload, attachDocument, removeItem, setNoPriorDot, type ActionState } from '@/app/(app)/compliance/actions'
+import type { FormLink } from '@/lib/compliance-forms'
 import { HealthChip } from './health-chip'
-import { Paperclip, ChevronDown, ChevronUp, Upload, Trash2 } from 'lucide-react'
+import { Paperclip, ChevronDown, ChevronUp, Upload, Trash2, Download, StickyNote } from 'lucide-react'
 
 const inp = 'w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 const lbl = 'block text-[11px] font-medium text-gray-500 mb-0.5'
 
 export function ItemRow({
-  employeeId, type, item, health, exp, daysLeft, required, canWrite,
+  employeeId, type, item, health, exp, daysLeft, required, canWrite, forms = [], noPriorDot,
 }: {
   employeeId: string
   type: RequirementType
@@ -21,12 +22,22 @@ export function ItemRow({
   daysLeft: number | null
   required: boolean
   canWrite: boolean
+  /** Blank RP forms that belong to this item. */
+  forms?: FormLink[]
+  /** Only passed on the Safety Performance History item: the driver's "no previous DOT employer" check mark. */
+  noPriorDot?: { on: boolean; notedAt: string | null; notedBy: string | null }
 }) {
   const [open, setOpen] = useState(false)
   const [state, formAction, pending] = useActionState(saveItem, {} as ActionState)
   const [upMsg, setUpMsg] = useState<string | null>(null)
   const [uploading, startUpload] = useTransition()
   const fileRef = useRef<HTMLInputElement>(null)
+  const [npMsg, setNpMsg] = useState<string | null>(null)
+  const [npPending, startNp] = useTransition()
+  const toggleNoPrior = (on: boolean) => {
+    setNpMsg(null)
+    startNp(async () => { const res = await setNoPriorDot(employeeId, on); setNpMsg(res.error ?? res.message ?? null) })
+  }
 
   function upload(file: File) {
     setUpMsg(null)
@@ -53,6 +64,7 @@ export function ItemRow({
             {[type.issuer, type.regulation, item?.cert_number ? `#${item.cert_number}` : null, item?.issued_date ? `issued ${fmtDate(item.issued_date)}` : null].filter(Boolean).join(' · ')}
           </p>
         </div>
+        {noPriorDot?.on && <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-green-200 bg-green-50 text-[10px] font-semibold text-green-800 uppercase"><StickyNote className="w-3 h-3" /><span className="hidden lg:inline">No previous DOT employer - </span>note in file</span>}
         {item?.document_path && <Paperclip className="w-4 h-4 text-gray-400 shrink-0" />}
         <span className="text-xs text-gray-600 tabular-nums w-20 text-right shrink-0">{type.expires ? (exp ? fmtDate(exp) : '—') : ''}</span>
         <span className="w-32 shrink-0 flex justify-end"><HealthChip health={health} daysLeft={daysLeft} /></span>
@@ -62,6 +74,33 @@ export function ItemRow({
       {open && (
         <div className="px-4 pb-4 pt-1 bg-gray-50/60">
           {type.description && <p className="text-xs text-gray-500 mb-2">{type.description}</p>}
+          {noPriorDot && (
+            <div className={`mb-3 rounded-lg border px-3 py-2.5 ${noPriorDot.on ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50/60'}`}>
+              <label className="flex items-start gap-2.5 text-sm font-medium text-gray-900">
+                <input type="checkbox" className="w-4 h-4 mt-0.5" checked={noPriorDot.on} disabled={!canWrite || npPending} onChange={e => toggleNoPrior(e.target.checked)} />
+                <span>
+                  No previous DOT employer - this driver did not drive for a DOT-regulated employer in the 3 years before hire
+                  <span className="block text-xs font-normal text-gray-600 mt-0.5">
+                    DOT accepts a note in the file in place of the safety history. Ticking this writes the note, marks this item on file and flags the driver.
+                    {noPriorDot.on && noPriorDot.notedAt ? ` Noted ${fmtDate(noPriorDot.notedAt)}${noPriorDot.notedBy ? ` by ${noPriorDot.notedBy}` : ''}.` : ''}
+                  </span>
+                </span>
+              </label>
+              <div className="flex flex-wrap items-center gap-3 mt-1.5 pl-6">
+                {noPriorDot.on && <a href={`/api/compliance/forms/no-prior-dot-note?employee=${employeeId}`} target="_blank" className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:underline"><Download className="w-3.5 h-3.5" />Print the note for the paper file</a>}
+                {npPending && <span className="text-xs text-gray-500">Saving…</span>}
+                {npMsg && <span className="text-xs text-gray-700">{npMsg}</span>}
+              </div>
+            </div>
+          )}
+          {forms.filter(f => !f.generated).length > 0 && (
+            <p className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              <span className="font-medium text-gray-500">Blank form:</span>
+              {forms.filter(f => !f.generated).map(f => (
+                <a key={f.slug} href={`/api/compliance/forms/${f.slug}?download=1`} className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:underline"><Download className="w-3.5 h-3.5" />{f.title}</a>
+              ))}
+            </p>
+          )}
           <form action={formAction} className="grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
             <input type="hidden" name="employee_id" value={employeeId} />
             <input type="hidden" name="type_id" value={type.id} />

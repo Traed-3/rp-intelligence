@@ -6,6 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { complianceCaller } from '@/lib/compliance-guard'
 import { DEPARTMENTS, HR_BUCKET, parseDaysList, parseEmailList } from '@/lib/compliance'
 import { runComplianceCheck, sendTestEmail, type CheckResult } from '@/lib/compliance-notices'
+import { SPH_TYPE_NAME, isNoPriorDotNote, noPriorDotNote } from '@/lib/compliance-forms'
+import { todayET } from '@/lib/compliance'
 
 export type ActionState = { ok?: boolean; error?: string; message?: string }
 
@@ -114,6 +116,51 @@ export async function saveItem(_prev: ActionState, fd: FormData): Promise<Action
   revalidatePath(`/compliance/employees/${employeeId}`)
   revalidatePath('/compliance')
   return { ok: true, message: renewed ? 'Renewed — the old dates were kept in history.' : 'Saved.' }
+}
+
+/**
+ * "No previous DOT employer" check mark on a driver's file (49 CFR 391.23(a)(2): if the driver had no DOT-regulated
+ * employer in the 3 years before hire, a note in the file takes the place of the safety history).
+ * On: flags the driver and marks the Safety Performance History item on file with the note.
+ * Off: removes the flag, and puts the item back to missing if all it held was that note.
+ */
+export async function setNoPriorDot(employeeId: string, on: boolean): Promise<ActionState> {
+  const me = await complianceCaller(true)
+  if (!me) return { error: 'You do not have permission to edit records here.' }
+  const admin = createAdminClient()
+  const { data: type } = await admin.from('hr_requirement_types').select('id').eq('company_id', me.company_id).eq('name', SPH_TYPE_NAME).maybeSingle()
+  if (!type) return { error: `The "${SPH_TYPE_NAME}" requirement is not set up.` }
+  const item = await ensureItem(admin, me.company_id, employeeId, type.id)
+  if (!item) return { error: 'Not found.' }
+
+  if (on) {
+    const { data: prof } = await admin.from('profiles').select('full_name').eq('id', me.id).maybeSingle()
+    const by = (prof?.full_name as string | null) ?? null
+    const today = todayET()
+    const { error } = await admin.from('hr_employees')
+      .update({ no_prior_dot_employer: true, no_prior_dot_noted_at: today, no_prior_dot_noted_by: by })
+      .eq('id', employeeId).eq('company_id', me.company_id)
+    if (error) return { error: error.message }
+    const note = noPriorDotNote(by, today)
+    const keep = item.notes && !isNoPriorDotNote(item.notes) ? ` ${item.notes}` : ''
+    await admin.from('hr_employee_items').update({
+      status: 'on_file', issued_date: item.issued_date ?? today, notes: `${note}${keep}`.slice(0, 1000),
+      verified_by: me.id, verified_at: new Date().toISOString(),
+    }).eq('id', item.id)
+  } else {
+    const { error } = await admin.from('hr_employees')
+      .update({ no_prior_dot_employer: false, no_prior_dot_noted_at: null, no_prior_dot_noted_by: null })
+      .eq('id', employeeId).eq('company_id', me.company_id)
+    if (error) return { error: error.message }
+    // Only undo what the check mark did: an item with a real document or its own notes is left alone.
+    if (isNoPriorDotNote(item.notes) && !item.document_path) {
+      await admin.from('hr_employee_items').update({ status: 'missing', issued_date: null, notes: null, verified_by: null, verified_at: null }).eq('id', item.id)
+    }
+  }
+  revalidatePath(`/compliance/employees/${employeeId}`)
+  revalidatePath('/compliance')
+  revalidatePath('/compliance/audit')
+  return { ok: true, message: on ? 'Noted - no previous DOT employer. The safety history item is covered.' : 'Check mark removed.' }
 }
 
 /** Put an optional requirement (e.g. a manufacturer cert) on someone's file. */
