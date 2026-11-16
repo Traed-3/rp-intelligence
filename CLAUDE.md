@@ -136,7 +136,7 @@ LOGIN, SETTINGS AND FORMS (Trae, 2026-11-13):
   owner, manager, construction_manager, construction_admin. Everyone else is redirected home.
 - Forms section: /forms (menu "Forms") is the hub for field forms. Tiles: ICON Boot Surveys (/construction/surveys),
   Hydrostatic Test Report and Spill Bucket & Overfill Tests (/construction/surveys/tests), Pre-Trip Inspection
-  (/forms/pre-trip), Accident Report (/forms/accident); Site Surveys is a placeholder ("Coming soon"). Open to service_tech + construction_tech
+  (/forms/pre-trip), Accident Report (/forms/accident), Site Surveys (/forms/site-survey). Open to service_tech + construction_tech
   (SURVEY_TECH_ROLES) and the construction roles; not mechanics or shop employees. A Construction module block does
   not take Forms away. New forms: add the page, then a tile in app/(app)/forms/page.tsx.
 
@@ -602,3 +602,37 @@ ticket email; scans in the private `svc-work-order-docs` bucket).
 - Card audit is now **Card & Account Audit** (Trae, 2026-11-13: "same thing, should cover any account"). `/expenses/cards`
   takes any code from Settings → Payment methods, cards and vendor accounts alike (codes with `&` such as J&J included);
   the picker shows two rows, Cards and Accounts (an account = a payment method whose name ends "(account)").
+
+---
+
+## SITE SURVEY FORM (added 2026-11-16)
+
+Forms -> Site Surveys: one flexible survey that holds every kind of site survey RPS has on file. Built from the 74 unique
+"site survey" documents in Dropbox: 7-Eleven "Facility Site Survey - Gasoline Project" (REV 11-23-09), the 7-11 / CSI
+"Petroleum Survey - Existing Site", Source / ICON sump worksheets and boot surveys, emailed free-form surveys, site drawings.
+- Routes `/forms/site-survey` (list + start by site number, which fills brand and address from con_sites) and
+  `/forms/site-survey/[id]`. Same `requireFieldSurveys` guard as the rest of Forms; techs see their own, construction
+  office roles see all. The actions and file routes also check the role themselves (`SITE_SURVEY_PATH` + `roleMayVisit`).
+- ONE catalog drives the form, the save and the PDF: `SECTIONS` in lib/site-survey.ts. A section is either plain (one set
+  of answers) or a LIST (`list: { noun, nameFrom }`): tanks, STP sumps, vent / transition / other sumps, buckets, manholes,
+  product lines, dispensers, UDCs, extinguishers, E-stops, items of concern, custom sections. NOTHING has a fixed count
+  (Trae): lists in `STARTS_WITH_ONE` open with one blank card, the rest start empty; "Add another" and "Copy the last one".
+  Every section and every list item also takes extra fields the form does not have (label + answer). Pick lists are
+  datalists, so anything can be typed. To add a question: add it to the section's `fields`. No migration needed.
+- Table `site_surveys` (migration supabase/migrations/site_surveys.sql, APPLIED 2026-11-16 via Supabase MCP), service-role
+  only. `data` jsonb = { one, lists, extra }, `plan` jsonb = the site plan, `photos` jsonb = [{id, path, ref, caption}] in
+  `construction-docs/<company>/site-surveys/<id>/` (ref = section key, or `section:itemId`). `cleanData` / `cleanPlan`
+  rebuild whatever the browser posts against the catalog. The form saves itself 2.5 s after typing stops.
+- Site plan (components/forms/site-plan-editor.tsx): shapes and lines on a 1000 x 1000 board. Three ways in:
+  (1) "Get the picture": lib/site-survey-aerial.ts geocodes the address (US Census, then OpenStreetMap) and fetches Esri
+  World Imagery by coordinates (no API key; Google imagery cannot be copied without a paid Maps key, so Google Earth is a
+  link-out). The geocoder lands on the street, so the first picture is wide (180 m) and "Center on the site" re-aims and
+  zooms to 90 m; drawn shapes stay on the same ground. "Scan the picture" (`scanAerial`, Claude vision, model
+  SITE_PLAN_SCAN_MODEL -> BILLING_EXTRACT_MODEL -> claude-sonnet-5, forced `record_site` tool) finds the store, canopy,
+  dispensers and tank pad; `buildFromScan` names dispensers from the survey and lays the survey's tanks inside the pad
+  (a pad that cannot be seen is parked bottom left as "Tank pad (move me)"). (2) "Draw from the survey": a standard layout
+  with no picture. (3) By hand: shapes, pipe / vapor / conduit / property lines, pen. With a picture, sizes read in feet.
+- PDF: lib/site-survey-pdf.tsx (answers, site plan, plan over the aerial, photos four to a page by section).
+  GET /forms/site-survey/[id]/pdf draws it live (`?download=1`). Email box on the finished screen; no default address.
+- Not done: the PDF is not filed on a job's Documents, and the scan was never run against a real picture before shipping
+  (no ANTHROPIC_API_KEY on the dev Mac); judge it on the first live survey and tune `SCAN_SYSTEM` if it places things badly.
