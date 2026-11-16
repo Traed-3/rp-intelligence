@@ -397,6 +397,7 @@ module key `compliance`; roles owner/manager/construction_manager — `lib/compl
   `complianceGranted` from the (app) layout). Edited in DQF → Notices & settings → "Who else can use DQF & Certs" (owners/managers).
   Peggy Wilmoth (role viewer) is on it.
 - 2026-11-16: blank RP-letterhead DOT forms + "no previous DOT employer" check mark.
+- 2026-11-16: "Drivers Statement of On-Duty Hours" is required for a DOT driver hired in the last 6 months, optional after (Trae; matches the 11/13/26 requirements sheet). The type stays `applies_to: optional`; the rule is by name in `isRequiredFor` (lib/compliance.ts, `ON_DUTY_TYPE_NAME` / `ON_DUTY_KEEP_MONTHS`). Do not rename that type without updating the constant.
   Forms: `/compliance/forms` (button "Forms" on the DQF home, "Blank forms" on a driver file and the audit) lists every form
   in the order of the requirements sheet (docs/dqf-forms/requirements.pdf); each DQF item in a driver's file shows its own
   blank form. Catalog = `DQF_FORMS` in lib/compliance-forms.ts (slug, title, download name, the requirement names it belongs
