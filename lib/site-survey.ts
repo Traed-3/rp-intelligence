@@ -15,8 +15,9 @@
  * PURE module: field catalog, data shape and helpers shared by the form, the site plan, the PDF and the server.
  */
 
-export type FieldType = 'text' | 'number' | 'yn' | 'select' | 'textarea' | 'date'
-export type Field = { key: string; label: string; type?: FieldType; options?: string[]; hint?: string; wide?: boolean }
+export type FieldType = 'text' | 'number' | 'yn' | 'select' | 'textarea' | 'date' | 'rows'
+/** `rows` = a table inside a card (one line per penetration): `columns` are its boxes, `rowNoun` names one line. */
+export type Field = { key: string; label: string; type?: FieldType; options?: string[]; hint?: string; wide?: boolean; columns?: Field[]; rowNoun?: string }
 export type Section = {
   key: string
   title: string
@@ -37,6 +38,32 @@ const f = (key: string, label: string, type: FieldType = 'text', extra: Partial<
 const yn = (key: string, label: string, hint?: string): Field => ({ key, label, type: 'yn', hint })
 const pick = (key: string, label: string, options: string[], hint?: string): Field => ({ key, label, type: 'select', options, hint })
 const note = (key = 'notes', label = 'Notes'): Field => ({ key, label, type: 'textarea', wide: true })
+
+/**
+ * Every pipe and conduit entering a sump gets its own line (Trae, 11/16/26: one "electrical purpose" box is no good when a
+ * sump has several conduits). Same idea as ICON's worksheet: P1, P2 ... product, V1 ... vapor / vent, C1, C2 ... conduit,
+ * each with its own size, what it carries, fitting and condition.
+ */
+export const PEN_KINDS: { value: string; letter: string }[] = [{ value: 'Product', letter: 'P' }, { value: 'Vapor / vent', letter: 'V' }, { value: 'Conduit', letter: 'C' }]
+const PENS: Field = {
+  key: 'pens', label: 'Penetrations: every pipe and conduit entering the sump', type: 'rows', rowNoun: 'penetration',
+  columns: [
+    pick('kind', 'What', PEN_KINDS.map(k => k.value)),
+    f('size', 'Size', 'text', { hint: '3/4", 1 1/2", 2"' }),
+    pick('carries', 'What it carries', ['Dispenser power', 'STP power', 'Sump sensor (ATG)', 'Intercom / speaker', 'Data / card reader', 'Spare (empty)', 'Unknown', 'RUL', 'MUL', 'PUL', 'DSL', 'Vapor return', 'Vent', 'Capped'], 'pwr, sensor, spare, RUL'),
+    f('pipe', 'Pipe / conduit make', 'text', { hint: 'Ameron FRP, Flexworks, rigid, PVC' }),
+    pick('fitting', 'Entry fitting', ['Studded (bolted)', 'Threaded nut', 'Test boot', 'None']),
+    f('studs', 'Studs / stud-to-stud', 'text', { hint: '8 stud, 2"' }),
+    pick('condition', 'Condition', ['Good', 'Fair', 'Poor', 'Leaking']),
+    f('notes', 'Notes', 'text', { hint: 'angled, in use, wire not in conduit' }),
+  ],
+}
+/** "P1", "C2": the line's kind letter and its count among lines of that kind, the way the photos and ICON refer to them. */
+export function penRef(rows: Record<string, string>[], i: number): string {
+  const kind = rows[i]?.kind ?? ''
+  const letter = PEN_KINDS.find(k => k.value === kind)?.letter ?? (kind ? kind.charAt(0).toUpperCase() : '#')
+  return `${letter}${rows.slice(0, i + 1).filter(r => (r.kind ?? '') === kind).length}`
+}
 
 export const SECTIONS: Section[] = [
   {
@@ -89,10 +116,8 @@ export const SECTIONS: Section[] = [
       f('depth', 'Depth to sump bottom from grade (in)'), f('width_top', 'Width at top (in)'), f('width_bottom', 'Width at bottom (in)'),
       f('manhole_id', 'Manhole opening ID (in)'), f('cover_to_riser', 'Manhole cover to top of sump riser (in)'), f('cover_to_top', 'Manhole cover to top of sump (in)'),
       f('opening_id', 'ID of sump opening (in)'), yn('manway', 'Tank manway present?'),
-      f('product_pens', 'Product line penetrations (number / size)', 'text', { hint: '1 - 3"' }), f('vapor_pens', 'Vapor / vent penetrations (number / size)'),
-      f('electrical_pens', 'Electrical penetrations (number / size)', 'text', { hint: '3 - 3/4"' }), f('electrical_purpose', 'Electrical purpose', 'text', { hint: 'pwr / VR / spare' }),
-      pick('boot_type', 'Entry fittings', ['Studded (bolted)', 'Threaded nut', 'Mixed', 'None']), f('studs', 'Studs and stud-to-stud', 'text', { hint: '8 stud, 2"' }),
-      f('pipe', 'Pipe make and OD'), f('sensor', 'Sump sensor make / model'), yn('dry', 'Sump dry?'), pick('condition', 'Sump condition', COND),
+      PENS,
+      f('sensor', 'Sump sensor make / model'), yn('dry', 'Sump dry?'), pick('condition', 'Sump condition', COND),
       yn('hydro_ok', 'Can it be hydro tested as it sits?'), note(),
     ],
   },
@@ -103,7 +128,7 @@ export const SECTIONS: Section[] = [
     fields: [
       pick('type', 'Type', ['Vent sump', 'Transition sump', 'Probe sump', 'Fill sump', 'Interstitial', 'Remote fill', 'Other']), f('label', 'Which one / where'),
       pick('material', 'Material', SUMP_MAT), f('depth', 'Depth from grade (in)'), f('size', 'Size (in)'),
-      f('product_pens', 'Product / vent penetrations (number / size)'), f('electrical_pens', 'Electrical penetrations (number / size)'),
+      PENS,
       f('sensor', 'Sensor make / model'), yn('dry', 'Dry?'), pick('condition', 'Condition', COND), note(),
     ],
   },
@@ -173,9 +198,7 @@ export const SECTIONS: Section[] = [
       f('number', 'Under dispenser', 'text', { hint: '1/2' }), yn('present', 'UDC present?'), f('manufacturer', 'Manufacturer', 'text', { hint: 'Bravo, OPW, Western' }),
       pick('material', 'Material', SUMP_MAT), pick('style', 'Style', ['Deep sump', 'Shallow pan']), pick('profile', 'Wall', ['Flat', 'Curved']),
       f('depth', 'Depth to bottom from grade (in)'), f('length', 'Length (in)'), f('width', 'Width (in)'),
-      f('product_pens', 'Product line penetrations (number / size)', 'text', { hint: '3 - 1 1/2"' }), f('vapor_pens', 'Vapor penetrations (number / size)'),
-      f('electrical_pens', 'Electrical penetrations (number / size)'), f('electrical_purpose', 'Electrical purpose'),
-      pick('boot_type', 'Entry fittings', ['Studded (bolted)', 'Threaded nut', 'Mixed', 'None']), f('studs', 'Studs and stud-to-stud'), pick('entry', 'Entry', ['Side', 'Bottom']),
+      PENS, pick('entry', 'Entry', ['Side', 'Bottom']),
       f('sensor', 'Sensor make / model'), yn('dry', 'Sump dry?'), pick('condition', 'Condition', ['Excellent', 'Fair', 'Poor']),
       f('bad_pipe_pens', 'Bad pipe penetrations'), f('bad_conduit_pens', 'Bad conduit penetrations'), yn('deflection', 'Any deflection?'), yn('cracks', 'Cracks or tears?'),
       yn('hydro_ok', 'Can it be hydro tested as it sits?'), f('anchor_bolts', 'Anchor bolts in the pad / island'), f('splash_lip', 'Splash lip / opening (L x W, in)'), note(),
@@ -236,7 +259,8 @@ export const sectionByKey = (k: string) => SECTIONS.find(s => s.key === k)
 
 /** An answer the form does not have a box for: the tech types the label and the answer. */
 export type Extra = { label: string; value: string }
-export type Item = { id: string; v: Record<string, string>; extra?: Extra[] }
+export type Row = Record<string, string>
+export type Item = { id: string; v: Record<string, string>; extra?: Extra[]; rows?: Record<string, Row[]> }
 /** Everything typed on the survey. `one` = plain sections, `lists` = list sections, `extra` = added fields on plain sections. */
 export type SurveyData = { one: Record<string, Record<string, string>>; lists: Record<string, Item[]>; extra: Record<string, Extra[]> }
 
@@ -266,12 +290,18 @@ export function cleanData(raw: unknown): SurveyData {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<SurveyData>
   const out: SurveyData = { one: {}, lists: {}, extra: {} }
   for (const s of SECTIONS) {
-    const keys = s.fields.map(x => x.key)
+    const keys = s.fields.filter(x => x.type !== 'rows').map(x => x.key)
+    const tables = s.fields.filter(x => x.type === 'rows')
     const vals = (src: unknown) => { const o: Record<string, string> = {}; for (const k of keys) { const v = clip((src as Record<string, string> | undefined)?.[k]); if (v) o[k] = v } return o }
     if (s.list) {
       out.lists[s.key] = (Array.isArray(r.lists?.[s.key]) ? r.lists![s.key] : []).slice(0, 80).map(it => {
         const item: Item = { id: clip(it?.id, 16) || newId(), v: vals(it?.v) }
         const ex = cleanExtra(it?.extra); if (ex.length) item.extra = ex
+        for (const t of tables) {
+          const cols = t.columns!.map(c => c.key)
+          const rows = (Array.isArray(it?.rows?.[t.key]) ? it.rows![t.key] : []).slice(0, 40).map(r => { const o: Row = {}; for (const c of cols) { const v = clip(r?.[c], 300); if (v) o[c] = v } return o }).filter(r => Object.keys(r).length)
+          if (rows.length) item.rows = { ...(item.rows ?? {}), [t.key]: rows }
+        }
         return item
       })
     } else {
@@ -282,7 +312,7 @@ export function cleanData(raw: unknown): SurveyData {
   return out
 }
 
-export const itemFilled = (it: Item) => Object.values(it.v).some(Boolean) || !!it.extra?.length
+export const itemFilled = (it: Item) => Object.values(it.v).some(Boolean) || !!it.extra?.length || Object.values(it.rows ?? {}).some(r => r.length)
 export function itemName(s: Section, it: Item, i: number): string {
   const parts = (s.list?.nameFrom ?? []).map(k => it.v[k]).filter(Boolean)
   const noun = s.list?.noun ?? 'item'

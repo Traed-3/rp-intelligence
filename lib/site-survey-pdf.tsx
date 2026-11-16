@@ -6,7 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Document, Page, Text, View, Image, Svg, Rect, Ellipse, Polyline, G, StyleSheet, Font, renderToBuffer } from '@react-pdf/renderer'
 import {
-  type SiteSurveyRow, type Section, type Item, type Extra, type SitePlan, type PlanShape, type SurveyPhoto,
+  type SiteSurveyRow, type Section, type Item, type Extra, type Row, penRef, type SitePlan, type PlanShape, type SurveyPhoto,
   SECTIONS, BOARD, itemFilled, itemName, photoRef, surveyTitle, surveyCounts, fmtDate, shapeDef, lineDef, feet, fmtFeet,
 } from '@/lib/site-survey'
 
@@ -30,6 +30,8 @@ const s = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: '33.33%', paddingVertical: 2.5, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
   wide: { width: '100%', paddingVertical: 2.5, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
+  th: { fontSize: 7, fontFamily: 'Helvetica-Bold', paddingVertical: 2, paddingHorizontal: 3 },
+  td: { fontSize: 8.5, paddingVertical: 2.5, paddingHorizontal: 3 },
   k: { fontSize: 7, color: '#6b7280' },
   v: { fontSize: 9.5 },
   foot: { position: 'absolute', bottom: 16, left: 34, right: 34, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7.5, color: '#6b7280' },
@@ -40,16 +42,39 @@ const s = StyleSheet.create({
 
 const yn = (v: string) => (v === 'yes' ? 'Yes' : v === 'no' ? 'No' : v)
 
-function Answers({ sec, v, extra }: { sec: Section; v: Record<string, string>; extra?: Extra[] }) {
-  const rows = sec.fields.filter(f => v[f.key]).map(f => ({ k: f.label, v: f.type === 'yn' ? yn(v[f.key]) : v[f.key], wide: f.wide || f.type === 'textarea' || v[f.key].length > 44 }))
-  for (const e of extra ?? []) rows.push({ k: e.label || 'Other', v: e.value, wide: e.value.length > 44 })
+function Answers({ sec, v, extra, rows }: { sec: Section; v: Record<string, string>; extra?: Extra[]; rows?: Record<string, Row[]> }) {
+  const cells = sec.fields.filter(f => f.type !== 'rows' && v[f.key]).map(f => ({ k: f.label, v: f.type === 'yn' ? yn(v[f.key]) : v[f.key], wide: f.wide || f.type === 'textarea' || v[f.key].length > 44 }))
+  for (const e of extra ?? []) cells.push({ k: e.label || 'Other', v: e.value, wide: e.value.length > 44 })
+  const tables = sec.fields.filter(f => f.type === 'rows' && rows?.[f.key]?.length)
   return (
-    <View style={s.grid}>
-      {rows.map((r, i) => (
-        <View key={i} style={r.wide ? s.wide : s.cell} wrap={r.wide}>
-          <Text style={s.k}>{r.k}</Text><Text style={s.v}>{r.v}</Text>
-        </View>
-      ))}
+    <View>
+      <View style={s.grid}>
+        {cells.map((r, i) => (
+          <View key={i} style={r.wide ? s.wide : s.cell} wrap={r.wide}>
+            <Text style={s.k}>{r.k}</Text><Text style={s.v}>{r.v}</Text>
+          </View>
+        ))}
+      </View>
+      {tables.map(t => {
+        const list = rows![t.key]
+        // Only the columns somebody filled in, so a short list does not print a wall of empty boxes.
+        const cols = t.columns!.filter(c => c.key !== 'kind' && list.some(r => r[c.key]))
+        const w = `${(100 - 9) / Math.max(cols.length, 1)}%`
+        return (
+          <View key={t.key} style={{ marginTop: 3, marginHorizontal: 6 }}>
+            <View style={{ flexDirection: 'row', backgroundColor: '#e5e7eb' }}>
+              <Text style={[s.th, { width: '9%' }]}> </Text>
+              {cols.map(c => <Text key={c.key} style={[s.th, { width: w }]}>{c.label}</Text>)}
+            </View>
+            {list.map((r, i) => (
+              <View key={i} style={{ flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#d1d5db' }} wrap={false}>
+                <Text style={[s.td, { width: '9%', fontFamily: 'Helvetica-Bold' }]}>{t.key === 'pens' ? penRef(list, i) : i + 1}</Text>
+                {cols.map(c => <Text key={c.key} style={[s.td, { width: w }]}>{r[c.key] ?? ''}</Text>)}
+              </View>
+            ))}
+          </View>
+        )
+      })}
     </View>
   )
 }
@@ -171,7 +196,7 @@ export function SiteSurveyPdfDoc({ r, photos, aerial }: { r: SiteSurveyRow; phot
                   <View key={it.id} wrap={false}>
                     {n === 0 ? <Text style={s.band}>{sec.title.toUpperCase()} · {items.length}</Text> : null}
                     <Text style={s.itemHead}>{itemName(sec, it, i)}</Text>
-                    <Answers sec={sec} v={it.v} extra={it.extra} />
+                    <Answers sec={sec} v={it.v} extra={it.extra} rows={it.rows} />
                   </View>
                 ))}
               </View>
