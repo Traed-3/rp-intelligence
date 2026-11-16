@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { canEditFieldSurveys, isSurveyOnly } from '@/lib/field-surveys'
 import { roleMayVisit } from '@/lib/role-access'
 import { canReadConstruction } from '@/lib/construction'
-import { type SiteSurveyRow, type SurveyPhoto, type SitePlan, type PlanElement, blankData, cleanData, cleanPlan, planFromSurvey, newId, surveyTitle, surveyCounts, fmtDate, surveyFileName, sectionByKey, SITE_SURVEY_PATH } from '@/lib/site-survey'
+import { type SiteSurveyRow, type SurveyPhoto, type SitePlan, type PlanElement, blankData, cleanData, cleanPlan, planFromSurvey, newId, surveyTitle, surveyCounts, fmtDate, surveyFileName, sectionByKey, SITE_SURVEY_PATH, siteHits, type SiteHit } from '@/lib/site-survey'
 import { SITE_SURVEY_BUCKET, loadSiteSurvey, renderSiteSurveyPdf } from '@/lib/site-survey-pdf'
 import { AERIAL_SPANS, geocode, parseLatLng, fetchAerial, boardToLatLng, scanAerial } from '@/lib/site-survey-aerial'
 import { sendDocumentEmail } from '@/lib/email'
@@ -39,14 +39,37 @@ async function me(id?: string) {
 const touch = (id?: string) => { revalidatePath('/forms/site-survey'); if (id) revalidatePath(`/forms/site-survey/${id}`) }
 const draftOnly = (row: SiteSurveyRow) => { if (row.status !== 'draft') throw new Error('This survey is finished. Reopen it to make changes.') }
 
-/** New survey. Typing a site number that is in Construction fills in the brand and address. */
+const SITE_COLS = 'site_number, store_brand, address, city, state, zip, customer_id'
+
+/**
+ * Find sites in Construction's site list by store number, street, city or brand. The form calls it as the tech types:
+ * the list under the box is this, and a number that matches a site exactly fills in the brand and address.
+ */
+export async function findSites(q: string): Promise<SiteHit[]> {
+  try {
+    const { admin, p } = await me()
+    // Letters, digits, spaces, dash, dot, #, & only: the text goes into a filter string.
+    const text = String(q ?? '').replace(/[^A-Za-z0-9 .#&'-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)
+    if (text.length < 2) return []
+    const like = `%${text.replace(/[%_]/g, '')}%`
+    const base = () => admin.from('con_sites').select(SITE_COLS).eq('company_id', p.company_id)
+    const [byNumber, byPlace] = await Promise.all([
+      base().ilike('site_number', like).limit(30),
+      /^[\d-]+$/.test(text) && text.length < 4 ? Promise.resolve({ data: [] }) : base().or(`address.ilike.${JSON.stringify(like)},city.ilike.${JSON.stringify(like)},store_brand.ilike.${JSON.stringify(like)}`).limit(30),
+    ])
+    return siteHits([...(byNumber.data ?? []), ...(byPlace.data ?? [])], text).slice(0, 10)
+  } catch { return [] }
+}
+
+/** New survey. A site number that is in Construction fills in the brand and address. */
 export async function createSurvey(formData: FormData): Promise<void> {
   const { admin, p } = await me()
   const site = str(formData.get('site_number'))
   let siteName: string | null = null, address: string | null = null
   if (site) {
-    const { data: s } = await admin.from('con_sites').select('store_brand, address, city, state, zip').eq('company_id', p.company_id).ilike('site_number', site.replace(/[%_\\]/g, '\\$&')).limit(1).maybeSingle()
-    if (s) { siteName = s.store_brand; address = [s.address, s.city, [s.state, s.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null }
+    const { data } = await admin.from('con_sites').select(SITE_COLS).eq('company_id', p.company_id).ilike('site_number', site.replace(/[%_\\]/g, '\\$&')).limit(5)
+    const hit = siteHits(data ?? [], site)[0]
+    if (hit) { siteName = hit.site_name; address = hit.address }
   }
   const { data, error } = await admin.from(TABLE).insert({
     company_id: p.company_id, site_number: site, site_name: siteName, address, survey_date: today(), tech_name: p.full_name,

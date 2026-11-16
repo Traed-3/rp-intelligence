@@ -6,7 +6,7 @@ import { surveyTitle, surveyCounts, fmtDate } from '@/lib/site-survey'
 import { loadSiteSurvey } from '@/lib/site-survey-pdf'
 import { SiteSurveyForm, SiteSurveyEmail } from '@/components/forms/site-survey-form'
 import { SitePlanEditor } from '@/components/forms/site-plan-editor'
-import { saveSurvey, addPhotos, updatePhoto, removePhoto, finishSurvey, savePlan, loadAerial, removeAerial, scanPlan, drawFromSurvey, emailSurvey, reopenSurvey, deleteSurvey } from '../actions'
+import { findSites, saveSurvey, addPhotos, updatePhoto, removePhoto, finishSurvey, savePlan, loadAerial, removeAerial, scanPlan, drawFromSurvey, emailSurvey, reopenSurvey, deleteSurvey } from '../actions'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -49,7 +49,7 @@ export default async function SiteSurveyPage({ params }: { params: Promise<{ id:
       )}
 
       <SiteSurveyForm key={row.status} row={row} locked={locked} actions={{
-        save: saveSurvey.bind(null, id), addPhotos: addPhotos.bind(null, id), updatePhoto: updatePhoto.bind(null, id), removePhoto: removePhoto.bind(null, id), finish: finishSurvey.bind(null, id),
+        save: saveSurvey.bind(null, id), addPhotos: addPhotos.bind(null, id), updatePhoto: updatePhoto.bind(null, id), removePhoto: removePhoto.bind(null, id), finish: finishSurvey.bind(null, id), findSites,
       }} />
 
       <section className="rp-card overflow-hidden">
