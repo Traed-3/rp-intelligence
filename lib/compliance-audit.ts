@@ -8,6 +8,7 @@
  */
 import type { EmployeeFile, Row } from '@/lib/compliance-data'
 import { addMonthsISO, daysBetween, fmtDate, todayET } from '@/lib/compliance'
+import { SPH_TYPE_NAME } from '@/lib/compliance-forms'
 
 export type Severity = 'violation' | 'warning' | 'info'
 export type Finding = { severity: Severity; title: string; detail: string; rule: string | null; typeId: string | null }
@@ -60,7 +61,12 @@ export function auditFile(file: EmployeeFile, today = todayET()): DriverAudit | 
   // ── Every required DQF item ─────────────────────────────────────────────
   for (const r of file.rows) {
     if (r.type.category !== 'dqf' || !r.required) continue
-    const fix = r.type.description ?? ''
+    // "No previous DOT employer" is ticked: the note is the record. Nothing to attach, nothing to chase.
+    const noteOnly = e.no_prior_dot_employer && r.type.name === SPH_TYPE_NAME && r.item?.status === 'on_file'
+    if (noteOnly) continue
+    const fix = r.type.name === SPH_TYPE_NAME
+      ? `${r.type.description ?? ''} If this driver did not drive for a DOT-regulated employer in the 3 years before hire, open the item and tick "No previous DOT employer" - the note covers it.`.trim()
+      : r.type.description ?? ''
     switch (r.health) {
       case 'missing':
         // Company-only paperwork (no federal rule behind it) is a fix-soon, not a citation.
@@ -85,7 +91,9 @@ export function auditFile(file: EmployeeFile, today = todayET()): DriverAudit | 
   if (!e.hire_date) {
     add('info', 'Add the hire date', 'The pre-hire MVR and prior-employer checks must be done within 30 days of hire — we need the hire date to check that.', null, '49 CFR 391.23')
   } else {
-    for (const n of ['Request for Check of Driving Record (pre-hire MVR)', 'Safety Performance History (prior employers)']) {
+    for (const n of ['Request for Check of Driving Record (pre-hire MVR)', SPH_TYPE_NAME]) {
+      // A no-previous-DOT-employer note records a fact, not an inquiry, so it has no 30-day clock.
+      if (n === SPH_TYPE_NAME && e.no_prior_dot_employer) continue
       const r = byName(file, n), d = issued(r)
       if (r && d && daysBetween(e.hire_date, d) > 30) {
         add('warning', `Done late: ${r.type.name}`, `Dated ${fmtDate(d)}, more than 30 days after hire (${fmtDate(e.hire_date)}). Add a note to the file explaining the delay; it cannot be undone, but it should not be repeated.`, r)

@@ -9,7 +9,8 @@ import { ItemRow } from '@/components/compliance/item-row'
 import { HealthChip } from '@/components/compliance/health-chip'
 import { updateEmployee, addRequirement } from '../../actions'
 import { auditFile, SEVERITY_STYLE } from '@/lib/compliance-audit'
-import { Truck, Mail, Phone, IdCard, ClipboardCheck, Paperclip } from 'lucide-react'
+import { Truck, Mail, Phone, IdCard, ClipboardCheck, Paperclip, StickyNote, FileDown } from 'lucide-react'
+import { SPH_TYPE_NAME, formLinksForType } from '@/lib/compliance-forms'
 
 export default async function EmployeeFilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -38,6 +39,7 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
             <span>{[e.job_title, departmentLabel(e.department)].filter(Boolean).join(' · ')}</span>
             {e.hire_date && <span>Hired {fmtDate(e.hire_date)}</span>}
             {e.is_dot_driver && <span className="inline-flex items-center gap-1 text-blue-700 font-semibold"><Truck className="w-3.5 h-3.5" />DOT driver{e.is_cdl ? ' · CDL' : ''}</span>}
+            {e.is_dot_driver && e.no_prior_dot_employer && <span className="inline-flex items-center gap-1 text-green-700 font-semibold"><StickyNote className="w-3.5 h-3.5" />No previous DOT employer (note in file{e.no_prior_dot_noted_at ? ` ${fmtDate(e.no_prior_dot_noted_at)}` : ''})</span>}
             {!e.is_active && <span className="text-red-600 font-semibold">Former employee{e.termination_date ? ` (${fmtDate(e.termination_date)})` : ''}</span>}
           </p>
           <p className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-4">
@@ -84,8 +86,11 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
           <section key={cat.value} className="rp-card overflow-hidden mb-5">
             <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-semibold text-gray-900">{cat.label}</h2>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-400 inline-flex items-center gap-3">
+                {cat.value === 'dqf' && <Link href="/compliance/forms" className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:underline"><FileDown className="w-3.5 h-3.5" />Blank forms</Link>}
+                <span>
                 {rows.filter(r => r.health === 'expired').length} expired · {rows.filter(r => r.health === 'due_soon').length} due soon · {rows.filter(r => r.required && r.health === 'missing').length} missing
+                </span>
               </span>
             </div>
             {!rows.length && <p className="px-4 py-4 text-sm text-gray-400">Nothing on file yet.</p>}
@@ -93,7 +98,9 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
               <div key={g.label}>
                 {g.label && <p className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{g.label}</p>}
                 {g.rows.map(r => (
-                  <ItemRow key={r.type.id} employeeId={e.id} type={r.type} item={r.item} health={r.health} exp={r.exp} daysLeft={r.daysLeft} required={r.required} canWrite={me.canWrite} />
+                  <ItemRow key={r.type.id} employeeId={e.id} type={r.type} item={r.item} health={r.health} exp={r.exp} daysLeft={r.daysLeft} required={r.required} canWrite={me.canWrite}
+                    forms={r.type.category === 'dqf' ? formLinksForType(r.type.name) : []}
+                    noPriorDot={r.type.name === SPH_TYPE_NAME && e.is_dot_driver ? { on: e.no_prior_dot_employer, notedAt: e.no_prior_dot_noted_at, notedBy: e.no_prior_dot_noted_by } : undefined} />
                 ))}
               </div>
             ))}

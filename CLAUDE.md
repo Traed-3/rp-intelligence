@@ -396,6 +396,20 @@ module key `compliance`; roles owner/manager/construction_manager — `lib/compl
   lists people of ANY role with full DQF & Certs access (`hasComplianceGrant` in lib/compliance-guard.ts; nav gets
   `complianceGranted` from the (app) layout). Edited in DQF → Notices & settings → "Who else can use DQF & Certs" (owners/managers).
   Peggy Wilmoth (role viewer) is on it.
+- 2026-11-16: blank RP-letterhead DOT forms + "no previous DOT employer" check mark.
+  Forms: `/compliance/forms` (button "Forms" on the DQF home, "Blank forms" on a driver file and the audit) lists every form
+  in the order of the requirements sheet (docs/dqf-forms/requirements.pdf); each DQF item in a driver's file shows its own
+  blank form. Catalog = `DQF_FORMS` in lib/compliance-forms.ts (slug, title, download name, the requirement names it belongs
+  to). PDFs: docs/dqf-forms/<slug>.pdf, loaded into the private `hr-compliance` bucket under `_forms/` with
+  `node --env-file=.env.local scripts/upload-dqf-forms.mjs` (re-run after replacing a form). Served by
+  GET /api/compliance/forms/<slug>[?download=1] (DQF access only; signed URL). To add a form: drop the PDF in
+  docs/dqf-forms, add the catalog entry, run the upload script.
+  Check mark: on the "Safety Performance History (prior employers)" item, "No previous DOT employer" (`setNoPriorDot` in
+  compliance/actions.ts) sets hr_employees.no_prior_dot_employer / _noted_at / _noted_by (migration
+  hr_no_prior_dot_employer.sql, APPLIED), marks the item on file with the standard note, flags the driver in the header,
+  and the audit stops asking for the inquiry, a stored copy, or the 30-day timing on that item. Unticking puts the item back
+  to missing only if all it held was that note. Printable note (blank or filled for the driver):
+  /api/compliance/forms/no-prior-dot-note[?employee=<id>] (lib/compliance-note-pdf.tsx, form no. RPS-DOT-SP-02).
 
 
 ---
