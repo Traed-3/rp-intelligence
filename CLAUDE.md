@@ -619,6 +619,11 @@ Forms -> Site Surveys: one flexible survey that holds every kind of site survey 
   (Trae): lists in `STARTS_WITH_ONE` open with one blank card, the rest start empty; "Add another" and "Copy the last one".
   Every section and every list item also takes extra fields the form does not have (label + answer). Pick lists are
   datalists, so anything can be typed. To add a question: add it to the section's `fields`. No migration needed.
+- Penetrations (Trae, 11/16/26: one "electrical purpose" box is no good with several conduits): STP sump, UDC and other-sump
+  cards carry a `rows` field `pens`, one line per pipe or conduit (kind Product / Vapor-vent / Conduit, size, what it
+  carries, make, fitting, studs, condition, notes), numbered P1, V1, C1, C2 like ICON's sheet (`penRef`). Stored on the
+  item as `rows.pens`. Field type `rows` (`columns`, `rowNoun`) works for any table-inside-a-card; do not go back to
+  "number / size" summary boxes.
 - Table `site_surveys` (migration supabase/migrations/site_surveys.sql, APPLIED 2026-11-16 via Supabase MCP), service-role
   only. `data` jsonb = { one, lists, extra }, `plan` jsonb = the site plan, `photos` jsonb = [{id, path, ref, caption}] in
   `construction-docs/<company>/site-surveys/<id>/` (ref = section key, or `section:itemId`). `cleanData` / `cleanPlan`

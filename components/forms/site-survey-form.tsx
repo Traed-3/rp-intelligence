@@ -3,7 +3,7 @@
 import { useActionState, useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { Camera, ChevronDown, Copy, Plus, Trash2 } from 'lucide-react'
 import {
-  type Section, type Field, type Item, type Extra, type SurveyData, type SurveyPhoto, type SiteSurveyRow,
+  type Section, type Field, type Item, type Extra, type Row, penRef, type SurveyData, type SurveyPhoto, type SiteSurveyRow,
   SECTIONS, blankItem, blankData, itemFilled, itemName, photoRef, newId,
 } from '@/lib/site-survey'
 import type { SaveResult, PhotoResult, FinishResult, EmailResult } from '@/app/(app)/forms/site-survey/actions'
@@ -53,10 +53,45 @@ function FieldInput({ f, value, locked, onChange }: { f: Field; value: string; l
   return <input value={value} disabled={locked} type={f.type === 'date' ? 'date' : 'text'} inputMode={f.type === 'number' ? 'decimal' : undefined} onChange={e => onChange(e.target.value)} placeholder={f.hint} className={inp} autoComplete="off" />
 }
 
-function Fields({ sec, v, locked, set }: { sec: Section; v: Record<string, string>; locked: boolean; set: (k: string, val: string) => void }) {
+/** A table inside a card: one line per penetration, each with its own boxes. Starts empty; add the first, then the next. */
+function RowsField({ f, rows, locked, onChange }: { f: Field; rows: Row[]; locked: boolean; onChange: (next: Row[]) => void }) {
+  const cols = f.columns ?? []
+  const set = (i: number, k: string, val: string) => onChange(rows.map((r, j) => (j === i ? { ...r, [k]: val } : r)))
+  return (
+    <div className="space-y-2">
+      <span className="block text-sm font-semibold text-gray-800">{f.label}{rows.length ? ` · ${rows.length}` : ''}</span>
+      {!rows.length && <p className="text-xs text-gray-400">None listed yet.</p>}
+      {rows.map((r, i) => (
+        <div key={i} className="rounded-lg border border-gray-200 p-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold text-gray-700">{f.key === 'pens' ? penRef(rows, i) : `${i + 1}`}{r.carries ? <span className="font-normal text-gray-500"> · {r.carries}</span> : null}</span>
+            {!locked && <button type="button" onClick={() => onChange(rows.filter((_, j) => j !== i))} className="p-1 text-gray-400 hover:text-red-600" title={`Remove this ${f.rowNoun ?? 'line'}`}><Trash2 className="w-4 h-4" /></button>}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {cols.map(c => (
+              <div key={c.key}><label className={lbl}>{c.label}</label><FieldInput f={c} value={r[c.key] ?? ''} locked={locked} onChange={val => set(i, c.key, val)} /></div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {!locked && (
+        <div className="flex flex-wrap gap-2">
+          {f.key === 'pens'
+            ? ['Product', 'Vapor / vent', 'Conduit'].map(kind => <button key={kind} type="button" onClick={() => onChange([...rows, { kind }])} className={ghost}><Plus className="w-4 h-4" /> {kind}</button>)
+            : <button type="button" onClick={() => onChange([...rows, {}])} className={ghost}><Plus className="w-4 h-4" /> Add {rows.length ? 'another' : 'a'} {f.rowNoun ?? 'line'}</button>}
+          {rows.length > 0 && <button type="button" onClick={() => onChange([...rows, { ...rows[rows.length - 1] }])} className={ghost}><Copy className="w-4 h-4" /> Copy the last one</button>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Fields({ sec, v, locked, set, rows, setRows }: { sec: Section; v: Record<string, string>; locked: boolean; set: (k: string, val: string) => void; rows?: Record<string, Row[]>; setRows?: (k: string, next: Row[]) => void }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {sec.fields.map(f => (
+      {sec.fields.map(f => f.type === 'rows' ? (
+        setRows ? <div key={f.key} className="sm:col-span-2 lg:col-span-3"><RowsField f={f} rows={rows?.[f.key] ?? []} locked={locked} onChange={next => setRows(f.key, next)} /></div> : null
+      ) : (
         <div key={f.key} className={f.wide || f.type === 'textarea' ? 'sm:col-span-2 lg:col-span-3' : ''}>
           <label className={lbl}>{f.label}</label>
           <FieldInput f={f} value={v[f.key] ?? ''} locked={locked} onChange={val => set(f.key, val)} />
@@ -193,7 +228,7 @@ export function SiteSurveyForm({ row, locked, actions }: { row: SiteSurveyRow; l
   // A card being typed in stays open (a blank card would otherwise fold shut the moment its first box is filled).
   const setItem = (sk: string, id: string, patch: (it: Item) => Item) => { setOpenItem(o => (o[id] === undefined ? { ...o, [id]: true } : o)); setList(sk, items => items.map(it => (it.id === id ? patch(it) : it))) }
   const addItem = (sk: string, copyFrom?: Item) => {
-    const it: Item = copyFrom ? { id: newId(), v: { ...copyFrom.v }, extra: copyFrom.extra?.map(e => ({ ...e })) } : blankItem()
+    const it: Item = copyFrom ? { id: newId(), v: { ...copyFrom.v }, extra: copyFrom.extra?.map(e => ({ ...e })), rows: copyFrom.rows ? Object.fromEntries(Object.entries(copyFrom.rows).map(([k, r]) => [k, r.map(x => ({ ...x }))])) : undefined } : blankItem()
     setList(sk, items => [...items, it]); setOpen(o => ({ ...o, [sk]: true })); setOpenItem(o => ({ ...o, [it.id]: true }))
   }
 
@@ -255,7 +290,7 @@ export function SiteSurveyForm({ row, locked, actions }: { row: SiteSurveyRow; l
                           </div>
                           {show && (
                             <div className="p-3 space-y-3">
-                              <Fields sec={sec} v={it.v} locked={locked} set={(k, v) => setItem(sec.key, it.id, x => ({ ...x, v: { ...x.v, [k]: v } }))} />
+                              <Fields sec={sec} v={it.v} locked={locked} set={(k, v) => setItem(sec.key, it.id, x => ({ ...x, v: { ...x.v, [k]: v } }))} rows={it.rows} setRows={(k, next) => setItem(sec.key, it.id, x => ({ ...x, rows: { ...(x.rows ?? {}), [k]: next } }))} />
                               <Extras list={it.extra ?? []} locked={locked} onChange={l => setItem(sec.key, it.id, x => ({ ...x, extra: l }))} />
                               <Photos surveyId={row.id} refKey={photoRef(sec.key, it.id)} photos={photos} wanted={sec.photos} locked={locked} actions={actions} onPhotos={setPhotos} />
                             </div>
