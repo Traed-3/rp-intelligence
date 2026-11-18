@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Truck, Wrench, ClipboardList, Users, BarChart3, Settings, Receipt, FileText, Home, HardHat,
-  CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, type LucideIcon,
+  CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, Search, type LucideIcon,
 } from 'lucide-react'
 import { canReadConstruction } from '@/lib/construction'
 import { canUseFieldSurveys, isSurveyOnly } from '@/lib/field-surveys'
@@ -28,6 +28,8 @@ const navItems: NavItem[] = [
   item({ href: '/maintenance', label: 'Maintenance', short: 'Maint.', icon: Wrench, match: ['/maintenance', '/assets', '/tickets', '/shop'], module: 'maintenance' }),
   // `construction: true` marks a link as gated to the Construction roles.
   item({ href: '/construction', label: 'Construction', short: 'Build', icon: HardHat, construction: true, module: 'construction' }),
+  // Find any site by number, street, city or brand (Trae, 11/18/26: straight from the main menu, not only the Construction hub).
+  item({ href: '/construction/sites', label: 'Site Lookup', short: 'Sites', icon: Search, construction: true, module: 'construction' }),
   // 7-Eleven / Wawa / Sunoco service calls, synced from rpdispatcher + rpinvoicing.
   item({ href: '/service', label: 'Service Dispatch', short: 'Service', icon: Fuel, module: 'service_dispatch' }),
   item({ href: '/billing', label: 'Quotes & Invoices', short: 'Quotes', icon: FileText, billing: true, module: 'billing' }),

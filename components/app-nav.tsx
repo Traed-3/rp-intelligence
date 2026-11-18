@@ -31,6 +31,9 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
   const [moreOpen, setMoreOpen] = useState(false)
   const moreActive = moreItems.some(i => (i.match ?? [i.href]).some(m => pathname === m || pathname.startsWith(m + '/')))
 
+  const on = (i: NavItem) => (i.match ?? [i.href]).some(m => pathname === m || pathname.startsWith(m + '/'))
+  // A page with its own menu entry (Site Lookup, under /construction) lights up alone, not together with its parent.
+
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -66,8 +69,7 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
         {/* Nav links */}
         <nav aria-label="Main" className="flex-1 space-y-px overflow-y-auto px-3 py-2">
           {visibleNavItems.map((item) => {
-            const matches = item.match ?? [item.href]
-            const isActive = matches.some(m => pathname === m || pathname.startsWith(m + '/'))
+            const isActive = on(item) && !visibleNavItems.some(o => o !== item && o.href.startsWith(item.href + '/') && on(o))
             return (
               <Link
                 key={item.href}
