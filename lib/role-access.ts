@@ -33,7 +33,8 @@ const FORMS_PATHS = ['/forms', '/construction/surveys', '/api/construction/surve
 
 // The shop side of the app.
 // '/my' = My Plate: everyone who signs in has one (Trae 11/13/26). Non-construction roles get the simple plate.
-const SHOP_PAGES = ['/my', '/maintenance', '/assets', '/tickets', '/shop', '/time', '/notifications']
+// '/help' = Technical Help (how-to guides and videos): everyone.
+const SHOP_PAGES = ['/my', '/maintenance', '/assets', '/tickets', '/shop', '/time', '/notifications', '/help']
 const SHOP_MOBILE = ['/mobile/report-issue', '/mobile/mileage', '/mobile/ticket']
 const SHOP_API = ['/api/assistant', '/api/push', '/api/upload', '/api/tickets', '/api/auth', '/api/daily-summary']
 
