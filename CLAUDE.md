@@ -140,6 +140,15 @@ LOGIN, SETTINGS AND FORMS (Trae, 2026-11-13):
   (SURVEY_TECH_ROLES) and the construction roles; not mechanics or shop employees. A Construction module block does
   not take Forms away. New forms: add the page, then a tile in app/(app)/forms/page.tsx.
 
+TECHNICAL HELP (Trae, 2026-11-18):
+- /help (menu "Technical Help", phone home tile) = how-to guides and videos for the field. Open to EVERY role, the locked
+  ones included ('/help' is in SHOP_PAGES in lib/role-access.ts). /help/[slug] plays the video and opens the printable PDF.
+- Guides are listed in lib/help.ts (HELP_GUIDES). Files live in the PRIVATE Supabase bucket `help-docs`
+  (<slug>/video.mp4, poster.jpg, guide.pdf) and are handed out as 2-hour signed links, never public.
+- New guide: put the files in the bucket with `node scripts/upload-help-files.mjs <slug> --video x.mp4 --pdf x.pdf --poster x.jpg`,
+  then add the entry to HELP_GUIDES. First guide: notes-scanning (Notes -> Scan Documents -> email in). Source for that
+  video/PDF: iCloud Documents/Claude/Claude - RPS Support Documents/Tech Guides/_source.
+
 MY PLATE FOR EVERYONE (Trae, 2026-11-13):
 - Every login has a My Plate (/my) and it is the default first screen (DEFAULT_LANDING_PAGE = '/my'; shop employees
   still land on /maintenance; a landing page picked in Settings -> Users wins). `/` (app/page.tsx) decides.
