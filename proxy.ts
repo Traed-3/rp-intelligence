@@ -71,7 +71,8 @@ export async function proxy(request: NextRequest) {
   // /api/compliance/check (daily DQF & certification expiry check) checks CRON_SECRET itself, same as the rest.
   // PWA manifest + service worker must be reachable without a session so the
   // app icon / theme apply on install.
-  const publicPaths = ['/login', '/auth/', '/api/auth/', '/api/gmail/', '/api/svc/', '/api/billing/', '/api/daily-summary', '/api/compliance/check', '/manifest.webmanifest', '/sw.js']
+  // /privacy is a plain public page (Google's sign-in setup needs a public privacy policy link).
+  const publicPaths = ['/login', '/auth/', '/api/auth/', '/api/gmail/', '/api/svc/', '/api/billing/', '/api/daily-summary', '/api/compliance/check', '/manifest.webmanifest', '/sw.js', '/privacy']
   const isPublic = publicPaths.some((p) => pathname.startsWith(p))
 
   if (!user && !isPublic) {
