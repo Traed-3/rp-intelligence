@@ -57,6 +57,9 @@ export const bodyText = (plain: string, html: string) => {
   return p.replace(/\r\n/g, '\n')
 }
 
+// Gmail's tabs other than Primary. Updates is automated notices (receipts, confirmations, statements): nobody is waiting on a reply to those either.
+const AUTO_CATEGORIES = new Set(['CATEGORY_PROMOTIONS', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS', 'CATEGORY_UPDATES'])
+
 const realFile = (name: string) => !/^(image\d+|outlook-\w+)\.(png|jpe?g|gif)$/i.test(name)
 
 export type IndexRow = {
@@ -74,7 +77,7 @@ export function toRow(box: Pick<Mailbox, 'id' | 'address'>, m: GMessage, sites: 
   const subject = decodeWords(h['subject'] ?? '').slice(0, 500)
   const sent = labels.includes('SENT') || from.addr === box.address
   // Gmail's own sorting counts too: Promotions, Social and Forums are never mail somebody is waiting on an answer to.
-  const bulk = !sent && (isBulk(h, from.addr) || labels.some(l => l === 'CATEGORY_PROMOTIONS' || l === 'CATEGORY_SOCIAL' || l === 'CATEGORY_FORUMS'))
+  const bulk = !sent && (isBulk(h, from.addr) || labels.some(l => AUTO_CATEGORIES.has(l)))
   const list = (k: string) => parseAddrs(decodeWords(h[k] ?? '')).map(a => a.addr).join(', ')
   const ms = Number(m.internalDate ?? 0)
   return {
@@ -86,7 +89,7 @@ export function toRow(box: Pick<Mailbox, 'id' | 'address'>, m: GMessage, sites: 
     has_att: files.some(f => !f.inline && realFile(f.name)), bulk,
     asks: !sent && !bulk && asksForSomething(top), deadline: sent || bulk ? null : deadlineHint(subject, top),
     site: findSite(subject, top, sites), po: findPo(subject + ' ' + top.slice(0, 1500)),
-    labels: labels.filter(l => l.startsWith('Label_')),
+    labels: labels.filter(l => l.startsWith('Label_') || l.startsWith('CATEGORY_')),
   }
 }
 
