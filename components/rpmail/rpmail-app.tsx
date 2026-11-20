@@ -108,9 +108,11 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
     syncing.current = true; setBusy(true)
     try {
       for (const b of boxes.filter(b => b.connected)) {
-        for (let i = 0; i < 80; i++) {
+        let misses = 0
+        for (let i = 0; i < 200; i++) {
           let r: { done: boolean; busy?: boolean }
-          try { r = await api('sync', { mailbox: b.id }) } catch { break }
+          // One failed check is not the end of it: wait and try again a few times before giving up on this mailbox.
+          try { r = await api('sync', { mailbox: b.id }); misses = 0 } catch { if (++misses > 3) break; await new Promise(res => setTimeout(res, 5000 * misses)); continue }
           if (r.done) break
           await refresh()
           if (r.busy) await new Promise(res => setTimeout(res, 4000))
@@ -196,12 +198,15 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   // Send, after the person pressed Send and confirmed. It waits a few seconds first so it can be undone.
   const doSend = useCallback(async (out: Outgoing) => {
     setPending(null)
+    setToast({ text: `Sending to ${out.to}...` })   // stays up until the answer comes back
+    if (toastTimer.current) clearTimeout(toastTimer.current)
     try {
       const r = await api<{ to: string; from: string }>('send', out.payload)
       clearDraft(out.start)
       say(`Sent to ${r.to} from ${r.from}.`)
       void refresh()
     } catch (e) {
+      setToast(null)
       setErr('Not sent: ' + (e as Error).message + ' Your message is open again so you can fix it.')
       setCompose(out.start)
     }

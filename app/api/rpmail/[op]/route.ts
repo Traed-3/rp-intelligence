@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { me, requireMe, mailboxFor, Forbidden, type Me } from '@/lib/rpmail/access'
-import { NotConnected, UserError } from '@/lib/rpmail/gmail'
+import { Busy, NotConnected, UserError } from '@/lib/rpmail/gmail'
 import { syncMailbox } from '@/lib/rpmail/sync'
 import { state, overview } from '@/lib/rpmail/overview'
 import { plateDone, plateAdd } from '@/lib/rpmail/overview'
@@ -63,6 +63,7 @@ const POSTS: Record<string, { any?: boolean; run: (who: Me, b: B) => Promise<unk
 function fail(e: unknown) {
   if (e instanceof Forbidden) return NextResponse.json({ error: e.message }, { status: 403 })
   if (e instanceof NotConnected) return NextResponse.json({ error: e.message, notConnected: true }, { status: 409 })
+  if (e instanceof Busy) return NextResponse.json({ error: e.message, busy: true }, { status: 503 })
   if (e instanceof UserError) return NextResponse.json({ error: e.message }, { status: 400 })
   // Never echo an unexpected error to the browser, and never log request bodies (they can hold mail text).
   console.error('rpmail:', e instanceof Error ? e.message.slice(0, 300) : 'error')

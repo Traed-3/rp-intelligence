@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { world, addPerson, addBox, type Person } from './fakes'
 import { requireMe, type Me } from '@/lib/rpmail/access'
 import { syncMailbox } from '@/lib/rpmail/sync'
@@ -66,6 +66,22 @@ describe('loading and reading', () => {
     world.gmail.revoked.add('gone@gmail.com')
     await expect(syncMailbox(await mailboxFor(me, b))).rejects.toBeInstanceOf(NotConnected)
     expect(String(world.db.t('rpmail_mailboxes').find(x => x.id === b)!.last_error)).toMatch(/sign-in/i)
+  })
+})
+
+describe('when Google says slow down', () => {
+  it('says Gmail is busy (not that the sign-in is wrong) and loads a big mailbox without bursting past the limit', async () => {
+    const { Busy, pace } = await import('@/lib/rpmail/gmail')
+    const real = world.gmail.fetch
+    vi.stubGlobal('fetch', async (u: string | URL | Request, i?: RequestInit) => String(u).includes('/messages/') ? new Response(JSON.stringify({ error: { errors: [{ reason: 'userRateLimitExceeded' }] } }), { status: 403 }) : real(u, i))
+    vi.useFakeTimers()
+    const p = readMessage(me, { mailbox: box, id: m1 }).catch(e => e)
+    await vi.runAllTimersAsync()
+    expect(await p).toBeInstanceOf(Busy)
+    vi.useRealTimers(); vi.stubGlobal('fetch', real)
+    const t = Date.now()
+    await Promise.all(Array.from({ length: 10 }, () => pace('pace-test', 50)))
+    expect(Date.now() - t).toBeGreaterThanOrEqual(150)     // 10 calls at 50 a second cannot finish in under ~180 ms
   })
 })
 
