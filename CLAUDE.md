@@ -655,3 +655,29 @@ Forms -> Site Surveys: one flexible survey that holds every kind of site survey 
   GET /forms/site-survey/[id]/pdf draws it live (`?download=1`). Email box on the finished screen; no default address.
 - Not done: the PDF is not filed on a job's Documents, and the scan was never run against a real picture before shipping
   (no ANTHROPIC_API_KEY on the dev Mac); judge it on the first live survey and tune `SCAN_SYSTEM` if it places things badly.
+
+---
+
+## RPMAIL FOR STAFF (added 2026-11-20)
+
+Opt-in mail page inside RP Intelligence (`/rpmail`), matching Trae's local RPMail (`~/rps-inbox`, which stays his own and
+is never changed from here). PER USER, NEVER PER ROLE.
+- Who has it: `rpmail_users.enabled` (the person turns it on from /rpmail, or an owner in Settings -> RPMail). Menu entry =
+  that row OR an `rpmail_links` row (`hasRpmail` in lib/rpmail/has.ts). A person with an `rpmail_links` row and RPMail off
+  (Trae) still gets the page that links to their local RPMail.
+- Which mailboxes: `rpmail_access` rows only. Own mailbox = their login email if it is Gmail, else `rpmail_users.mail_address`
+  (owner sets it); created on their visit (`ensurePersonalMailbox`). Shared mailboxes are ticked per person by an OWNER in
+  Settings -> RPMail. `rpmail_mailboxes.crew_reads` = the crew reads it: no pricing to/from it, and it is the only kind a
+  tech / mechanic / shop login may be given (`mayGrant`; re-checked on every read in `mailboxFor`).
+- Storage: `rpmail_messages` is only an index (from/to/subject/date/Gmail snippet/unread/site/PO/asks/deadline). Bodies and
+  attachments are read live from Gmail on open and never stored. Google refresh tokens live in Supabase Vault, reached only
+  through `rpmail_token_set/get/clear` (service_role). Every rpmail_* table: RLS on, no policies.
+- Code: lib/rpmail/{access,gmail,sync,mail-ops,overview,connect,mime,parse}.ts, one API route app/api/rpmail/[op]/route.ts
+  (+ oauth/callback), components/rpmail/{rpmail-app,compose,rpmail-admin}.tsx, app/(app)/settings/rpmail.
+- Sending: only from the Send button after the confirm step (`confirmed: true`); pricing guard `pricingGuard` (PRICE_RE on
+  subject + body + quoted text + attachment names). Trash = Gmail Trash (30 days), never a permanent delete. Every move has Undo.
+- Google: Web OAuth client in Google Cloud project `rps-inbox`, scope gmail.modify, redirect
+  `https://rpintelligence.app/api/rpmail/oauth/callback`; Vercel env `RPMAIL_GOOGLE_CLIENT_ID` / `RPMAIL_GOOGLE_CLIENT_SECRET`
+  (optional `RPMAIL_APP_ORIGIN`). Without them the page shows "Sign in with Google is not switched on yet".
+- Sync: the page asks `/api/rpmail/sync` per mailbox on open and every 90 s while visible; first load is chunked (35 s per call).
+  No background cron, so a mailbox nobody has open is not synced.

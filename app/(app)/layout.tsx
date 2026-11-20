@@ -6,6 +6,7 @@ import { NotificationBell } from '@/components/notifications/notification-bell'
 import { AskRps } from '@/components/assistant/ask-rps'
 import { hasComplianceGrant } from '@/lib/compliance-guard'
 import { isSurveyOnly, DEFAULT_NEW_USER_ROLE } from '@/lib/field-surveys'
+import { hasRpmail } from '@/lib/rpmail/has'
 import { loadUiPrefs } from '@/lib/ui-prefs'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -42,7 +43,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: blocks } = await admin.from('profile_module_blocks').select('module').eq('profile_id', user.id)
   const blockedModules = (blocks ?? []).map(b => b.module)
   const complianceGranted = await hasComplianceGrant(admin, profile?.company_id, user.id)
-  const { data: rpmail } = await admin.from('rpmail_links').select('profile_id').eq('profile_id', user.id).maybeSingle()   // RPMail is per user
+  const rpmail = await hasRpmail(admin, user.id)   // RPMail is per user: turned on by the person, or their own linked one
   const prefs = await loadUiPrefs(admin, user.id)   // the person's own menu order / hidden entries / phone tabs
 
   return (

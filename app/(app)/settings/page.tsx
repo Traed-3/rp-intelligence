@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { Users, Building2, CreditCard, BookOpen, Bell, Inbox, SlidersHorizontal } from 'lucide-react'
+import { Users, Building2, CreditCard, BookOpen, Bell, Inbox, SlidersHorizontal, Mail } from 'lucide-react'
 import { GmailSyncPanel } from './gmail-sync-panel'
 import { BillingInboxPanel } from './billing-inbox-panel'
 
@@ -39,7 +39,7 @@ export default async function SettingsPage() {
       <BillingInboxPanel companyId={profile!.company_id} />
 
       <div className="space-y-3 mt-6">
-        {LINKS.map(l => (
+        {[...LINKS, ...(profile?.role === 'owner' ? [{ href: '/settings/rpmail', icon: Mail, title: 'RPMail', desc: 'Who has RPMail, which shared mailboxes each person gets, and connecting the shared mailboxes.' }] : [])].map(l => (
           <Link
             key={l.href}
             href={l.href}
