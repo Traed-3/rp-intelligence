@@ -58,6 +58,15 @@ describe('invite email', () => {
     expect(validateInviteContent({ ...content, intro: 'x'.repeat(5000) })).toMatch(/message/i)
   })
 
+  it('refuses web links in the typed text (the email has the real sign-in link)', () => {
+    for (const bad of ['Sign in at https://evil.example', 'go to www.something', 'visit rp-login.com today', 'HTTP://X.Y']) {
+      expect(validateInviteContent({ ...content, intro: bad })).toMatch(/links/i)
+    }
+    expect(validateInviteContent({ ...content, whatsNew: 'see rpintelligence.app' })).toMatch(/links/i)
+    // ordinary text with dots is fine
+    expect(validateInviteContent({ ...content, intro: 'Clock in at 7.30 a.m. Questions? Ask Dave.' })).toBeNull()
+  })
+
   it('falls back to "there" when there is no name', () => {
     expect(firstName('  ')).toBe('there')
     expect(firstName('Chevy Swartz')).toBe('Chevy')

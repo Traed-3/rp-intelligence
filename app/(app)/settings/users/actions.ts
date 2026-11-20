@@ -141,10 +141,14 @@ async function senderOf(profileId: string) {
   return { name: data?.full_name ?? '', title: data?.job_title ?? null, email: data?.email ?? null }
 }
 
-/** Settings > Users > Invite message: saves the wording for every invite after this. `null` goes back to the standard text. */
+/**
+ * Settings > Users > Invite message: saves the wording for every invite after this. `null` goes back to the standard text.
+ * Owners only: owners' invites (to other owners too) carry real passwords under the owner's name, so a manager must not be
+ * able to put words in them.
+ */
 export async function saveInviteMessage(input: InviteContent | null): Promise<{ ok?: true; error?: string }> {
   const profile = await getProfile()
-  if (!profile || !['owner', 'manager'].includes(profile.role)) return { error: 'Access denied.' }
+  if (!profile || profile.role !== 'owner') return { error: 'Only an owner can change the invite message.' }
   let value: InviteContent | null = null
   if (input) {
     value = cleanContent(input)

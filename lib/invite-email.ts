@@ -49,8 +49,13 @@ export function validateInviteContent(c: InviteContent): string | null {
   if (/[\r\n]/.test(c.subject)) return 'The subject has to be one line.'
   if (c.intro.length > INVITE_LIMITS.intro) return `Keep the message under ${INVITE_LIMITS.intro} characters.`
   if (c.whatsNew.length > INVITE_LIMITS.whatsNew) return `Keep the "What's new" list under ${INVITE_LIMITS.whatsNew} characters.`
+  // The email already carries the real sign-in link. A second link in the free text is the shape of a phishing email
+  // (and these emails hold a real password), so links are not allowed in what the admin types.
+  if (LINK_RE.test(`${c.subject}\n${c.intro}\n${c.whatsNew}`)) return 'Leave web links out. The email already has the sign-in link.'
   return null
 }
+
+const LINK_RE = /(?:https?:\/\/|www\.|\b[a-z0-9-]+\.(?:com|net|org|app|io|co|us|info|biz|link|ly|me|site|xyz)\b)/i
 
 export function whatsNewLines(whatsNew: string): string[] {
   return whatsNew

@@ -712,7 +712,8 @@ Settings → Users can email people a sign-in invite with ONE CLICK (login is em
   Never stored, returned or logged.
 - Code: builder `lib/invite-email.ts` (pure; shared by preview and server), sender `sendInviteEmail` in `lib/email.ts`
   (Resend; optional `RESEND_INVITE_FROM`), actions `sendUserInvite(userId, {newPassword?})`, `saveInviteMessage`,
-  `sendInviteTest` in `app/(app)/settings/users/actions.ts`; UI `send-invite-button.tsx`, `bulk-invite-button.tsx`,
+  `sendInviteTest` in `app/(app)/settings/users/actions.ts` (saveInviteMessage is OWNER ONLY; typed text may not contain web
+  links, enforced in validateInviteContent at save and at send); UI `send-invite-button.tsx`, `bulk-invite-button.tsx`,
   `invite-message-button.tsx`, `invite-fields.tsx`.
 - Each send logs `activity_log` action `user_invite_sent` (ids/flags only); the Users page shows "invite sent <date>".
 - The action refuses before changing a password when RESEND_API_KEY is missing; if the email fails after a password change

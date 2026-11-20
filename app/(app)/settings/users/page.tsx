@@ -88,14 +88,15 @@ export default async function UsersSettingsPage() {
       <div className="mb-6 flex flex-wrap items-start gap-3">
         <AddEmployeeForm />
         <BulkInviteButton people={invitable} />
-        <InviteMessageButton saved={inviteContent} sender={sender} senderEmail={profile!.email ?? ''} />
+        {/* Owners only: the wording goes into every invite, owners' included. saveInviteMessage enforces the same rule. */}
+        {profile!.role === 'owner' && <InviteMessageButton saved={inviteContent} sender={sender} senderEmail={profile!.email ?? ''} />}
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 mb-6 text-sm text-blue-800">
         <p className="font-semibold mb-1">How employees get access:</p>
         <ol className="list-decimal list-inside space-y-0.5 text-blue-700">
           <li>An owner or manager adds them here with <strong>+ Add Employee</strong> (name, email, role). Nobody can sign in unless they are on this list and <strong>Active</strong>.</li>
-          <li>Press <strong>Send invite</strong> on their row (or <strong>Send invites</strong> for several people). They get an email with the sign-in link, what&apos;s new and a temporary password. Change what it says with <strong>Invite message</strong>. <strong>Password</strong> still works if you would rather give it to them in person.</li>
+          <li>Press <strong>Send invite</strong> on their row (or <strong>Send invites</strong> for several people). They get an email with the sign-in link, what&apos;s new and a temporary password. An owner can change what it says with <strong>Invite message</strong>. <strong>Password</strong> still works if you would rather give it to them in person.</li>
           <li>They sign in with their email and that password, and are made to choose their own before they see anything.</li>
           <li>Their <strong>role</strong> decides what they can see. <strong>Disable</strong> signs them out and blocks sign-in; <strong>Activate</strong> lets them back in.</li>
         </ol>
