@@ -25,7 +25,8 @@ export default async function PersonalizePage() {
     hasComplianceGrant(admin, profile.company_id, user.id),
     loadUiPrefs(admin, user.id),
   ])
-  const who = { role: profile.role, userId: user.id, blockedModules: (blocks ?? []).map(b => b.module), complianceGranted }
+  const { data: rpmail } = await admin.from('rpmail_links').select('profile_id').eq('profile_id', user.id).maybeSingle()
+  const who = { role: profile.role, userId: user.id, blockedModules: (blocks ?? []).map(b => b.module), complianceGranted, hasRpmail: !!rpmail }
   const { sidebar, defaultTabs, tabChoices } = buildNav(who)
 
   const cards = arrange([...allowedDashboardCards(who)], prefs.dashboard).map(c => ({ key: c.key, label: c.label, desc: c.desc, hidden: c.hidden }))
