@@ -686,5 +686,9 @@ is never changed from here). PER USER, NEVER PER ROLE.
   deleted on send; address book from the person's own index; `rpmail_templates`), `sendMail` takes `from` (send from another of
   the person's mailboxes) and `files`; the send itself is fired by rpmail-app.tsx after the undo countdown (`queueSend` / `doSend`),
   still only ever from the person's own Send + confirm. Unsent text is kept in localStorage (`rpmail:draft:*`).
+- Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
+  the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
+  project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.
+  The tests run on pull requests (.github/workflows/tests.yml) and in the Vercel build (`vercel-build` in package.json).
 - Sync: the page asks `/api/rpmail/sync` per mailbox on open and every 90 s while visible; first load is chunked (35 s per call).
   No background cron, so a mailbox nobody has open is not synced.

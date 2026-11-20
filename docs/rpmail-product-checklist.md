@@ -19,7 +19,7 @@ every "Done" below means "built and type-checked", not "proven on real mail", un
 | 3 | Organizing: labels (create, rename, delete, move), block sender, empty Trash, snooze / remind me, rules, date and sender filters, download all as zip | not started |
 | 4 | Mail keeps syncing with nobody watching (scheduled sync, catch-up, alert when a mailbox fails over an hour) + browser / phone / text notifications with quiet hours | not started |
 | 5 | One Settings area (profile, mailboxes, signatures, notifications, rules, appearance, defaults) and company admin (read / send / delete per person, blocked-content rule, activity log with export) | not started |
-| 6 | Automated tests + a check that runs before anything goes live; "one company cannot see another" proven by tests | not started |
+| 6 | Automated tests + a check that runs before anything goes live; "one company cannot see another" proven by tests | shipped 2026-11-20 (done ahead of stages 3 to 5, because there was no test mailbox). 50 tests |
 | 7 | Selling it: companies as separate customers, sign-up, trial, Stripe plans and seats, billing page, plan limits, public page, help center, first-run walkthrough, owner view | waiting on Trae (Stripe account, prices, legal wording, product shape) |
 | 8 | More providers: Microsoft 365 / Outlook, then any mailbox by IMAP + SMTP | not started (Microsoft needs an Azure app registration = an account) |
 | 9 | Trust: two-step sign-in, session list, export my data, delete my account, error tracking, uptime checks, tested restore, Google verification package | not started / partly waiting on Trae |
@@ -118,7 +118,7 @@ every "Done" below means "built and type-checked", not "proven on real mail", un
 
 | Item | State | Note |
 |---|---|---|
-| Companies as separate customers, proven by tests | Partly | Every mailbox belongs to a company and every request checks it, but there is one company, no tests, and a Gmail address can only exist once across all companies. Stages 6 and 7. |
+| Companies as separate customers, proven by tests | Partly | Proven by tests: every mail action is refused across companies and across people, the other mailbox's Google sign-in is never used, and an owner cannot reach into another company. (The tests were checked by breaking the rule on purpose: they fail.) Still to do in stage 7: sign-up for a second company, and a Gmail address can only exist once across all companies. |
 | Sign-up, free trial, plans per person, seats, cancel, receipts, failed payments, billing page (Stripe) | Missing | Waiting on Trae: Stripe account and prices. |
 | Plan limits with friendly messages | Missing | Stage 7. |
 | Public product page with prices, sign-up | Missing | Stage 7. |
@@ -145,7 +145,7 @@ every "Done" below means "built and type-checked", not "proven on real mail", un
 | Error tracking, uptime checks | Missing | Stage 9. |
 | Database backups and a tested restore | Partly | Supabase Pro takes daily backups. A restore has not been tested for RPMail. |
 | Works on a phone, installable | Partly | RP Intelligence is installable and the RPMail page folds to one column. Not checked on a real phone with real mail. |
-| Automated tests + a check before going live | Missing | The repo has no test runner. Stage 6. |
+| Automated tests + a check before going live | Partly | 50 tests (`npm test`) against a stand-in Gmail and a stand-in database: access rules, loading, reading, filing with Undo, sending, the pricing rule. They run on every pull request (GitHub "Tests") and inside the Vercel build, so a failing test stops a deploy. Not covered: the screens themselves (no browser tests), and the stand-ins are not the real Gmail or the real database. |
 
 ## Not tested yet (be honest list)
 
@@ -157,5 +157,6 @@ every "Done" below means "built and type-checked", not "proven on real mail", un
 
 ## Stage log
 
+- 2026-11-20: tests (stage 6) on branch `feat/rpmail-tests`: vitest, `tests/rpmail/{fakes,setup}.ts` (stand-in database + stand-in Gmail), `access.test.ts`, `mail.test.ts`, `pure.test.ts`; `.github/workflows/tests.yml`; package.json `vercel-build` runs the tests before `next build`. The tests found no bug in stages 1 and 2.
 - 2026-11-20: stage 2 built on branch `feat/rpmail-stage2`: `lib/rpmail/compose-ops.ts`, table `rpmail_templates` and private bucket `rpmail-outbox` (both applied), compose box rewritten, undo-send bar in rpmail-app.tsx, `undo_secs` in `rpmail_prefs`. Known loose end: a file attached and then abandoned (tab closed without Discard) stays in the bucket until the stage 4 clean-up job exists. Checked by type-check, lint and a production build only.
 - 2026-11-20: audit written. Stage 1 built on branch `feat/rpmail-product`: new table `rpmail_prefs` (applied), `lib/rpmail/extras.ts`, new API actions prefs / star / bulk / done_list. Checked by type-check, lint, role-access check and a production build. NOT checked in a browser with mail in it: nobody has RPMail turned on yet and there is no test mailbox.
