@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   Mail, LayoutDashboard, PenSquare, RefreshCw, Paperclip, Check, Archive, Trash2, ShieldAlert, Reply, ReplyAll, Forward, Inbox,
-  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download,
+  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -15,20 +15,22 @@ import { Compose, type ComposeStart } from './compose'
 // The built-in RPMail page: Dashboard (a tile per mailbox, My Plate, Your jobs, Needs you, Daily summary) and one
 // inbox per mailbox. Unread mail is bold everywhere. Opening a message never marks it read.
 
-type State = { enabled: boolean; name: string; role: string; googleReady: boolean; personalAddress: string | null; loginEmail: string; boxes: BoxInfo[]; note: string | null }
+type Prefs = { hidden: string[]; order: string[] }
+type State = { prefs?: Prefs; enabled: boolean; name: string; role: string; googleReady: boolean; personalAddress: string | null; loginEmail: string; boxes: BoxInfo[]; note: string | null }
 type PlateItem = { id: string; title: string; detail: string; kind: string; site_number: string | null; priority: number; due_date: string | null; status: string; waiting_on: string | null; mail: Item | null; mail_n: number }
 type SumItem = { mailbox_id: string; id: string; date: number; from_name: string; subject: string; site: string | null; po: string | null; snippet: string; why?: string; unread?: boolean }
 type Summary = { day: string; created: number; data: { since: number; boxes: { id: string; name: string; received: number; items: SumItem[]; more: number }[]; needs: SumItem[]; stale: SumItem[]; permits: SumItem[]; pos: SumItem[]; deadlines: SumItem[] } }
 type Move = { id: number; mailbox_id: string; subject: string; from_place: string; to_place: string; undone: boolean; created_at: number }
-type Overview = { boxes: BoxInfo[]; needs: Item[]; foryou: Item[]; plate: { items: PlateItem[]; error: string | null }; summary: Summary | null; moves: Move[]; now: number }
+type Overview = { prefs?: Prefs; boxes: BoxInfo[]; needs: Item[]; foryou: Item[]; plate: { items: PlateItem[]; error: string | null }; summary: Summary | null; moves: Move[]; now: number }
 type Full = Item & { cc_addrs: string; to_full: string; cc_full: string; text: string; html: string | null; done: boolean; hidden: boolean
   attachments: { i: number; name: string; type: string; size: number; inline: boolean }[]
   thread: { id: string; date: number; from_name: string; snippet: string; unread: boolean; sent: boolean }[] }
 type Toast = { text: string; undo?: () => void } | null
-type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all'; q: string; unread: boolean; att: boolean }
+type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all'; q: string; unread: boolean; att: boolean; starred?: boolean }
+type BulkAction = 'Archive' | 'Trash' | 'read' | 'unread' | 'done'
 type View = { kind: 'dash' } | { kind: 'box'; id: string }
 /** Which list a set of rows belongs to, so a list for another mailbox or filter is never shown under the wrong heading. */
-const keyOf = (v: View, f: Filter) => v.kind === 'box' ? [v.id, f.view, f.unread, f.att].join('|') : ''
+const keyOf = (v: View, f: Filter) => v.kind === 'box' ? [v.id, f.view, f.unread, f.att, !!f.starred].join('|') : ''
 
 export async function api<T>(op: string, body?: Record<string, unknown>, query?: Record<string, string>): Promise<T> {
   const url = '/api/rpmail/' + op + (query ? '?' + new URLSearchParams(query) : '')
@@ -67,6 +69,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const [compose, setCompose] = useState<ComposeStart | null>(null)
   const [err, setErr] = useState(connectError ?? '')
   const [menu, setMenu] = useState<{ x: number; y: number; item: Item } | null>(null)
+  const [boxMenu, setBoxMenu] = useState<{ x: number; y: number; box: BoxInfo } | null>(null)
+  const [help, setHelp] = useState(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const viewRef = useRef(view)
   const filterRef = useRef(filter)
@@ -82,7 +86,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const loadList = useCallback((): Promise<void> => {
     const v = viewRef.current, f = filterRef.current
     if (v.kind !== 'box') return Promise.resolve()
-    return api<{ messages: Item[] }>('messages', undefined, { mailbox: v.id, view: f.view, q: f.q, unread: f.unread ? '1' : '', att: f.att ? '1' : '' })
+    return api<{ messages: Item[] }>('messages', undefined, { mailbox: v.id, view: f.view, q: f.q, unread: f.unread ? '1' : '', att: f.att ? '1' : '', starred: f.starred ? '1' : '' })
       .then(r => setList({ key: keyOf(v, f), items: r.messages }))
       .catch(e => setErr((e as Error).message))
   }, [])
@@ -90,7 +94,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const refresh = useCallback(async () => {
     try {
       const o = await api<Overview>('overview')
-      setOv(o); setSt(s => s ? { ...s, boxes: o.boxes } : s); setErr('')
+      setOv(o); setSt(s => s ? { ...s, boxes: o.boxes, prefs: o.prefs ?? s.prefs } : s); setErr('')
     } catch (e) { setErr((e as Error).message) }
     await loadList()
   }, [loadList])
@@ -126,7 +130,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => { void loadList() }, [view, filter.view, filter.unread, filter.att, loadList])   // typing in the search box waits for Enter
+  useEffect(() => { void loadList() }, [view, filter.view, filter.unread, filter.att, filter.starred, loadList])   // typing in the search box waits for Enter
 
   const openMsg = useCallback(async (mailbox: string, id: string) => {
     setSel({ mailbox, id }); setMsg(null); setMsgErr('')
@@ -170,24 +174,113 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
     say('Done: ' + t.title, () => void act(async () => { await api('plate_done', { id: t.id, undo: true, prev: t.status }); await refresh(); say('Back on My Plate.') }))
   }), [act, refresh, say])
 
-  const boxes = useMemo(() => st?.boxes ?? [], [st])
+  const toggleStar = useCallback((it: { mailbox_id: string; id: string }, on: boolean) => act(async () => {
+    await api('star', { mailbox: it.mailbox_id, id: it.id, on })
+    setMsg(m => m && m.id === it.id ? { ...m, starred: on } : m)
+    setList(l => l ? { ...l, items: l.items.map(x => x.id === it.id ? { ...x, starred: on } : x) } : l)
+    if (filterRef.current.starred) await loadList()
+  }), [act, loadList])
+
+  const bulk = useCallback((mailbox: string, ids: string[], action: BulkAction) => act(async () => {
+    say(`Working on ${ids.length}...`)
+    const r = await api<{ n: number; failed: number; moves: number[] }>('bulk', { mailbox, ids, action })
+    if (sel && ids.includes(sel.id) && (action === 'Archive' || action === 'Trash')) { setSel(null); setMsg(null) }
+    await refresh()
+    const what = action === 'Archive' ? 'archived' : action === 'Trash' ? 'moved to Trash' : action === 'done' ? 'marked Done' : 'marked ' + action
+    const undo = r.moves.length ? () => void act(async () => { say('Putting them back...'); for (const m of r.moves) await api('undo', { move: m }); await refresh(); say(`${r.moves.length} put back.`) }) : undefined
+    say(`${r.n} ${what}.` + (r.failed ? ` ${r.failed} could not be changed.` : ''), undo)
+  }), [act, refresh, say, sel])
+
+  const savePrefs = useCallback((next: Partial<Prefs>) => act(async () => {
+    setSt(s => s ? { ...s, prefs: { hidden: s.prefs?.hidden ?? [], order: s.prefs?.order ?? [], ...next } } : s)
+    await api('prefs', next)
+  }), [act])
+
+  // Mailboxes in the order this person chose (ones they have not placed keep their usual spot at the end).
+  const boxes = useMemo(() => {
+    const order = st?.prefs?.order ?? [], all = st?.boxes ?? []
+    const at = (id: string) => { const i = order.indexOf(id); return i < 0 ? 999 : i }
+    return all.map((b, i) => ({ b, i })).sort((x, y) => at(x.b.id) - at(y.b.id) || x.i - y.i).map(x => x.b)
+  }, [st])
+  const hidden = useMemo(() => new Set(st?.prefs?.hidden ?? []), [st])
+  const moveBox = (id: string, by: number) => {
+    const order = boxes.map(b => b.id), i = order.indexOf(id), j = i + by
+    if (i < 0 || j < 0 || j >= order.length) return
+    ;[order[i], order[j]] = [order[j], order[i]]
+    void savePrefs({ order })
+  }
+  const setHidden = (id: string, on: boolean) => {
+    const next = new Set(hidden); if (on) next.add(id); else next.delete(id)
+    void savePrefs({ hidden: [...next] })
+    say(on ? 'Closed. It is still in the list on the left; put it back from the bottom of the dashboard.' : 'Back on the dashboard.')
+  }
+
+  // Keyboard shortcuts (press ? for the list). Off while typing in a box or writing a message.
+  const keyState = useRef({ list: null as Item[] | null, sel, msg, compose: false, view, boxes })
+  useEffect(() => { keyState.current = { list, sel, msg, compose: !!compose, view, boxes } })
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === 'Escape') { setMenu(null); setBoxMenu(null); setHelp(false); return }
+      if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return
+      const k = keyState.current
+      if (k.compose) return
+      const first = k.view.kind === 'box' ? k.boxes.find(b => b.id === (k.view as { id: string }).id && b.connected) : k.boxes.find(b => b.connected)
+      const cur = k.msg ? { mailbox_id: k.msg.mailbox_id, id: k.msg.id } : null
+      const step = (by: number) => {
+        if (!k.list?.length || k.view.kind !== 'box') return
+        const i = k.sel ? k.list.findIndex(x => x.id === k.sel!.id) : -1
+        const n = k.list[Math.max(0, Math.min(k.list.length - 1, i + by))]
+        if (n) void openMsg(n.mailbox_id, n.id)
+      }
+      const done = () => e.preventDefault()
+      switch (e.key) {
+        case '?': setHelp(h => !h); return done()
+        case 'c': if (first) setCompose({ mode: 'new', mailbox: first.id }); return done()
+        case '/': document.getElementById('rp-search')?.focus(); return done()
+        case 'j': step(1); return done()
+        case 'k': step(-1); return done()
+        case 'u': setSel(null); setMsg(null); return done()
+      }
+      if (!cur || !k.msg) return
+      switch (e.key) {
+        case 'e': void fileTo(cur, k.msg.in_inbox ? 'Archive' : 'Inbox'); return done()
+        case '#': void fileTo(cur, 'Trash'); return done()
+        case 'r': setCompose({ mode: 'reply', mailbox: cur.mailbox_id, id: cur.id }); return done()
+        case 'a': setCompose({ mode: 'reply', mailbox: cur.mailbox_id, id: cur.id, all: true }); return done()
+        case 'f': setCompose({ mode: 'forward', mailbox: cur.mailbox_id, id: cur.id }); return done()
+        case 's': void toggleStar(cur, !k.msg.starred); return done()
+        case 'd': void markDone(cur, !k.msg.done); return done()
+        case 'm': void markRead(cur, !k.msg.unread); return done()
+        case 'p': printMessage(k.msg); return done()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [fileTo, markDone, markRead, openMsg, toggleStar])
   const boxName = useCallback((id: string) => boxes.find(b => b.id === id)?.name ?? '', [boxes])
   const cur = view.kind === 'box' ? boxes.find(b => b.id === view.id) ?? null : null
 
   if (!st) return <div className="p-6 text-sm text-muted-foreground">{err || 'Loading RPMail...'}</div>
   if (!st.enabled) return <Setup st={st} localUrl={localUrl} onOn={boot} />
 
-  const rowProps = { onOpen: (it: Item) => { if (view.kind !== 'box' || view.id !== it.mailbox_id) { setFilter({ view: 'all', q: '', unread: false, att: false }); setView({ kind: 'box', id: it.mailbox_id }) } void openMsg(it.mailbox_id, it.id) },
-    onMenu: (e: React.MouseEvent, it: Item) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, item: it }) } }
+  const onBoxMenu = (e: React.MouseEvent, b: BoxInfo) => { e.preventDefault(); e.stopPropagation(); setMenu(null); setBoxMenu({ x: e.clientX, y: e.clientY, box: b }) }
+  const goBox = (id: string) => { setFilter({ view: 'inbox', q: '', unread: false, att: false }); setView({ kind: 'box', id }); setSel(null); setMsg(null) }
+  const signOut = (b: BoxInfo) => { if (window.confirm(`Sign ${b.address} out of RPMail? Nothing in Gmail is touched. ${b.kind === 'shared' ? 'Everyone who has this shared mailbox loses it here until someone signs it in again.' : 'You can sign in again any time.'}`)) void act(async () => { await api('disconnect', { mailbox: b.id }); await boot(); say('Signed out.') }) }
+  const canSignOut = (b: BoxInfo) => b.connected && (b.kind === 'personal' || st.role === 'owner')
+  const rowProps = { onStar: (it: Item) => void toggleStar(it, !it.starred), onOpen: (it: Item) => { if (view.kind !== 'box' || view.id !== it.mailbox_id) { setFilter({ view: 'all', q: '', unread: false, att: false }); setView({ kind: 'box', id: it.mailbox_id }) } void openMsg(it.mailbox_id, it.id) },
+    onMenu: (e: React.MouseEvent, it: Item) => { e.preventDefault(); setBoxMenu(null); setMenu({ x: e.clientX, y: e.clientY, item: it }) } }
 
   return (
-    <div className="p-3 sm:p-5 max-w-[1500px] mx-auto" onClick={() => menu && setMenu(null)}>
+    <div className="p-3 sm:p-5 max-w-[1500px] mx-auto" onClick={() => { if (menu) setMenu(null); if (boxMenu) setBoxMenu(null) }}>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
           <h1 className="rp-title">RPMail</h1>
           <p className="rp-subtitle">Your mail, what needs a reply and your jobs, in one place.{localUrl && <> <a className="underline" href={localUrl} target="_blank" rel="noopener noreferrer">Open your own RPMail</a></>}</p>
         </div>
         <div className="flex items-center gap-2">
+          <button className={cn(btn('ghost'), 'hidden sm:inline-flex')} onClick={() => setHelp(true)} title="Keyboard shortcuts (press ?)"><Keyboard />Shortcuts</button>
           <button className={btn('ghost')} onClick={() => void syncAll(boxes)} disabled={busy} title="Check for new mail"><RefreshCw className={cn(busy && 'animate-spin')} />{busy ? 'Checking' : 'Check mail'}</button>
           <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected ? cur.id : boxes.find(b => b.connected)?.id ?? '' })} disabled={!boxes.some(b => b.connected)}><PenSquare />New message</button>
         </div>
@@ -199,13 +292,13 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
         <nav className="lg:w-56 shrink-0 flex lg:flex-col gap-1.5 overflow-x-auto pb-1 lg:pb-0">
           <NavBtn on={view.kind === 'dash'} onClick={() => { setView({ kind: 'dash' }); setSel(null); setMsg(null) }} icon={<LayoutDashboard className="size-4" />} label="Dashboard" />
           {boxes.map(b => (
-            <NavBtn key={b.id} on={view.kind === 'box' && view.id === b.id} icon={<Mail className="size-4" />} label={b.name} sub={b.address} count={b.unread}
-              onClick={() => { setFilter({ view: 'inbox', q: '', unread: false, att: false }); setView({ kind: 'box', id: b.id }); setSel(null); setMsg(null) }} />
+            <NavBtn key={b.id} on={view.kind === 'box' && view.id === b.id} icon={<Mail className="size-4" />} label={b.name} sub={b.connected ? b.address : 'Signed out'} count={b.unread}
+              onClick={() => goBox(b.id)} onContextMenu={e => onBoxMenu(e, b)} />
           ))}
         </nav>
 
         <div className="flex-1 min-w-0">
-          {view.kind === 'dash' && ov && <Dash ov={ov} boxName={boxName} rowProps={rowProps} goBox={id => { setFilter({ view: 'inbox', q: '', unread: false, att: false }); setView({ kind: 'box', id }) }}
+          {view.kind === 'dash' && ov && <Dash ov={ov} boxes={boxes} hidden={hidden} onBoxMenu={onBoxMenu} putBack={id => setHidden(id, false)} boxName={boxName} rowProps={rowProps} goBox={goBox}
             markDone={markDone} plateDone={plateDone} undo={id => void act(async () => { const u = await api<{ back_to: string }>('undo', { move: id }); await refresh(); say('Back in ' + u.back_to + '.') })} />}
           {view.kind === 'dash' && !ov && <p className="text-sm text-muted-foreground">Loading...</p>}
           {view.kind === 'dash' && (
@@ -215,24 +308,44 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           )}
           {view.kind === 'box' && cur && !cur.connected && <Connect box={cur} st={st} />}
           {view.kind === 'box' && cur && cur.connected && (
-            <BoxView box={cur} filter={filter} setFilter={setFilter} list={list} sel={sel} msg={msg} msgErr={msgErr} rowProps={rowProps} reload={loadList}
+            <BoxView box={cur} filter={filter} setFilter={setFilter} list={list} sel={sel} msg={msg} msgErr={msgErr} rowProps={rowProps} reload={loadList} bulk={(ids, action) => void bulk(cur.id, ids, action)}
               close={() => { setSel(null); setMsg(null) }} openOther={id => void openMsg(cur.id, id)}
               search={() => void act(async () => { say('Searching all of Gmail...'); const r = await api<{ messages: Item[] }>('search', { mailbox: cur.id, q: filter.q }); setList({ key: keyOf(view, filter), items: r.messages }); say(r.messages.length ? `${r.messages.length} found in Gmail.` : 'Nothing found in Gmail.') })}
-              actions={{ fileTo, markRead, markDone, plateAdd, reply: (m, all, fwd) => setCompose({ mode: fwd ? 'forward' : 'reply', mailbox: m.mailbox_id, id: m.id, all }) }}
+              actions={{ fileTo, markRead, markDone, plateAdd, star: toggleStar, reply: (m, all, fwd) => setCompose({ mode: fwd ? 'forward' : 'reply', mailbox: m.mailbox_id, id: m.id, all }) }}
               editSig={() => setCompose({ mode: 'signature', mailbox: cur.id })}
-              disconnect={cur.kind === 'personal' ? () => { if (window.confirm('Disconnect this mailbox from RPMail? Your mail in Gmail is not touched. You can sign in again any time.')) void act(async () => { await api('disconnect', { mailbox: cur.id }); await boot() }) } : undefined} />
+              disconnect={canSignOut(cur) ? () => signOut(cur) : undefined} />
           )}
         </div>
       </div>
 
       {menu && (
-        <div className="fixed z-50 rp-card py-1 text-sm shadow-lg" style={{ left: Math.min(menu.x, window.innerWidth - 190), top: Math.min(menu.y, window.innerHeight - 150) }}>
+        <div className="fixed z-50 rp-card py-1 text-sm shadow-lg" style={{ left: Math.min(menu.x, window.innerWidth - 190), top: Math.min(menu.y, window.innerHeight - 330) }}>
+          <MenuBtn onClick={() => rowProps.onOpen(menu.item)}>Open</MenuBtn>
+          <MenuBtn onClick={() => setCompose({ mode: 'reply', mailbox: menu.item.mailbox_id, id: menu.item.id })}>Reply</MenuBtn>
+          <MenuBtn onClick={() => setCompose({ mode: 'forward', mailbox: menu.item.mailbox_id, id: menu.item.id })}>Forward</MenuBtn>
           <MenuBtn onClick={() => void markDone(menu.item)}>Done (off my lists)</MenuBtn>
           <MenuBtn onClick={() => void plateAdd(menu.item)}>Add to My Plate</MenuBtn>
           <MenuBtn onClick={() => void markRead(menu.item, !menu.item.unread)}>{menu.item.unread ? 'Mark read' : 'Mark unread'}</MenuBtn>
+          <MenuBtn onClick={() => void toggleStar(menu.item, !menu.item.starred)}>{menu.item.starred ? 'Remove star' : 'Star'}</MenuBtn>
           {menu.item.in_inbox && <MenuBtn onClick={() => void fileTo(menu.item, 'Archive')}>Archive</MenuBtn>}
+          <MenuBtn onClick={() => void fileTo(menu.item, 'Spam')}>Spam</MenuBtn>
+          <MenuBtn onClick={() => void fileTo(menu.item, 'Trash')}>Delete</MenuBtn>
         </div>
       )}
+      {boxMenu && (() => { const b = boxMenu.box, i = boxes.findIndex(x => x.id === b.id); return (
+        <div className="fixed z-50 rp-card py-1 text-sm shadow-lg" style={{ left: Math.min(boxMenu.x, window.innerWidth - 230), top: Math.min(boxMenu.y, window.innerHeight - 290) }}>
+          <p className="px-4 py-1 text-xs text-muted-foreground truncate max-w-[220px]">{b.address}</p>
+          <MenuBtn onClick={() => goBox(b.id)}>Open</MenuBtn>
+          {b.connected && <MenuBtn onClick={() => void syncAll([b])}>Check for new mail</MenuBtn>}
+          {!b.connected && st.googleReady && <a className="block w-full px-4 py-1.5 text-left hover:bg-raised" href={`/api/rpmail/connect?mailbox=${b.id}`}>Sign in</a>}
+          {b.connected && st.googleReady && <a className="block w-full px-4 py-1.5 text-left hover:bg-raised" href={`/api/rpmail/connect?mailbox=${b.id}`}>Sign in again</a>}
+          {canSignOut(b) && <MenuBtn onClick={() => signOut(b)}>Sign out</MenuBtn>}
+          {i > 0 && <MenuBtn onClick={() => moveBox(b.id, -1)}>Move earlier</MenuBtn>}
+          {i >= 0 && i < boxes.length - 1 && <MenuBtn onClick={() => moveBox(b.id, 1)}>Move later</MenuBtn>}
+          <MenuBtn onClick={() => setHidden(b.id, !hidden.has(b.id))}>{hidden.has(b.id) ? 'Put back on the dashboard' : 'Hide from the dashboard'}</MenuBtn>
+        </div>
+      ) })()}
+      {help && <HelpSheet close={() => setHelp(false)} />}
       {toast && (
         <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg bg-foreground text-background px-4 py-2.5 text-sm shadow-lg max-w-[92vw]">
           <span>{toast.text}</span>
@@ -244,9 +357,9 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   )
 }
 
-function NavBtn({ on, onClick, icon, label, sub, count }: { on: boolean; onClick: () => void; icon: React.ReactNode; label: string; sub?: string; count?: number }) {
+function NavBtn({ on, onClick, onContextMenu, icon, label, sub, count }: { on: boolean; onClick: () => void; onContextMenu?: (e: React.MouseEvent) => void; icon: React.ReactNode; label: string; sub?: string; count?: number }) {
   return (
-    <button onClick={onClick} className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm whitespace-nowrap lg:whitespace-normal', on ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-card hover:bg-raised')}>
+    <button onClick={onClick} onContextMenu={onContextMenu} className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm whitespace-nowrap lg:whitespace-normal', on ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-card hover:bg-raised')}>
       {icon}
       <span className="min-w-0 flex-1">
         <span className={cn('block truncate', count ? 'font-bold' : 'font-medium')}>{label}</span>
@@ -298,13 +411,14 @@ function Connect({ box, st }: { box: BoxInfo; st: State }) {
   )
 }
 
-type RowProps = { onOpen: (it: Item) => void; onMenu: (e: React.MouseEvent, it: Item) => void }
+type RowProps = { onOpen: (it: Item) => void; onMenu: (e: React.MouseEvent, it: Item) => void; onStar?: (it: Item) => void }
 
-function Row({ m, selected, boxLabel, onDone, onOpen, onMenu }: { m: Item; selected?: boolean; boxLabel?: string; onDone?: () => void } & RowProps) {
+function Row({ m, selected, boxLabel, onDone, onOpen, onMenu, onStar, pick }: { m: Item; selected?: boolean; boxLabel?: string; onDone?: () => void; pick?: { on: boolean; toggle: () => void } } & RowProps) {
   const bold = m.unread || m.waiting
   return (
     <div onClick={() => onOpen(m)} onContextMenu={e => onMenu(e, m)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && onOpen(m)}
       className={cn('flex gap-2 px-3 py-2 border-b border-hairline cursor-pointer hover:bg-raised', selected && 'bg-primary/10', bold ? 'text-foreground' : 'text-muted-foreground')}>
+      {pick && <input type="checkbox" className="mt-1 size-4 shrink-0" aria-label="Select this conversation" checked={pick.on} onClick={e => e.stopPropagation()} onChange={pick.toggle} />}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className={cn('truncate text-sm', bold ? 'font-bold' : 'font-medium')}>{m.sent ? 'To: ' + (m.to_addrs.split(',')[0] || '') : m.from_name || m.from_addr}{(m.count ?? 1) > 1 && <span className="font-normal text-muted-foreground"> ({m.count})</span>}</span>
@@ -321,6 +435,7 @@ function Row({ m, selected, boxLabel, onDone, onOpen, onMenu }: { m: Item; selec
           {boxLabel && <span className="rp-pill">{boxLabel}</span>}
         </div>
       </div>
+      {onStar && <button title={m.starred ? 'Remove the star' : 'Star it'} aria-label={m.starred ? 'Remove the star' : 'Star it'} className="self-start mt-0.5 shrink-0 text-muted-foreground hover:text-foreground" onClick={e => { e.stopPropagation(); onStar(m) }}><Star className={cn('size-4', m.starred && 'fill-warning text-warning')} /></button>}
       {onDone && <button title="Done: take it off my lists" className={cn(btn('ghost', 'xs'), 'self-center')} onClick={e => { e.stopPropagation(); onDone() }}><Check />Done</button>}
     </div>
   )
@@ -336,10 +451,11 @@ function Section({ id, title, count, children, right }: { id?: string; title: st
 }
 const Empty = ({ children }: { children: React.ReactNode }) => <p className="px-4 py-5 text-sm text-muted-foreground">{children}</p>
 
-function Tile({ title, sub, nums, foot, bold, onClick }: { title: string; sub: string; nums: [number | string, string][]; foot: string; bold?: boolean; onClick: () => void }) {
+function Tile({ title, sub, nums, foot, bold, onClick, onMenu }: { title: string; sub: string; nums: [number | string, string][]; foot: string; bold?: boolean; onClick: () => void; onMenu?: (e: React.MouseEvent) => void }) {
   return (
-    <button onClick={onClick} className="rp-card rp-card-link p-4 text-left">
-      <div className={cn('text-sm text-foreground truncate', bold ? 'font-bold' : 'font-semibold')}>{title}</div>
+    <button onClick={onClick} onContextMenu={onMenu} className="rp-card rp-card-link p-4 text-left relative">
+      {onMenu && <span role="button" tabIndex={0} aria-label={'Options for ' + title} title="Options (or right-click)" className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:bg-raised hover:text-foreground" onClick={onMenu} onKeyDown={e => { if (e.key === 'Enter') onMenu(e as unknown as React.MouseEvent) }}><MoreVertical className="size-4" /></span>}
+      <div className={cn('text-sm text-foreground truncate', onMenu && 'pr-6', bold ? 'font-bold' : 'font-semibold')}>{title}</div>
       <div className="text-xs text-muted-foreground truncate">{sub}</div>
       <div className="mt-3 flex gap-5">
         {nums.map(([n, l]) => <div key={l}><div className="rp-stat-value text-2xl">{n}</div><div className="rp-stat-label">{l}</div></div>)}
@@ -349,20 +465,22 @@ function Tile({ title, sub, nums, foot, bold, onClick }: { title: string; sub: s
   )
 }
 
-function Dash({ ov, boxName, rowProps, goBox, markDone, plateDone, undo }: { ov: Overview; boxName: (id: string) => string; rowProps: RowProps; goBox: (id: string) => void
-  markDone: (it: { mailbox_id: string; id: string }) => void; plateDone: (t: PlateItem) => void; undo: (id: number) => void }) {
+function Dash({ ov, boxes, hidden, onBoxMenu, putBack, boxName, rowProps, goBox, markDone, plateDone, undo }: { ov: Overview; boxes: BoxInfo[]; hidden: Set<string>; onBoxMenu: (e: React.MouseEvent, b: BoxInfo) => void; putBack: (id: string) => void
+  boxName: (id: string) => string; rowProps: RowProps; goBox: (id: string) => void
+  markDone: (it: { mailbox_id: string; id: string }, on?: boolean) => void; plateDone: (t: PlateItem) => void; undo: (id: number) => void }) {
   const go = (id: string) => document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   const P = ov.plate.items, open = P.filter(t => t.status === 'open')
   const waitingJobs = ov.foryou.filter(m => m.waiting).length
   const s = ov.summary?.data
   const many = ov.boxes.length > 1
+  const closed = boxes.filter(b => hidden.has(b.id))
   return (
     <div className="space-y-4">
       <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
-        {ov.boxes.map(b => (
-          <Tile key={b.id} title={b.name} sub={b.address} bold={b.unread > 0} onClick={() => goBox(b.id)}
+        {boxes.filter(b => !hidden.has(b.id)).map(b => (
+          <Tile key={b.id} title={b.name} sub={b.address} bold={b.unread > 0} onClick={() => goBox(b.id)} onMenu={e => onBoxMenu(e, b)}
             nums={b.connected ? [[b.inbox, 'in inbox'], [b.unread, 'unread'], [b.needs, 'need you']] : [['-', 'not connected']]}
-            foot={!b.connected ? 'Sign in with Google to connect' : b.loading ? `Loading mail: ${b.loading.total - b.loading.left} of ${b.loading.total}` : b.last_error ? b.last_error : 'Checked ' + ago(b.last_sync_at)} />
+            foot={!b.connected ? (b.last_error || 'Signed out. Open it to sign in with Google.') : b.loading ? `Loading mail: ${b.loading.total - b.loading.left} of ${b.loading.total}` : b.last_error ? b.last_error : 'Checked ' + ago(b.last_sync_at)} />
         ))}
         <Tile title="My Plate" sub="What is on you" onClick={() => go('rp-plate')} nums={[[open.length, 'to do'], [P.length - open.length, 'waiting'], [P.filter(t => t.priority === 1).length, 'hot']]} foot={open[0]?.title ?? P[0]?.title ?? 'Nothing on your plate.'} />
         <Tile title="Your jobs" sub="Mail tied to your work" bold={waitingJobs > 0} onClick={() => go('rp-jobs')} nums={[[waitingJobs, 'waiting on a reply'], [ov.foryou.length, 'last 14 days']]}
@@ -418,6 +536,14 @@ function Dash({ ov, boxName, rowProps, goBox, markDone, plateDone, undo }: { ov:
         )}
       </Section>
 
+      <DoneSection boxName={many ? boxName : undefined} rowProps={rowProps} putBack={m => markDone(m, false)} stamp={ov.now} />
+
+      {closed.length > 0 && (
+        <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5">Closed boxes:
+          {closed.map(b => <button key={b.id} className="rp-chip" onClick={() => putBack(b.id)} title="Put it back on the dashboard">{b.name} · put back</button>)}
+        </p>
+      )}
+
       {ov.moves.length > 0 && (
         <Section title="Recently filed">
           {ov.moves.map(m => (
@@ -458,13 +584,18 @@ type Actions = {
   markRead: (it: { mailbox_id: string; id: string }, unread: boolean) => void
   markDone: (it: { mailbox_id: string; id: string }, on?: boolean) => void
   plateAdd: (it: { mailbox_id: string; id: string }) => void
+  star: (it: { mailbox_id: string; id: string }, on: boolean) => void
   reply: (m: Full, all: boolean, fwd: boolean) => void
 }
 
-function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, reload, close, openOther, search, actions, editSig, disconnect }: {
+function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, reload, bulk, close, openOther, search, actions, editSig, disconnect }: {
   box: BoxInfo; filter: Filter; setFilter: (f: Filter) => void; list: Item[] | null; sel: { mailbox: string; id: string } | null; msg: Full | null; msgErr: string
-  rowProps: RowProps; reload: () => void; close: () => void; openOther: (id: string) => void; search: () => void; actions: Actions; editSig: () => void; disconnect?: () => void }) {
+  rowProps: RowProps; reload: () => void; bulk: (ids: string[], action: BulkAction) => void; close: () => void; openOther: (id: string) => void; search: () => void; actions: Actions; editSig: () => void; disconnect?: () => void }) {
   const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['filed', 'Filed'], ['all', 'All']]
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const chosen = (list ?? []).filter(m => picked.has(m.id)).map(m => m.id)   // only what is on screen right now
+  const toggle = (id: string) => setPicked(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const run = (a: BulkAction) => { bulk(chosen, a); setPicked(new Set()) }
   return (
     <div className="rp-card overflow-hidden">
       <div className="rp-card-head">
@@ -474,24 +605,45 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
         </div>
         <div className="flex items-center gap-1.5">
           <button className={btn('ghost', 'xs')} onClick={editSig}><Signature />Signature</button>
-          {disconnect && <button className={btn('ghost', 'xs')} onClick={disconnect}><Unplug />Disconnect</button>}
+          <a className={btn('ghost', 'xs')} href={`/api/rpmail/connect?mailbox=${box.id}`} title="Use this if mail has stopped arriving or Google asks for permission again">Sign in again</a>
+          {disconnect && <button className={btn('ghost', 'xs')} onClick={disconnect}><Unplug />Sign out</button>}
         </div>
       </div>
+      {box.last_error && (
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-hairline bg-warning-soft text-sm text-warning">
+          <span className="min-w-0 flex-1">Mail is not arriving for this mailbox: {box.last_error}</span>
+          <a className={btn('default', 'xs')} href={`/api/rpmail/connect?mailbox=${box.id}`}>Sign in again</a>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-hairline">
         {views.map(([v, l]) => <button key={v} className="rp-chip" data-on={filter.view === v} onClick={() => setFilter({ ...filter, view: v })}>{l}{v === 'inbox' && box.unread ? ` (${box.unread})` : v === 'needs' && box.needs ? ` (${box.needs})` : ''}</button>)}
         <button className="rp-chip" data-on={filter.unread} onClick={() => setFilter({ ...filter, unread: !filter.unread })}>Unread only</button>
         <button className="rp-chip" data-on={filter.att} onClick={() => setFilter({ ...filter, att: !filter.att })}><Paperclip className="size-3" />Attachments</button>
+        <button className="rp-chip" data-on={!!filter.starred} onClick={() => setFilter({ ...filter, starred: !filter.starred })}><Star className="size-3" />Starred</button>
         <form className="ml-auto flex items-center gap-1.5" onSubmit={e => { e.preventDefault(); reload() }}>
-          <input className="rp-input !w-44 sm:!w-56" placeholder="Search name, subject, site #" value={filter.q} onChange={e => setFilter({ ...filter, q: e.target.value })} />
+          <input id="rp-search" className="rp-input !w-44 sm:!w-56" placeholder="Search name, subject, site #" value={filter.q} onChange={e => setFilter({ ...filter, q: e.target.value })} />
           <button className={btn('outline', 'sm')} type="submit" title="Search the last 90 days"><Search /></button>
           {filter.q.trim().length > 1 && <button className={btn('ghost', 'sm')} type="button" onClick={search}>Search all of Gmail</button>}
         </form>
       </div>
       <div className="lg:grid lg:grid-cols-[minmax(280px,38%)_1fr] lg:min-h-[60vh]">
         <div className={cn('lg:border-r border-hairline lg:max-h-[78vh] overflow-y-auto', sel && 'hidden lg:block')}>
+          {list && list.length > 0 && filter.view !== 'needs' && (
+            <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 px-3 py-1.5 border-b border-hairline bg-card text-xs">
+              <label className="inline-flex items-center gap-1.5 text-muted-foreground"><input type="checkbox" className="size-4" checked={chosen.length > 0 && chosen.length === Math.min(list.length, 40)} onChange={e => setPicked(e.target.checked ? new Set(list.slice(0, 40).map(m => m.id)) : new Set())} />{chosen.length ? `${chosen.length} selected` : 'Select'}</label>
+              {chosen.length > 0 && <>
+                <button className={btn('outline', 'xs')} onClick={() => run('Archive')}><Archive />Archive</button>
+                <button className={btn('outline', 'xs')} onClick={() => run('Trash')}><Trash2 />Delete</button>
+                <button className={btn('ghost', 'xs')} onClick={() => run('read')}>Mark read</button>
+                <button className={btn('ghost', 'xs')} onClick={() => run('unread')}>Mark unread</button>
+                <button className={btn('ghost', 'xs')} onClick={() => run('done')}><Check />Done</button>
+                <button className={btn('ghost', 'xs')} onClick={() => setPicked(new Set())}>Clear</button>
+              </>}
+            </div>
+          )}
           {list === null && <Empty>Loading...</Empty>}
           {list && !list.length && <Empty>{box.loading ? 'Your mail is still loading. This fills in as it arrives.' : 'Nothing here.'}</Empty>}
-          {list?.map(m => <Row key={m.id} m={m} selected={sel?.id === m.id} {...rowProps} />)}
+          {list?.map(m => <Row key={m.id} m={m} selected={sel?.id === m.id} pick={filter.view !== 'needs' ? { on: picked.has(m.id), toggle: () => toggle(m.id) } : undefined} {...rowProps} />)}
         </div>
         <div className={cn('lg:max-h-[78vh] overflow-y-auto', !sel && 'hidden lg:block')}>
           {!sel && <Empty>Pick a message to read it. Opening a message does not mark it read.</Empty>}
@@ -533,6 +685,8 @@ function Reader({ m, close, openOther, actions }: { m: Full; close: () => void; 
           <button className={btn('ghost')} onClick={() => actions.markRead(it, !m.unread)}><MailOpen />{m.unread ? 'Mark read' : 'Mark unread'}</button>
           <button className={btn('ghost')} onClick={() => actions.markDone(it, !m.done)}><Check />{m.done ? 'Not done' : 'Done'}</button>
           <button className={btn('ghost')} onClick={() => actions.plateAdd(it)}><ListPlus />Add to My Plate</button>
+          <button className={btn('ghost')} onClick={() => actions.star(it, !m.starred)}><Star className={cn(m.starred && 'fill-warning text-warning')} />{m.starred ? 'Starred' : 'Star'}</button>
+          <button className={btn('ghost')} onClick={() => printMessage(m)}><Printer />Print</button>
         </div>
       </div>
       {m.attachments.length > 0 && (
@@ -559,6 +713,76 @@ function Reader({ m, close, openOther, actions }: { m: Full; close: () => void; 
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] ?? c))
+
+/** Print one message: sender, date, who it went to, attachment names, then the message. Uses a locked frame that cannot run scripts or load anything. */
+function printMessage(m: Full) {
+  const date = new Date(m.date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+  const files = m.attachments.filter(a => !a.inline).map(a => esc(a.name)).join(', ')
+  const head = `<h2 style="font:600 17px/1.3 Arial,sans-serif;margin:0 0 6px">${esc(m.subject || '(no subject)')}</h2>`
+    + `<p style="font:12px/1.5 Arial,sans-serif;color:#333;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid #999">`
+    + `<b>From:</b> ${esc(m.from_name)} &lt;${esc(m.from_addr)}&gt;<br><b>Date:</b> ${esc(date)}<br><b>To:</b> ${esc(m.to_full || m.to_addrs)}`
+    + (m.cc_full ? `<br><b>Cc:</b> ${esc(m.cc_full)}` : '') + (files ? `<br><b>Attachments:</b> ${files}` : '') + '</p>'
+  const body = m.html ?? `<pre style="white-space:pre-wrap;word-break:break-word;font:13px/1.5 Arial,sans-serif">${esc(m.text || '')}</pre>`
+  const csp = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:"
+  const f = document.createElement('iframe')
+  f.setAttribute('sandbox', 'allow-same-origin allow-modals')
+  f.setAttribute('aria-hidden', 'true')
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'
+  f.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><title>${esc(m.subject || 'Message')}</title><style>body{font:13px/1.5 Arial,sans-serif;color:#000;margin:16px}img{max-width:100%;height:auto}table{max-width:100%}</style></head><body>${head}${body}</body></html>`
+  f.onload = () => { try { f.contentWindow?.focus(); f.contentWindow?.print() } finally { setTimeout(() => f.remove(), 120_000) } }
+  document.body.appendChild(f)
+}
+
+type DoneItem = Item & { done_at: number }
+
+/** What you ticked Done, so a tick made by mistake can be put back. Loaded only when opened. */
+function DoneSection({ boxName, rowProps, putBack, stamp }: { boxName?: (id: string) => string; rowProps: RowProps; putBack: (m: { mailbox_id: string; id: string }) => void; stamp: number }) {
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState<DoneItem[] | null>(null)
+  const [e, setE] = useState('')
+  useEffect(() => {
+    if (!open) return
+    let live = true
+    api<{ items: DoneItem[] }>('done_list').then(r => { if (live) { setItems(r.items); setE('') } }).catch(x => { if (live) setE((x as Error).message) })
+    return () => { live = false }
+  }, [open, stamp])
+  return (
+    <Section title="Done" count={open && items ? items.length : undefined} right={<button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => setOpen(o => !o)}>{open ? 'Hide' : 'Show what I marked Done'}</button>}>
+      {open && e && <Empty>{e}</Empty>}
+      {open && !e && items === null && <Empty>Loading...</Empty>}
+      {open && items && !items.length && <Empty>Nothing marked Done yet.</Empty>}
+      {open && items?.map(m => (
+        <div key={m.mailbox_id + m.id} className="flex items-center gap-3 px-4 py-2 border-b border-hairline text-sm">
+          <button className="min-w-0 flex-1 truncate text-left text-muted-foreground hover:underline" onClick={() => rowProps.onOpen(m)}>
+            <span className="text-foreground">{m.from_name || m.from_addr}</span>: {m.subject || '(no subject)'}{boxName ? ' · ' + boxName(m.mailbox_id) : ''} · done {when(m.done_at)}
+          </button>
+          <button className={btn('ghost', 'xs')} onClick={() => putBack(m)}>Put back</button>
+        </div>
+      ))}
+    </Section>
+  )
+}
+
+const KEYS: [string, string][] = [
+  ['?', 'Show or hide this list'], ['c', 'Write a new message'], ['/', 'Jump to the search box'], ['j', 'Next message in the list'], ['k', 'Previous message'],
+  ['u', 'Back to the list'], ['r', 'Reply'], ['a', 'Reply all'], ['f', 'Forward'], ['e', 'Archive (or move back to the inbox)'], ['#', 'Delete (to Trash)'],
+  ['s', 'Star or unstar'], ['d', 'Done (off my lists) or not done'], ['m', 'Mark read or unread'], ['p', 'Print'], ['Esc', 'Close a menu or this list'],
+]
+function HelpSheet({ close }: { close: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={close}>
+      <div className="rp-card w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="rp-card-head"><h2 className="rp-card-title">Keyboard shortcuts</h2><button onClick={close} aria-label="Close"><X className="size-5" /></button></div>
+        <div className="p-4 space-y-1.5 text-sm">
+          {KEYS.map(([k, what]) => <div key={k} className="flex items-center gap-3"><kbd className="min-w-9 rounded border border-border bg-raised px-1.5 py-0.5 text-center text-xs font-semibold text-foreground">{k}</kbd><span className="text-muted-foreground">{what}</span></div>)}
+          <p className="pt-2 text-xs text-muted-foreground">Shortcuts are off while you are typing. The letters from r down work on the message you have open. You can also right-click a message or a mailbox for a menu.</p>
+        </div>
+      </div>
     </div>
   )
 }

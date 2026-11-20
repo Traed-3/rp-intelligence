@@ -31,7 +31,7 @@ export function groupThreads(rows: Row[], max = 200): Item[] {
     const k = r.mailbox_id + ':' + r.thread_id
     const g = by.get(k)
     if (!g) by.set(k, { ...toItem(r), count: 1 })
-    else { g.count = (g.count ?? 1) + 1; g.unread = g.unread || !!r.unread; g.has_att = g.has_att || !!r.has_att }
+    else { g.count = (g.count ?? 1) + 1; g.unread = g.unread || !!r.unread; g.has_att = g.has_att || !!r.has_att; g.starred = g.starred || !!r.starred }
   }
   return [...by.values()].slice(0, max)
 }
@@ -52,6 +52,7 @@ export async function listMessages(who: Me, p: Record<string, string>) {
   else if (view === 'filed') q = q.eq('in_inbox', false).eq('sent', false)
   if (p.unread === '1') q = q.eq('unread', true)
   if (p.att === '1') q = q.eq('has_att', true)
+  if (p.starred === '1') q = q.eq('starred', true)
   if (p.site) { const s = likeSafe(p.site); if (s) q = q.or(`site.ilike.%${s}%,po.ilike.%${s}%,subject.ilike.%${s}%`) }
   for (const word of (p.q || '').split(/\s+/).map(likeSafe).filter(Boolean).slice(0, 6)) {
     q = q.or(`subject.ilike.%${word}%,from_name.ilike.%${word}%,from_addr.ilike.%${word}%,snippet.ilike.%${word}%,to_addrs.ilike.%${word}%`)

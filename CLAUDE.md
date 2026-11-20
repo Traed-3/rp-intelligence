@@ -679,5 +679,8 @@ is never changed from here). PER USER, NEVER PER ROLE.
 - Google: Web OAuth client in Google Cloud project `rps-inbox`, scope gmail.modify, redirect
   `https://rpintelligence.app/api/rpmail/oauth/callback`; Vercel env `RPMAIL_GOOGLE_CLIENT_ID` / `RPMAIL_GOOGLE_CLIENT_SECRET`
   (optional `RPMAIL_APP_ORIGIN`). Without them the page shows "Sign in with Google is not switched on yet".
+- Product build (2026-11-20 on): the running Done / Partly / Missing list and build order is docs/rpmail-product-checklist.md. Stage 1 added
+  lib/rpmail/extras.ts (per-person `rpmail_prefs`: closed dashboard boxes + order; Done list; star; bulk actions) and, in rpmail-app.tsx,
+  the mailbox right-click menu, tick boxes, keyboard shortcuts (HelpSheet / KEYS) and printMessage.
 - Sync: the page asks `/api/rpmail/sync` per mailbox on open and every 90 s while visible; first load is chunked (35 s per call).
   No background cron, so a mailbox nobody has open is not synced.
