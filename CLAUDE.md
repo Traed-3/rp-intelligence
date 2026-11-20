@@ -694,3 +694,27 @@ is never changed from here). PER USER, NEVER PER ROLE.
   `rps_sync_token` -> lib/rpmail/background.ts `runBackground` (sync every connected mailbox oldest-first, owner alert when
   `failing_since` is over an hour old, new-mail push per `rpmail_prefs.data.notify`, 6 AM summaries, outbox clean-up). The page also
   asks `/api/rpmail/sync` on open and every 90 s. Loading is paced (`pace`, 18/s) and a first load reads headers only for newsletters.
+
+---
+
+## USER INVITE EMAILS (added 2026-11-20)
+
+Settings → Users can email people a sign-in invite with ONE CLICK (login is email + password only since 11/13/26).
+- Per row: **Send invite** (blue; "Resend invite" once sent) sends immediately, no dialog. Active people only, not yourself;
+  a manager cannot invite an owner. Top: **✉ Send invites** (tick people → "Send N invites"; pre-ticks active people who have
+  never signed in and were never invited) and **Invite message** (edit the wording once, live preview, "Send me a test").
+- Wording is saved per company in `companies.invite_email` jsonb {subject, intro, whatsNew} (migration
+  `supabase/migrations/company_invite_email.sql`, APPLIED 2026-11-20). NULL = standard text in `lib/invite-email.ts`.
+- Each email: "Hi first name", the message, a What's new list (one per line), a login box (site, email, temporary password),
+  a Sign in button, a phone "Add to Home Screen" tip, and the sender's name/title. Reply-to = sender.
+- Password: someone who has never signed in gets a fresh server-made temporary password (sets `must_change_password`);
+  someone who has signed in keeps theirs (email says to use it) unless the bulk "also give a new password" box is ticked.
+  Never stored, returned or logged.
+- Code: builder `lib/invite-email.ts` (pure; shared by preview and server), sender `sendInviteEmail` in `lib/email.ts`
+  (Resend; optional `RESEND_INVITE_FROM`), actions `sendUserInvite(userId, {newPassword?})`, `saveInviteMessage`,
+  `sendInviteTest` in `app/(app)/settings/users/actions.ts` (saveInviteMessage is OWNER ONLY; typed text may not contain web
+  links, enforced in validateInviteContent at save and at send); UI `send-invite-button.tsx`, `bulk-invite-button.tsx`,
+  `invite-message-button.tsx`, `invite-fields.tsx`.
+- Each send logs `activity_log` action `user_invite_sent` (ids/flags only); the Users page shows "invite sent <date>".
+- The action refuses before changing a password when RESEND_API_KEY is missing; if the email fails after a password change
+  it says so (pressing Send invite again makes a new one).
