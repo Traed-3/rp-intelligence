@@ -100,6 +100,8 @@ export async function gmail<T = Record<string, unknown>>(mailboxId: string, path
     const reason = (err.error?.errors ?? []).map(e => e.reason ?? '').join(',')
     if (res.status === 401 && attempt === 0 && !opts.token) { forgetAccess(mailboxId); continue }
     if (res.status === 401) throw new NotConnected('The Google sign-in for this mailbox has ended. Sign in again.')
+    // What Google refused and why, so a slow or failing mailbox can be diagnosed. No ids, addresses, tokens or mail text.
+    console.warn('rpmail gmail', res.status, reason || '-', (opts.method ?? 'GET') + ' ' + path.replace(/[0-9a-f]{10,}/gi, ':id').replace(/attachments\/.+$/, 'attachments/:att'), 'try ' + (attempt + 1))
     const slowDown = res.status === 429 || (res.status === 403 && /ateLimit|quota/i.test(reason))
     if ((slowDown || res.status >= 500) && attempt < tries - 1) {
       await sleep(Math.min(8000, 600 * 2 ** attempt) + Math.random() * 300)
