@@ -10,12 +10,12 @@ import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Item } from '@/lib/rpmail/mail-ops'
 import type { BoxInfo } from '@/lib/rpmail/overview'
-import { Compose, type ComposeStart } from './compose'
+import { Compose, clearDraft, type ComposeStart, type Outgoing } from './compose'
 
 // The built-in RPMail page: Dashboard (a tile per mailbox, My Plate, Your jobs, Needs you, Daily summary) and one
 // inbox per mailbox. Unread mail is bold everywhere. Opening a message never marks it read.
 
-type Prefs = { hidden: string[]; order: string[] }
+type Prefs = { hidden: string[]; order: string[]; undo_secs?: number }
 type State = { prefs?: Prefs; enabled: boolean; name: string; role: string; googleReady: boolean; personalAddress: string | null; loginEmail: string; boxes: BoxInfo[]; note: string | null }
 type PlateItem = { id: string; title: string; detail: string; kind: string; site_number: string | null; priority: number; due_date: string | null; status: string; waiting_on: string | null; mail: Item | null; mail_n: number }
 type SumItem = { mailbox_id: string; id: string; date: number; from_name: string; subject: string; site: string | null; po: string | null; snippet: string; why?: string; unread?: boolean }
@@ -71,6 +71,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const [menu, setMenu] = useState<{ x: number; y: number; item: Item } | null>(null)
   const [boxMenu, setBoxMenu] = useState<{ x: number; y: number; box: BoxInfo } | null>(null)
   const [help, setHelp] = useState(false)
+  const [pending, setPending] = useState<{ out: Outgoing; until: number } | null>(null)
+  const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const viewRef = useRef(view)
   const filterRef = useRef(filter)
@@ -191,8 +193,44 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
     say(`${r.n} ${what}.` + (r.failed ? ` ${r.failed} could not be changed.` : ''), undo)
   }), [act, refresh, say, sel])
 
+  // Send, after the person pressed Send and confirmed. It waits a few seconds first so it can be undone.
+  const doSend = useCallback(async (out: Outgoing) => {
+    setPending(null)
+    try {
+      const r = await api<{ to: string; from: string }>('send', out.payload)
+      clearDraft(out.start)
+      say(`Sent to ${r.to} from ${r.from}.`)
+      void refresh()
+    } catch (e) {
+      setErr('Not sent: ' + (e as Error).message + ' Your message is open again so you can fix it.')
+      setCompose(out.start)
+    }
+  }, [refresh, say])
+  const queueSend = useCallback((out: Outgoing, secs: number) => {
+    setCompose(null); setErr('')
+    if (!secs) { say('Sending...'); void doSend(out); return }
+    setPending({ out, until: Date.now() + secs * 1000 })
+    pendingTimer.current = setTimeout(() => void doSend(out), secs * 1000)
+  }, [doSend, say])
+  const undoSend = useCallback(() => {
+    if (pendingTimer.current) clearTimeout(pendingTimer.current)
+    setPending(p => { if (p) setCompose(p.out.start); return null })
+    say('Not sent. Your message is open again.')
+  }, [say])
+  const sendNow = useCallback(() => {
+    if (pendingTimer.current) clearTimeout(pendingTimer.current)
+    if (pending) void doSend(pending.out)
+  }, [doSend, pending])
+  // Closing the tab in those few seconds would lose the send: the browser asks first.
+  useEffect(() => {
+    if (!pending) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [pending])
+
   const savePrefs = useCallback((next: Partial<Prefs>) => act(async () => {
-    setSt(s => s ? { ...s, prefs: { hidden: s.prefs?.hidden ?? [], order: s.prefs?.order ?? [], ...next } } : s)
+    setSt(s => s ? { ...s, prefs: { hidden: s.prefs?.hidden ?? [], order: s.prefs?.order ?? [], undo_secs: s.prefs?.undo_secs, ...next } } : s)
     await api('prefs', next)
   }), [act])
 
@@ -282,7 +320,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
         <div className="flex items-center gap-2">
           <button className={cn(btn('ghost'), 'hidden sm:inline-flex')} onClick={() => setHelp(true)} title="Keyboard shortcuts (press ?)"><Keyboard />Shortcuts</button>
           <button className={btn('ghost')} onClick={() => void syncAll(boxes)} disabled={busy} title="Check for new mail"><RefreshCw className={cn(busy && 'animate-spin')} />{busy ? 'Checking' : 'Check mail'}</button>
-          <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected ? cur.id : boxes.find(b => b.connected)?.id ?? '' })} disabled={!boxes.some(b => b.connected)}><PenSquare />New message</button>
+          <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected ? cur.id : boxes.find(b => b.connected)?.id ?? '' })} disabled={!boxes.some(b => b.connected) || !!pending}><PenSquare />New message</button>
         </div>
       </div>
       {err && <p className="mb-3 rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{err}</p>}
@@ -352,7 +390,9 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           {toast.undo && <button className="font-semibold underline" onClick={() => { const u = toast.undo!; setToast(null); u() }}>Undo</button>}
         </div>
       )}
-      {compose && <Compose start={compose} boxes={boxes} onClose={() => setCompose(null)} onDone={text => { setCompose(null); say(text); void refresh() }} />}
+      {pending && !compose && <PendingBar to={pending.out.to} from={pending.out.from} until={pending.until} undo={undoSend} now={sendNow} />}
+      {compose && <Compose key={JSON.stringify(compose)} start={compose} boxes={boxes} undoSecs={st.prefs?.undo_secs ?? 10} setUndoSecs={n => void savePrefs({ undo_secs: n })}
+        onClose={() => setCompose(null)} onDone={text => { setCompose(null); say(text); void refresh() }} onSend={out => queueSend(out, st.prefs?.undo_secs ?? 10)} />}
     </div>
   )
 }
@@ -783,6 +823,19 @@ function HelpSheet({ close }: { close: () => void }) {
           <p className="pt-2 text-xs text-muted-foreground">Shortcuts are off while you are typing. The letters from r down work on the message you have open. You can also right-click a message or a mailbox for a menu.</p>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** The few seconds between pressing Send and the message leaving, with Undo. */
+function PendingBar({ to, from, until, undo, now }: { to: string; from: string; until: number; undo: () => void; now: () => void }) {
+  const [left, setLeft] = useState(() => Math.max(0, Math.ceil((until - Date.now()) / 1000)))
+  useEffect(() => { const t = setInterval(() => setLeft(Math.max(0, Math.ceil((until - Date.now()) / 1000))), 250); return () => clearInterval(t) }, [until])
+  return (
+    <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-wrap items-center gap-3 rounded-lg bg-foreground text-background px-4 py-2.5 text-sm shadow-lg max-w-[94vw]" role="status">
+      <span className="min-w-0 truncate max-w-[60vw]">Sending to {to} from {from} in {left}s</span>
+      <button className="font-semibold underline" onClick={undo}>Undo</button>
+      <button className="underline opacity-80" onClick={now}>Send now</button>
     </div>
   )
 }

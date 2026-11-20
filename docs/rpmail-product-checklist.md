@@ -15,7 +15,7 @@ every "Done" below means "built and type-checked", not "proven on real mail", un
 | Stage | What ships | State |
 |---|---|---|
 | 1 | Dashboard and list basics: right-click menu on mailbox boxes, hide / put back / reorder boxes, Done list with restore, star, select many, keyboard shortcuts + help sheet, print | shipped 2026-11-20 (not yet tried on real mail) |
-| 2 | Writing mail: attach files (button, drag-drop, paste picture), drafts saved automatically, undo send, From picker on every message, address book fill-in, templates, formatting | not started |
+| 2 | Writing mail: attach files (button, drag-drop, paste picture), drafts saved automatically, undo send, From picker on every message, address book fill-in, templates | shipped 2026-11-20 (not yet tried on real mail). Formatting, address groups and schedule send moved to later stages |
 | 3 | Organizing: labels (create, rename, delete, move), block sender, empty Trash, snooze / remind me, rules, date and sender filters, download all as zip | not started |
 | 4 | Mail keeps syncing with nobody watching (scheduled sync, catch-up, alert when a mailbox fails over an hour) + browser / phone / text notifications with quiet hours | not started |
 | 5 | One Settings area (profile, mailboxes, signatures, notifications, rules, appearance, defaults) and company admin (read / send / delete per person, blocked-content rule, activity log with export) | not started |
@@ -33,7 +33,7 @@ every "Done" below means "built and type-checked", not "proven on real mail", un
 | Reconnect | Done | "Sign in again" on the mailbox header and in the right-click menu. |
 | Right-click menu on each dashboard box (Open, Check for new mail, Sign out, Sign in, Sign in again, Hide) | Done | Also on the mailbox names at the left, and a three-dot button on each box for phones. Plus Move earlier / Move later. |
 | More than one mailbox per person | Partly | One own mailbox + any number of shared ones. A second personal mailbox is not possible yet. |
-| "Which address am I sending from" picker | Partly | Shown on a new message only; reply and forward are fixed to the mailbox the mail is in. |
+| "Which address am I sending from" picker | Done | On every new message, reply and forward. A reply sent from a different mailbox than the one the mail is in still threads for the other side. |
 | Gmail and Google Workspace | Partly | Gmail works. A Workspace address (not @gmail.com) is refused by the address check. |
 | Microsoft 365 / Outlook | Missing | Stage 8. |
 | Any mailbox by IMAP + SMTP with an app password | Missing | Stage 8. |
@@ -50,18 +50,18 @@ every "Done" below means "built and type-checked", not "proven on real mail", un
 | Search across all mail | Partly | Typed search covers the last 90 days; "Search all of Gmail" goes further but returns 40 at most. |
 | Filter: unread, attachment | Done | |
 | Filter: sender, date, label / folder | Missing | Stage 3. |
-| Write with formatting (bold, lists, links) | Missing | Plain text only. Stage 2. |
-| Attach files by button | Missing | Only a forward carries attachments. Stage 2. |
-| Drag-and-drop files, paste images | Missing | Stage 2. |
-| Drafts saved automatically | Missing | "Save draft" button only; a saved draft cannot be reopened in RPMail. Stage 2. |
-| Undo send | Missing | Stage 2. |
-| Schedule send | Missing | Stage 2 (needs the scheduled job from stage 4 to fire it; it will only ever send what the person scheduled). |
+| Write with formatting (bold, lists, links) | Missing | Plain text only. Stage 5. |
+| Attach files by button | Done | Up to 15 files, 20 MB in all. They wait in private storage under the person's own id and are deleted on Send or Save. |
+| Drag-and-drop files, paste images | Partly | Both work, but a pasted picture goes along as an attachment, not inside the text (that needs formatting). |
+| Drafts saved automatically | Partly | What is typed (and what is attached) is kept in that browser and comes back when the same message is opened again. It does not follow the person to another device, and a draft saved to Gmail Drafts cannot be reopened in RPMail yet. |
+| Undo send | Done | After the confirm step a bar counts down with Undo and Send now. The person picks none / 5 / 10 / 20 / 30 seconds. The tab must stay open for those seconds (the browser warns if it is closed). |
+| Schedule send | Missing | Stage 4 (needs the scheduled job; it will only ever send what the person scheduled). |
 | Reply, reply all | Done | |
 | Forward with attachments | Done | Up to 20 MB. |
-| Address book fill-in as you type, from mail history | Missing | Stage 2. |
-| Address book groups | Missing | Stage 2. |
+| Address book fill-in as you type, from mail history | Done | To and Cc offer people from the person's own mailboxes; people they have written to come first. |
+| Address book groups | Missing | Stage 5. |
 | Signature per mailbox | Done | Per person per mailbox. Plain text. |
-| Canned replies / templates | Missing | Stage 2. |
+| Canned replies / templates | Done | Save as template, Insert a template, Manage templates, in the message box. Each person's own. |
 | Out-of-office replies | Missing | Stage 3 (Gmail's own vacation responder, switched from RPMail; needs one more Google permission). |
 | Labels / folders: create, rename, delete, move, drag mail in | Missing | Label ids are stored but never shown. Stage 3. |
 | Archive, Spam, Delete to Trash, with Undo | Done | |
@@ -157,4 +157,5 @@ every "Done" below means "built and type-checked", not "proven on real mail", un
 
 ## Stage log
 
+- 2026-11-20: stage 2 built on branch `feat/rpmail-stage2`: `lib/rpmail/compose-ops.ts`, table `rpmail_templates` and private bucket `rpmail-outbox` (both applied), compose box rewritten, undo-send bar in rpmail-app.tsx, `undo_secs` in `rpmail_prefs`. Known loose end: a file attached and then abandoned (tab closed without Discard) stays in the bucket until the stage 4 clean-up job exists. Checked by type-check, lint and a production build only.
 - 2026-11-20: audit written. Stage 1 built on branch `feat/rpmail-product`: new table `rpmail_prefs` (applied), `lib/rpmail/extras.ts`, new API actions prefs / star / bulk / done_list. Checked by type-check, lint, role-access check and a production build. NOT checked in a browser with mail in it: nobody has RPMail turned on yet and there is no test mailbox.
