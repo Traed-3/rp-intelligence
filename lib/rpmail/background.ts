@@ -27,13 +27,25 @@ export async function runBackground(budgetMs = 45_000): Promise<BackgroundResult
   // The mailbox that has waited longest goes first, so one big or broken mailbox cannot starve the rest.
   const { data } = await admin.from('rpmail_mailboxes').select(BOX_COLS).order('last_sync_at', { ascending: true, nullsFirst: true }).limit(400)
   const boxes = ((data ?? []) as Mailbox[]).filter(b => b.token_secret_id)
+  const unfinished: string[] = []
   for (const box of boxes) {
     if (left() < 6_000) break
     try {
       const r = await syncMailbox(box, Math.min(14_000, left() - 4_000))
       out.checked++
       if (r.done && !r.busy) out.notified += await notifyNewMail(box).catch(() => 0)
+      else if (!r.busy) unfinished.push(box.id)
     } catch { out.failed++ }
+  }
+  // Time left over goes to mailboxes that are still doing their first load, a round each, until the time is used up.
+  while (unfinished.length && left() > 12_000) {
+    const id = unfinished.shift()!
+    const { data: again } = await admin.from('rpmail_mailboxes').select(BOX_COLS).eq('id', id).maybeSingle()
+    if (!again) continue
+    try {
+      const r = await syncMailbox(again as Mailbox, Math.min(14_000, left() - 6_000))
+      if (!r.done && !r.busy) unfinished.push(id)
+    } catch { /* counted on its first try; the next run starts with it */ }
   }
 
   out.alerts = await alertFailing().catch(() => 0)
