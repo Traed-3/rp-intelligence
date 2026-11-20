@@ -11,6 +11,8 @@
 --     rpmail_access on every request (lib/rpmail/access.ts).
 --
 -- rpmail_links (Trae's own local RPMail) is separate and untouched.
+--
+-- Applied to production 11/20/26 through the Supabase MCP (migrations rpmail_staff + rpmail_staff_revoke_client_grants).
 
 create table if not exists public.rpmail_users (
   profile_id uuid primary key references public.profiles(id) on delete cascade,
@@ -238,3 +240,8 @@ language sql stable security definer set search_path = '' as $$
 $$;
 revoke all on function public.rpmail_counts(uuid) from public, anon, authenticated;
 grant execute on function public.rpmail_counts(uuid) to service_role;
+
+-- Server only: remove the browser roles' table grants too (RLS does not cover TRUNCATE).
+revoke all on public.rpmail_users, public.rpmail_mailboxes, public.rpmail_access, public.rpmail_messages, public.rpmail_done,
+  public.rpmail_moves, public.rpmail_sent, public.rpmail_signatures, public.rpmail_summaries, public.rpmail_oauth_states
+  from anon, authenticated;
