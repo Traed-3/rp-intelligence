@@ -4,6 +4,7 @@ import { mailboxFor, noPricingAddresses, type Me, type Mailbox } from './access'
 import { knownSites, loadMessages, toRow, walkParts, bodyText, type IndexRow } from './sync'
 import { buildRaw, cleanRecipients, pricingGuard, type OutFile } from './mime'
 import { parseAddrs, decodeWords, splitAddrList } from './parse'
+import { takeAttachments, dropAttachments, MAX_ATTACH } from './compose-ops'
 
 // RPMail: reading, filing and sending for one mailbox. Every function starts from `mailboxFor(me, …)`, so a person
 // can only ever touch a mailbox that is on their own login.
@@ -297,8 +298,10 @@ export async function draftPrep(who: Me, p: Record<string, string>) {
  * mode 'new' | 'reply' | 'forward'. A forward carries the original's attachments along.
  */
 export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; id?: unknown; to?: unknown; cc?: unknown; subject?: unknown; body?: unknown
-  quote?: unknown; draft?: unknown; confirmed?: unknown }) {
-  const box = await mailboxFor(who, p.mailbox)
+  quote?: unknown; draft?: unknown; confirmed?: unknown; from?: unknown; files?: unknown }) {
+  // `src` is the mailbox the original message is in; `box` is the mailbox this goes out from (the From picker).
+  const src = await mailboxFor(who, p.mailbox)
+  const box = p.from && p.from !== src.id ? await mailboxFor(who, p.from) : src
   const mode = p.mode === 'reply' || p.mode === 'forward' ? p.mode : 'new'
   const draft = p.draft === true
   if (!draft && p.confirmed !== true) throw new UserError('Press Send, then confirm.')
@@ -308,24 +311,29 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
   let full = typed, inReplyTo: string | undefined, references: string | undefined, threadId: string | undefined
   const files: OutFile[] = []
   if (mode !== 'new') {
-    const d = await prep(who, box, gid(p.id), false, mode === 'forward')
+    const d = await prep(who, src, gid(p.id), false, mode === 'forward')
     if (!subject) subject = d.subject
     if (mode === 'forward' || p.quote !== false) full = typed + '\n\n' + d.quoted
     if (mode === 'reply') {
       if (!typed) throw new UserError('The reply is empty.')
       if (d.msgid) { inReplyTo = d.msgid; references = d.refs }
-      threadId = d.threadId
+      if (box.id === src.id) threadId = d.threadId   // from another mailbox it still carries the reply headers, so the other side sees one conversation
     } else {
       let total = 0
       for (const f of d.files.filter(f => !f.inline && f.attachmentId)) {
         total += f.size
         if (total > 20_000_000) throw new UserError('The attachments on that message are too large to forward from here (over 20 MB). Forward it from Gmail.')
-        const a = await gmail<{ data?: string }>(box.id, `messages/${gid(p.id)}/attachments/${f.attachmentId}`)
+        const a = await gmail<{ data?: string }>(src.id, `messages/${gid(p.id)}/attachments/${f.attachmentId}`)
         if (!a?.data) throw new UserError(`Could not load the attachment ${f.name}.`)
         files.push({ name: f.name, type: f.type, data: b64url(a.data) })
       }
     }
   } else if (!(to.length || subject || typed)) throw new UserError('The message is empty.')
+
+  // Files the person attached themselves (they wait in private storage under their own id until now).
+  const own = await takeAttachments(who, p.files)
+  files.push(...own.files)
+  if (files.reduce((n, f) => n + f.data.length, 0) > MAX_ATTACH) throw new UserError('The attachments add up to more than 20 MB, which is more than email can carry. Take one off.')
 
   pricingGuard(box.address, [...to, ...cc], [subject, full, ...files.map(f => f.name)].join('\n'), await noPricingAddresses(box.company_id))
 
@@ -335,10 +343,12 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
   if (draft) {
     const r = await gmail<{ id?: string }>(box.id, 'drafts', { method: 'POST', body: { message } })
     await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'draft', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
+    await dropAttachments(own.paths)
     return { ok: true, draft: true, from: box.address }
   }
   const r = await gmail<{ id?: string; threadId?: string }>(box.id, 'messages/send', { method: 'POST', body: message })
   await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'send', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
+  await dropAttachments(own.paths)
   if (r?.id) await loadMessages(box, [r.id], await knownSites(box.company_id)).catch(() => null)
   return { ok: true, sent: true, to: [...to, ...cc].join(', '), from: box.address }
 }

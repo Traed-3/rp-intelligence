@@ -6,6 +6,7 @@ import { state, overview } from '@/lib/rpmail/overview'
 import { plateDone, plateAdd } from '@/lib/rpmail/overview'
 import { listMessages, searchGmail, readMessage, readAttachment, markRead, fileMessage, undoMove, markDone, setSignature, draftPrep, sendMail } from '@/lib/rpmail/mail-ops'
 import { setPrefs, doneList, setStar, bulk } from '@/lib/rpmail/extras'
+import { attachPrepare, attachRemove, contacts, templateList, templateSave, templateDelete } from '@/lib/rpmail/compose-ops'
 import { setEnabled, disconnect, oauthStart, adminState, adminSetUser, adminSaveShared, adminDeleteShared, adminGrant } from '@/lib/rpmail/connect'
 
 // RPMail API. One address per action: /api/rpmail/<op>.
@@ -24,6 +25,8 @@ const GETS: Record<string, { any?: boolean; run: (who: Me, q: Q, req: NextReques
   messages: { run: (who, q) => listMessages(who, q) },
   message: { run: (who, q) => readMessage(who, q) },
   attachment: { run: (who, q) => readAttachment(who, q) },
+  contacts: { run: (who, q) => contacts(who, q) },
+  templates: { run: who => templateList(who) },
   done_list: { run: who => doneList(who) },
   draft_prep: { run: (who, q) => draftPrep(who, q) },
   connect: { any: true, run: async (who, q, req) => NextResponse.redirect(await oauthStart(who, q.mailbox, req.nextUrl.origin)) },
@@ -40,6 +43,10 @@ const POSTS: Record<string, { any?: boolean; run: (who: Me, b: B) => Promise<unk
   file: { run: (who, b) => fileMessage(who, b) },
   undo: { run: (who, b) => undoMove(who, b) },
   done: { run: (who, b) => markDone(who, b) },
+  attach_prepare: { run: (who, b) => attachPrepare(who, b) },
+  attach_remove: { run: (who, b) => attachRemove(who, b) },
+  template_save: { run: (who, b) => templateSave(who, b) },
+  template_delete: { run: (who, b) => templateDelete(who, b) },
   prefs: { run: (who, b) => setPrefs(who, b) },
   star: { run: (who, b) => setStar(who, b) },
   bulk: { run: (who, b) => bulk(who, b) },

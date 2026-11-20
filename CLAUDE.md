@@ -682,5 +682,9 @@ is never changed from here). PER USER, NEVER PER ROLE.
 - Product build (2026-11-20 on): the running Done / Partly / Missing list and build order is docs/rpmail-product-checklist.md. Stage 1 added
   lib/rpmail/extras.ts (per-person `rpmail_prefs`: closed dashboard boxes + order; Done list; star; bulk actions) and, in rpmail-app.tsx,
   the mailbox right-click menu, tick boxes, keyboard shortcuts (HelpSheet / KEYS) and printMessage.
+  Stage 2: lib/rpmail/compose-ops.ts (attachments wait in the private `rpmail-outbox` bucket under `<profile id>/<uuid>/<name>` and are
+  deleted on send; address book from the person's own index; `rpmail_templates`), `sendMail` takes `from` (send from another of
+  the person's mailboxes) and `files`; the send itself is fired by rpmail-app.tsx after the undo countdown (`queueSend` / `doSend`),
+  still only ever from the person's own Send + confirm. Unsent text is kept in localStorage (`rpmail:draft:*`).
 - Sync: the page asks `/api/rpmail/sync` per mailbox on open and every 90 s while visible; first load is chunked (35 s per call).
   No background cron, so a mailbox nobody has open is not synced.
