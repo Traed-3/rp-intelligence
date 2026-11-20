@@ -264,6 +264,17 @@ export async function dailySummary(who: Me, boxes: Mailbox[], done: Set<string>)
     needs: live(d.needs), stale: live(d.stale), permits: live(d.permits), pos: live(d.pos), deadlines: live(d.deadlines) } }
 }
 
+/** Make today's summary for this person if it is past 6 AM and they do not have one. True when one was made. Used by the scheduler. */
+export async function ensureSummary(who: Me, boxes: Mailbox[]): Promise<boolean> {
+  const admin = createAdminClient()
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const { data: had } = await admin.from('rpmail_summaries').select('day').eq('profile_id', who.id).eq('day', today).maybeSingle()
+  if (had) return false
+  await dailySummary(who, boxes, await doneSet(who))
+  const { data: now } = await admin.from('rpmail_summaries').select('day').eq('profile_id', who.id).eq('day', today).maybeSingle()
+  return !!now
+}
+
 export async function overview(who: Me) {
   const boxes = await myMailboxes(who)
   const admin = createAdminClient()

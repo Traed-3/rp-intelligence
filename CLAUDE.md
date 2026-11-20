@@ -690,5 +690,7 @@ is never changed from here). PER USER, NEVER PER ROLE.
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.
   The tests run on pull requests (.github/workflows/tests.yml) and in the Vercel build (`vercel-build` in package.json).
-- Sync: the page asks `/api/rpmail/sync` per mailbox on open and every 90 s while visible; first load is chunked (35 s per call).
-  No background cron, so a mailbox nobody has open is not synced.
+- Sync: pg_cron job `rpmail-sync` (every 5 min, migration rpmail_background.sql) calls GET /api/rpmail/cron with the Vault token
+  `rps_sync_token` -> lib/rpmail/background.ts `runBackground` (sync every connected mailbox oldest-first, owner alert when
+  `failing_since` is over an hour old, new-mail push per `rpmail_prefs.data.notify`, 6 AM summaries, outbox clean-up). The page also
+  asks `/api/rpmail/sync` on open and every 90 s. Loading is paced (`pace`, 18/s) and a first load reads headers only for newsletters.

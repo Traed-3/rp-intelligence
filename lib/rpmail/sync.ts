@@ -11,6 +11,7 @@ import type { Mailbox, SyncState } from './access'
 // attachments, and is then dropped. Only the fields in rpmail_messages are kept.
 
 const BACKFILL_DAYS = 90
+const META_HEADERS = ['From', 'To', 'Cc', 'Reply-To', 'Subject', 'Message-ID', 'References', 'In-Reply-To', 'List-Unsubscribe', 'List-Id', 'Precedence', 'Auto-Submitted', 'Content-Type']
 const CHUNK = 60
 const MAX_LIST = 8000
 
@@ -107,13 +108,21 @@ async function listIds(boxId: string, q: string, max: number): Promise<string[]>
 }
 
 /** Fetch these messages from Gmail and write them to the index; ones that are gone or hidden are removed. */
-export async function loadMessages(box: Mailbox, ids: string[], sites: Set<string>): Promise<{ stored: number; failed: string[] }> {
+export async function loadMessages(box: Mailbox, ids: string[], sites: Set<string>, fast = false): Promise<{ stored: number; failed: string[] }> {
   const admin = createAdminClient()
   const rows: IndexRow[] = [], gone: string[] = [], failed: string[] = []
   await pooled(ids, 5, async id => {
     try {
       await pace(box.id)
-      const m = await gmail<GMessage>(box.id, 'messages/' + id, { params: { format: 'full' } })
+      // First load of a whole mailbox: ask for the headers only (much smaller), and fetch the full message just for
+      // mail from people and for anything that may carry an attachment. Newsletters never need their text read.
+      let m = await gmail<GMessage>(box.id, 'messages/' + id, { params: fast ? { format: 'metadata', metadataHeaders: META_HEADERS } : { format: 'full' } })
+      if (m && fast && !isHidden(m.labelIds)) {
+        const row = toRow(box, m, sites)
+        if (row.bulk && !/multipart\/mixed/i.test(headerMap(m.payload)['content-type'] ?? '')) { rows.push(row); return }
+        await pace(box.id)
+        m = await gmail<GMessage>(box.id, 'messages/' + id, { params: { format: 'full' } })
+      }
       if (!m || isHidden(m.labelIds)) gone.push(id)
       else rows.push(toRow(box, m, sites))
     } catch (e) {
@@ -163,12 +172,12 @@ export async function syncMailbox(box: Mailbox, budgetMs = 18_000): Promise<Sync
       while (todo.length && Date.now() - started < budgetMs) {
         await save({ sync: { ...sync, todo, busy: new Date().toISOString() } })
         const batch = todo.slice(0, CHUNK)
-        const r = await loadMessages(box, batch, sites)
+        const r = await loadMessages(box, batch, sites, true)
         changed += r.stored
         todo = todo.slice(CHUNK)   // a message that would not load is skipped, not retried forever
       }
       sync = todo.length ? { ...sync, todo } : { total: sync.total, started: sync.started, full_done: new Date().toISOString() }
-      await save({ sync, last_sync_at: new Date().toISOString(), last_error: null })
+      await save({ sync, last_sync_at: new Date().toISOString(), last_error: null, failing_since: null, fail_alerted_at: null })
       if (todo.length) return { done: false, total: sync.total ?? 0, left: todo.length, changed }
     }
 
@@ -194,12 +203,13 @@ export async function syncMailbox(box: Mailbox, budgetMs = 18_000): Promise<Sync
         changed += r.stored
         if (r.failed.length) latest = historyId   // look again next time
       }
-      await save({ history_id: latest, sync: { ...sync, busy: undefined }, last_sync_at: new Date().toISOString(), last_error: null })
+      await save({ history_id: latest, sync: { ...sync, busy: undefined }, last_sync_at: new Date().toISOString(), last_error: null, failing_since: null, fail_alerted_at: null })
     }
     return { done: true, total: sync.total ?? 0, left: 0, changed }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'sync failed'
-    await save({ sync: { ...sync, busy: undefined }, last_error: msg.slice(0, 300) })
+    // The moment the trouble started is kept (not moved forward on each failure), so "failing for over an hour" can be told.
+    await save({ sync: { ...sync, busy: undefined }, last_error: msg.slice(0, 300), ...(box.failing_since ? {} : { failing_since: new Date().toISOString() }) })
     throw e
   }
 }
