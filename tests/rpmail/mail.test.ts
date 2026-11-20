@@ -44,7 +44,9 @@ describe('loading and reading', () => {
 
   it('treats mail Gmail filed under Promotions as a newsletter, even without the usual newsletter headers', async () => {
     const promo = world.gmail.add('ann@gmail.com', { from: 'Deals <deals@shop.com>', subject: 'Can you believe these prices?', body: 'Can you believe it?', labelIds: ['INBOX', 'UNREAD', 'CATEGORY_PROMOTIONS'] }).id
+    const notice = world.gmail.add('ann@gmail.com', { from: 'Accounts <accounts@bank.com>', subject: 'Please confirm you believe this', body: 'Please confirm.', labelIds: ['INBOX', 'UNREAD', 'CATEGORY_UPDATES'] }).id
     await searchGmail(me, { mailbox: box, q: 'believe' })
+    expect((await listMessages(me, { mailbox: box, view: 'needs' })).messages.map(m => m.id)).not.toContain(notice)
     expect((await listMessages(me, { mailbox: box, view: 'needs' })).messages.map(m => m.id)).not.toContain(promo)
     expect((await listMessages(me, { mailbox: box, view: 'inbox' })).messages.map(m => m.id)).toContain(promo)
   })
