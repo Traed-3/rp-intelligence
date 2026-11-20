@@ -54,6 +54,7 @@ export function Compose({ start, boxes, undoSecs, setUndoSecs, onClose, onDone, 
   const [over, setOver] = useState(false)
   const [restored, setRestored] = useState(!!kept)
   const [tpls, setTpls] = useState<Tpl[] | null>(null)
+  const [tplName, setTplName] = useState<string | null>(null)   // null = not naming a template right now
   const [loading, setLoading] = useState(start.mode === 'reply' || start.mode === 'forward')
   const box = boxes.find(b => b.id === from)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
@@ -152,10 +153,10 @@ export function Compose({ start, boxes, undoSecs, setUndoSecs, onClose, onDone, 
   const saveTpl = async () => {
     const sig = (box?.signature ?? '').trim()
     const text = sig && body.trim().endsWith(sig) ? body.trim().slice(0, -sig.length).trim() : body.trim()
-    if (!text) { setErr('Type the wording first, then save it as a template.'); return }
-    const name = window.prompt('Name this template (for example "Permit received"):')?.trim()
-    if (!name) return
-    try { await api('template_save', { name, body: text }); setTpls((await api<{ templates: Tpl[] }>('templates')).templates) } catch (e) { setErr((e as Error).message) }
+    if (!text) { setErr('Type the wording first, then save it as a template.'); setTplName(null); return }
+    const name = (tplName ?? '').trim()
+    if (!name) { setErr('Give the template a name.'); return }
+    try { await api('template_save', { name, body: text }); setTpls((await api<{ templates: Tpl[] }>('templates')).templates); setTplName(null); setErr('') } catch (e) { setErr((e as Error).message) }
   }
   const delTpl = async (t: Tpl) => {
     if (!window.confirm(`Delete the template "${t.name}"?`)) return
@@ -200,7 +201,14 @@ export function Compose({ start, boxes, undoSecs, setUndoSecs, onClose, onDone, 
                       <option value="">Insert a template...</option>{tpls.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                   )}
-                  <button className="underline" type="button" onClick={() => void saveTpl()}><FileText className="inline size-3" /> Save as template</button>
+                  {tplName === null
+                    ? <button className="underline" type="button" onClick={() => setTplName('')}><FileText className="inline size-3" /> Save as template</button>
+                    : <span className="inline-flex items-center gap-1.5">
+                        <input className="rp-input !w-44 !py-1 text-xs" autoFocus placeholder="Name, e.g. Permit received" value={tplName} onChange={e => setTplName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveTpl() } else if (e.key === 'Escape') { e.stopPropagation(); setTplName(null) } }} />
+                        <button className="underline" type="button" onClick={() => void saveTpl()}>Save</button>
+                        <button className="underline" type="button" onClick={() => setTplName(null)}>Cancel</button>
+                      </span>}
                 </span>
               </div>
               <textarea ref={bodyRef} className="rp-input min-h-[200px] font-sans" value={body} onChange={e => setBody(e.target.value)} autoFocus={start.mode === 'reply'}

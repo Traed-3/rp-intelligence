@@ -380,8 +380,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           <p className="px-4 py-1 text-xs text-muted-foreground truncate max-w-[220px]">{b.address}</p>
           <MenuBtn onClick={() => goBox(b.id)}>Open</MenuBtn>
           {b.connected && <MenuBtn onClick={() => void syncAll([b])}>Check for new mail</MenuBtn>}
-          {!b.connected && st.googleReady && <a className="block w-full px-4 py-1.5 text-left hover:bg-raised" href={`/api/rpmail/connect?mailbox=${b.id}`}>Sign in</a>}
-          {b.connected && st.googleReady && <a className="block w-full px-4 py-1.5 text-left hover:bg-raised" href={`/api/rpmail/connect?mailbox=${b.id}`}>Sign in again</a>}
+          {!b.connected && st.googleReady && <a className="block w-full px-4 py-1.5 text-left !font-normal hover:bg-raised" href={`/api/rpmail/connect?mailbox=${b.id}`}>Sign in</a>}
+          {b.connected && st.googleReady && <a className="block w-full px-4 py-1.5 text-left !font-normal hover:bg-raised" href={`/api/rpmail/connect?mailbox=${b.id}`}>Sign in again</a>}
           {canSignOut(b) && <MenuBtn onClick={() => signOut(b)}>Sign out</MenuBtn>}
           {i > 0 && <MenuBtn onClick={() => moveBox(b.id, -1)}>Move earlier</MenuBtn>}
           {i >= 0 && i < boxes.length - 1 && <MenuBtn onClick={() => moveBox(b.id, 1)}>Move later</MenuBtn>}
@@ -650,7 +650,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
         </div>
         <div className="flex items-center gap-1.5">
           <button className={btn('ghost', 'xs')} onClick={editSig}><Signature />Signature</button>
-          <a className={btn('ghost', 'xs')} href={`/api/rpmail/connect?mailbox=${box.id}`} title="Use this if mail has stopped arriving or Google asks for permission again">Sign in again</a>
+          <a className={cn(btn('ghost', 'xs'), '!text-xs !font-medium')} href={`/api/rpmail/connect?mailbox=${box.id}`} title="Use this if mail has stopped arriving or Google asks for permission again">Sign in again</a>
           {disconnect && <button className={btn('ghost', 'xs')} onClick={disconnect}><Unplug />Sign out</button>}
         </div>
       </div>

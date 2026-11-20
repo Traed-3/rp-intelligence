@@ -73,7 +73,8 @@ export function toRow(box: Pick<Mailbox, 'id' | 'address'>, m: GMessage, sites: 
   const top = topOf(bodyText(plain, html))
   const subject = decodeWords(h['subject'] ?? '').slice(0, 500)
   const sent = labels.includes('SENT') || from.addr === box.address
-  const bulk = !sent && isBulk(h, from.addr)
+  // Gmail's own sorting counts too: Promotions, Social and Forums are never mail somebody is waiting on an answer to.
+  const bulk = !sent && (isBulk(h, from.addr) || labels.some(l => l === 'CATEGORY_PROMOTIONS' || l === 'CATEGORY_SOCIAL' || l === 'CATEGORY_FORUMS'))
   const list = (k: string) => parseAddrs(decodeWords(h[k] ?? '')).map(a => a.addr).join(', ')
   const ms = Number(m.internalDate ?? 0)
   return {
