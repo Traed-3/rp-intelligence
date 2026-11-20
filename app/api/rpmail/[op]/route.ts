@@ -5,6 +5,7 @@ import { syncMailbox } from '@/lib/rpmail/sync'
 import { state, overview } from '@/lib/rpmail/overview'
 import { plateDone, plateAdd } from '@/lib/rpmail/overview'
 import { listMessages, searchGmail, readMessage, readAttachment, markRead, fileMessage, undoMove, markDone, setSignature, draftPrep, sendMail } from '@/lib/rpmail/mail-ops'
+import { setPrefs, doneList, setStar, bulk } from '@/lib/rpmail/extras'
 import { setEnabled, disconnect, oauthStart, adminState, adminSetUser, adminSaveShared, adminDeleteShared, adminGrant } from '@/lib/rpmail/connect'
 
 // RPMail API. One address per action: /api/rpmail/<op>.
@@ -23,6 +24,7 @@ const GETS: Record<string, { any?: boolean; run: (who: Me, q: Q, req: NextReques
   messages: { run: (who, q) => listMessages(who, q) },
   message: { run: (who, q) => readMessage(who, q) },
   attachment: { run: (who, q) => readAttachment(who, q) },
+  done_list: { run: who => doneList(who) },
   draft_prep: { run: (who, q) => draftPrep(who, q) },
   connect: { any: true, run: async (who, q, req) => NextResponse.redirect(await oauthStart(who, q.mailbox, req.nextUrl.origin)) },
   admin_state: { any: true, run: who => adminState(who) },
@@ -38,6 +40,9 @@ const POSTS: Record<string, { any?: boolean; run: (who: Me, b: B) => Promise<unk
   file: { run: (who, b) => fileMessage(who, b) },
   undo: { run: (who, b) => undoMove(who, b) },
   done: { run: (who, b) => markDone(who, b) },
+  prefs: { run: (who, b) => setPrefs(who, b) },
+  star: { run: (who, b) => setStar(who, b) },
+  bulk: { run: (who, b) => bulk(who, b) },
   signature: { run: (who, b) => setSignature(who, b) },
   send: { run: (who, b) => sendMail(who, b) },
   plate_done: { run: (who, b) => plateDone(who, b) },

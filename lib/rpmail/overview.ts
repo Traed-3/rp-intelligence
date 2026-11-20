@@ -3,6 +3,7 @@ import { googleClient, UserError } from './gmail'
 import { myMailboxes, mailboxFor, personalAddress, ensurePersonalMailbox, type Me, type Mailbox } from './access'
 import { LIST_COLS, toItem, getSignature, type Item } from './mail-ops'
 import { subjectKey, AUTO_RE } from './parse'
+import { getPrefs } from './extras'
 
 // RPMail: what the Dashboard shows. Everything is worked out from the index rows of the mailboxes this one person
 // may open, plus their own My Plate rows. Nobody else's mailbox or plate is ever read here.
@@ -52,7 +53,7 @@ export async function state(who: Me) {
   const boxes = who.enabled ? await myMailboxes(who) : []
   return {
     enabled: who.enabled, name: who.name, role: who.role, googleReady: !!googleClient(), personalAddress: personalAddress(who), loginEmail: who.email,
-    boxes: who.enabled ? await boxInfos(who, boxes) : [], note,
+    boxes: who.enabled ? await boxInfos(who, boxes) : [], note, prefs: await getPrefs(who),
   }
 }
 
@@ -265,16 +266,17 @@ export async function overview(who: Me) {
   const boxes = await myMailboxes(who)
   const admin = createAdminClient()
   const done = await doneSet(who)
-  const [infos, needsRes, foryou, plate, movesRes, summary] = await Promise.all([
+  const [infos, needsRes, foryou, plate, movesRes, summary, prefs] = await Promise.all([
     boxInfos(who, boxes),
     admin.rpc('rpmail_needs', { p_profile: who.id, p_mailbox: null, p_limit: 80 }),
     forYou(who, boxes, done),
     plateList(who, boxes),
     admin.from('rpmail_moves').select('id, mailbox_id, subject, from_place, to_place, undone, created_at').eq('profile_id', who.id).order('id', { ascending: false }).limit(12),
     dailySummary(who, boxes, done),
+    getPrefs(who),
   ])
   return {
-    boxes: infos, needs: onlyAllowed((needsRes.data ?? []) as Row[], boxes).map(toItem), foryou, plate, summary,
+    boxes: infos, prefs, needs: onlyAllowed((needsRes.data ?? []) as Row[], boxes).map(toItem), foryou, plate, summary,
     moves: (movesRes.data ?? []).map(m => ({ ...m, created_at: Date.parse(m.created_at as string) })), now: Date.now(),
   }
 }
