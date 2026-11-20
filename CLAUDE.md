@@ -694,3 +694,21 @@ is never changed from here). PER USER, NEVER PER ROLE.
   `rps_sync_token` -> lib/rpmail/background.ts `runBackground` (sync every connected mailbox oldest-first, owner alert when
   `failing_since` is over an hour old, new-mail push per `rpmail_prefs.data.notify`, 6 AM summaries, outbox clean-up). The page also
   asks `/api/rpmail/sync` on open and every 90 s. Loading is paced (`pace`, 18/s) and a first load reads headers only for newsletters.
+
+---
+
+## USER INVITE EMAILS (added 2026-11-20)
+
+Settings → Users can email people a sign-in invite (login is email + password only since 11/13/26).
+- Per row: **Invite** (active people only, not yourself; a manager cannot invite an owner). Bulk: **Send invites** at the top
+  (pre-ticks active people who have never signed in and have not been invited yet).
+- Each email: "Hi first name", an editable message, an editable What's new list (one per line), a login box (site, email,
+  temporary password), a Sign in button, a phone "Add to Home Screen" tip, and the sender's name/title. Reply-to = sender.
+- Password: a fresh temporary one per person (sets `must_change_password`), unless they have signed in before and the admin
+  leaves "new password" off; then the email says to use their current password. Never stored, returned or logged.
+- Builder (pure, shared by the live preview and the server): `lib/invite-email.ts`. Sender: `sendInviteEmail` in `lib/email.ts`
+  (Resend; optional `RESEND_INVITE_FROM`). Actions: `sendUserInvite`, `sendInviteTest` in `app/(app)/settings/users/actions.ts`.
+  UI: `send-invite-button.tsx`, `bulk-invite-button.tsx`, `invite-fields.tsx` (draft text remembered in the browser).
+- Each send logs `activity_log` action `user_invite_sent` (ids/flags only); the Users page shows "invite sent <date>".
+- The action refuses before changing a password when RESEND_API_KEY is missing. If the email fails after the password was
+  changed, the dialog says so.

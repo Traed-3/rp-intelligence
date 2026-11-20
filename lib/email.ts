@@ -75,3 +75,31 @@ export async function sendDocumentEmail({ to, subject, body, attachment, replyTo
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
 }
+
+/**
+ * Settings > Users > Invite. Sends one already-built invite (lib/invite-email.ts). Returns an error string instead of
+ * throwing so the caller can tell the admin exactly what happened. Retries once when Resend says "slow down", since a
+ * batch of invites goes out back to back.
+ */
+export async function sendInviteEmail({ to, subject, html, text, replyTo }: {
+  to: string; subject: string; html: string; text: string; replyTo?: string | null
+}): Promise<{ ok: true; id: string | null } | { ok: false; error: string }> {
+  if (!process.env.RESEND_API_KEY) return { ok: false, error: 'Email is not set up (RESEND_API_KEY is missing).' }
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const from = process.env.RESEND_INVITE_FROM ?? process.env.RESEND_FROM_EMAIL ?? 'RP Intelligence <alerts@rpintelligence.app>'
+  const reply = replyTo || process.env.RESEND_REPLY_TO || undefined
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { data, error } = await resend.emails.send({ from, to, subject, html, text, replyTo: reply })
+      if (!error) return { ok: true, id: data?.id ?? null }
+      if (attempt === 0 && /rate.?limit/i.test(`${error.name} ${error.message}`)) {
+        await new Promise(r => setTimeout(r, 1500))
+        continue
+      }
+      return { ok: false, error: error.message }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+  return { ok: false, error: 'Email service is busy. Try again in a minute.' }
+}
