@@ -11,6 +11,8 @@ import { ModulesButton } from './modules-button'
 import { SetPasswordButton } from './set-password-button'
 import { SendInviteButton } from './send-invite-button'
 import { BulkInviteButton, type InvitePerson } from './bulk-invite-button'
+import { InviteMessageButton } from './invite-message-button'
+import { DEFAULT_INVITE_SUBJECT, DEFAULT_INVITE_INTRO, DEFAULT_WHATS_NEW, type InviteContent } from '@/lib/invite-email'
 import { canManageUser, canAssignRole } from '@/lib/user-admin-rules'
 import { updateUserRole, toggleUserActive, updateDefaultLandingPage } from './actions'
 
@@ -20,7 +22,7 @@ export default async function UsersSettingsPage() {
   const admin = createAdminClient()
 
   const { data: profile } = await admin
-    .from('profiles').select('company_id, role, id, full_name, job_title').eq('id', user!.id).single()
+    .from('profiles').select('company_id, role, id, full_name, job_title, email').eq('id', user!.id).single()
 
   if (!['owner', 'manager'].includes(profile?.role ?? '')) redirect('/settings')
 
@@ -55,6 +57,14 @@ export default async function UsersSettingsPage() {
     if (row.entity_id && row.created_at && !lastInvite.has(row.entity_id)) lastInvite.set(row.entity_id, row.created_at)
   }
   const sender = { name: profile!.full_name ?? '', title: profile!.job_title ?? null }
+  // The wording every invite uses (Invite message); the standard text until someone saves their own.
+  const { data: company } = await admin.from('companies').select('invite_email').eq('id', profile!.company_id).maybeSingle()
+  const savedInvite = (company?.invite_email ?? null) as Partial<InviteContent> | null
+  const inviteContent: InviteContent = {
+    subject: typeof savedInvite?.subject === 'string' ? savedInvite.subject : DEFAULT_INVITE_SUBJECT,
+    intro: typeof savedInvite?.intro === 'string' ? savedInvite.intro : DEFAULT_INVITE_INTRO,
+    whatsNew: typeof savedInvite?.whatsNew === 'string' ? savedInvite.whatsNew : DEFAULT_WHATS_NEW,
+  }
   // Who the bulk invite can reach: active, not you, and (for a manager) not an owner. Same rules the action enforces.
   const invitable: InvitePerson[] = (users ?? [])
     .filter(u => u.is_active && u.id !== profile!.id && canManageUser(profile!.role, u.role) && u.email)
@@ -77,14 +87,15 @@ export default async function UsersSettingsPage() {
 
       <div className="mb-6 flex flex-wrap items-start gap-3">
         <AddEmployeeForm />
-        <BulkInviteButton people={invitable} sender={sender} />
+        <BulkInviteButton people={invitable} />
+        <InviteMessageButton saved={inviteContent} sender={sender} senderEmail={profile!.email ?? ''} />
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 mb-6 text-sm text-blue-800">
         <p className="font-semibold mb-1">How employees get access:</p>
         <ol className="list-decimal list-inside space-y-0.5 text-blue-700">
           <li>An owner or manager adds them here with <strong>+ Add Employee</strong> (name, email, role). Nobody can sign in unless they are on this list and <strong>Active</strong>.</li>
-          <li>Press <strong>Invite</strong> on their row (or <strong>Send invites</strong> for several people). They get an email with the sign-in link, what&apos;s new, and a temporary password. <strong>Password</strong> still works if you would rather give it to them in person.</li>
+          <li>Press <strong>Send invite</strong> on their row (or <strong>Send invites</strong> for several people). They get an email with the sign-in link, what&apos;s new and a temporary password. Change what it says with <strong>Invite message</strong>. <strong>Password</strong> still works if you would rather give it to them in person.</li>
           <li>They sign in with their email and that password, and are made to choose their own before they see anything.</li>
           <li>Their <strong>role</strong> decides what they can see. <strong>Disable</strong> signs them out and blocks sign-in; <strong>Activate</strong> lets them back in.</li>
         </ol>
@@ -140,7 +151,7 @@ export default async function UsersSettingsPage() {
                         <SetPasswordButton userId={u.id} fullName={u.full_name} email={u.email} />
                       )}
                       {!lockedOwner && !isSelf && u.is_active && u.email && (
-                        <SendInviteButton userId={u.id} fullName={u.full_name} email={u.email} signedIn={!!seen} sender={sender} />
+                        <SendInviteButton userId={u.id} signedIn={!!seen} invitedBefore={lastInvite.has(u.id)} />
                       )}
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">{(u as any).phone || 'no phone'}{seen ? ` · last signed in ${new Date(seen).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' })}` : ''}{lastInvite.get(u.id) ? ` · invite sent ${new Date(lastInvite.get(u.id)!).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</p>

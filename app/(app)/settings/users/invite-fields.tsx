@@ -1,53 +1,10 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
-import {
-  buildInviteEmail, DEFAULT_INVITE_INTRO, DEFAULT_INVITE_SUBJECT, DEFAULT_WHATS_NEW, INVITE_LIMITS,
-  type InviteContent, type InviteSender,
-} from '@/lib/invite-email'
+import { useMemo } from 'react'
+import { buildInviteEmail, INVITE_LIMITS, type InviteContent, type InviteSender } from '@/lib/invite-email'
 
 export const inviteInp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500'
 export const inviteLbl = 'block text-xs font-medium text-gray-600 mb-1'
-
-const DRAFT_KEY = 'rp-invite-draft-v1'
-const DEFAULT_DRAFT: InviteContent = { subject: DEFAULT_INVITE_SUBJECT, intro: DEFAULT_INVITE_INTRO, whatsNew: DEFAULT_WHATS_NEW }
-
-/**
- * The invite text, remembered in this browser so a second batch goes out with the same wording.
- * Browser storage is only a convenience: if it is blocked, the standard text is used.
- */
-export function useInviteDraft() {
-  const [draft, setDraft] = useState<InviteContent>(DEFAULT_DRAFT)
-
-  /** Re-reads the saved text. Call it when a dialog opens: every row has its own copy of this hook. */
-  const reload = useCallback(() => {
-    try {
-      const raw = window.localStorage.getItem(DRAFT_KEY)
-      if (!raw) { setDraft(DEFAULT_DRAFT); return }
-      const saved = JSON.parse(raw) as Partial<InviteContent>
-      setDraft({
-        subject: typeof saved.subject === 'string' ? saved.subject : DEFAULT_DRAFT.subject,
-        intro: typeof saved.intro === 'string' ? saved.intro : DEFAULT_DRAFT.intro,
-        whatsNew: typeof saved.whatsNew === 'string' ? saved.whatsNew : DEFAULT_DRAFT.whatsNew,
-      })
-    } catch { /* storage blocked or bad JSON: keep the standard text */ }
-  }, [])
-
-  const update = useCallback((patch: Partial<InviteContent>) => {
-    setDraft(d => {
-      const next = { ...d, ...patch }
-      try { window.localStorage.setItem(DRAFT_KEY, JSON.stringify(next)) } catch { /* ignore */ }
-      return next
-    })
-  }, [])
-
-  const reset = useCallback(() => {
-    setDraft(DEFAULT_DRAFT)
-    try { window.localStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ }
-  }, [])
-
-  return { draft, update, reset, reload }
-}
 
 export function InviteMessageFields({ draft, onChange, onReset }: {
   draft: InviteContent
@@ -72,8 +29,8 @@ export function InviteMessageFields({ draft, onChange, onReset }: {
           onChange={e => onChange({ whatsNew: e.target.value })} />
       </div>
       <p className="text-xs text-gray-500">
-        Every invite also has the sign-in link, their email, the password line, a tip for putting the app on their phone, and your name.{' '}
-        <button type="button" onClick={onReset} className="font-medium text-blue-600 hover:text-blue-800">Reset to the standard text</button>
+        Every invite also has the sign-in link, their email, their temporary password, a tip for putting the app on their phone, and the sender&apos;s name.{' '}
+        <button type="button" onClick={onReset} className="font-medium text-blue-600 hover:text-blue-800">Put back the standard text</button>
       </p>
     </div>
   )

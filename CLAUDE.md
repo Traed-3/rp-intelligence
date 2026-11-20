@@ -699,16 +699,21 @@ is never changed from here). PER USER, NEVER PER ROLE.
 
 ## USER INVITE EMAILS (added 2026-11-20)
 
-Settings → Users can email people a sign-in invite (login is email + password only since 11/13/26).
-- Per row: **Invite** (active people only, not yourself; a manager cannot invite an owner). Bulk: **Send invites** at the top
-  (pre-ticks active people who have never signed in and have not been invited yet).
-- Each email: "Hi first name", an editable message, an editable What's new list (one per line), a login box (site, email,
-  temporary password), a Sign in button, a phone "Add to Home Screen" tip, and the sender's name/title. Reply-to = sender.
-- Password: a fresh temporary one per person (sets `must_change_password`), unless they have signed in before and the admin
-  leaves "new password" off; then the email says to use their current password. Never stored, returned or logged.
-- Builder (pure, shared by the live preview and the server): `lib/invite-email.ts`. Sender: `sendInviteEmail` in `lib/email.ts`
-  (Resend; optional `RESEND_INVITE_FROM`). Actions: `sendUserInvite`, `sendInviteTest` in `app/(app)/settings/users/actions.ts`.
-  UI: `send-invite-button.tsx`, `bulk-invite-button.tsx`, `invite-fields.tsx` (draft text remembered in the browser).
+Settings → Users can email people a sign-in invite with ONE CLICK (login is email + password only since 11/13/26).
+- Per row: **Send invite** (blue; "Resend invite" once sent) sends immediately, no dialog. Active people only, not yourself;
+  a manager cannot invite an owner. Top: **✉ Send invites** (tick people → "Send N invites"; pre-ticks active people who have
+  never signed in and were never invited) and **Invite message** (edit the wording once, live preview, "Send me a test").
+- Wording is saved per company in `companies.invite_email` jsonb {subject, intro, whatsNew} (migration
+  `supabase/migrations/company_invite_email.sql`, APPLIED 2026-11-20). NULL = standard text in `lib/invite-email.ts`.
+- Each email: "Hi first name", the message, a What's new list (one per line), a login box (site, email, temporary password),
+  a Sign in button, a phone "Add to Home Screen" tip, and the sender's name/title. Reply-to = sender.
+- Password: someone who has never signed in gets a fresh server-made temporary password (sets `must_change_password`);
+  someone who has signed in keeps theirs (email says to use it) unless the bulk "also give a new password" box is ticked.
+  Never stored, returned or logged.
+- Code: builder `lib/invite-email.ts` (pure; shared by preview and server), sender `sendInviteEmail` in `lib/email.ts`
+  (Resend; optional `RESEND_INVITE_FROM`), actions `sendUserInvite(userId, {newPassword?})`, `saveInviteMessage`,
+  `sendInviteTest` in `app/(app)/settings/users/actions.ts`; UI `send-invite-button.tsx`, `bulk-invite-button.tsx`,
+  `invite-message-button.tsx`, `invite-fields.tsx`.
 - Each send logs `activity_log` action `user_invite_sent` (ids/flags only); the Users page shows "invite sent <date>".
-- The action refuses before changing a password when RESEND_API_KEY is missing. If the email fails after the password was
-  changed, the dialog says so.
+- The action refuses before changing a password when RESEND_API_KEY is missing; if the email fails after a password change
+  it says so (pressing Send invite again makes a new one).
