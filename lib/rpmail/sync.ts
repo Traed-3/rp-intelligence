@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { gmail, pooled, b64url, headerMap, isHidden, NotConnected, type GMessage, type GPart } from './gmail'
+import { gmail, pace, pooled, b64url, headerMap, isHidden, NotConnected, type GMessage, type GPart } from './gmail'
 import { parseAddrs, decodeWords, htmlToText, topOf, asksForSomething, deadlineHint, findSite, findPo, isBulk } from './parse'
 import type { Mailbox, SyncState } from './access'
 
@@ -11,7 +11,7 @@ import type { Mailbox, SyncState } from './access'
 // attachments, and is then dropped. Only the fields in rpmail_messages are kept.
 
 const BACKFILL_DAYS = 90
-const CHUNK = 120
+const CHUNK = 60
 const MAX_LIST = 8000
 
 let sitesCache: { at: number; company: string; set: Set<string> } | null = null
@@ -106,8 +106,9 @@ async function listIds(boxId: string, q: string, max: number): Promise<string[]>
 export async function loadMessages(box: Mailbox, ids: string[], sites: Set<string>): Promise<{ stored: number; failed: string[] }> {
   const admin = createAdminClient()
   const rows: IndexRow[] = [], gone: string[] = [], failed: string[] = []
-  await pooled(ids, 8, async id => {
+  await pooled(ids, 5, async id => {
     try {
+      await pace(box.id)
       const m = await gmail<GMessage>(box.id, 'messages/' + id, { params: { format: 'full' } })
       if (!m || isHidden(m.labelIds)) gone.push(id)
       else rows.push(toRow(box, m, sites))
@@ -129,7 +130,7 @@ export type SyncResult = { done: boolean; total: number; left: number; changed: 
 /**
  * Bring one mailbox's index up to date. Works for at most `budgetMs`, then returns; `done: false` means call again.
  */
-export async function syncMailbox(box: Mailbox, budgetMs = 35_000): Promise<SyncResult> {
+export async function syncMailbox(box: Mailbox, budgetMs = 18_000): Promise<SyncResult> {
   const admin = createAdminClient()
   const started = Date.now()
   const save = (patch: Record<string, unknown>) => admin.from('rpmail_mailboxes').update(patch).eq('id', box.id)

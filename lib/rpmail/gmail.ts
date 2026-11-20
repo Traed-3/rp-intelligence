@@ -67,6 +67,18 @@ export async function accessToken(mailboxId: string): Promise<string> {
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
+// Google allows each mailbox only so many requests a second. Loading a whole mailbox must stay well under that, or
+// Google slows everything down and refuses the message a person is trying to open at the same moment.
+const nextSlot = new Map<string, number>()
+/** Wait for this mailbox's next free slot. Used by the bulk loader only; a person's own clicks never wait. */
+export async function pace(mailboxId: string, perSecond = 18): Promise<void> {
+  const now = Date.now(), at = Math.max(now, nextSlot.get(mailboxId) ?? 0)
+  nextSlot.set(mailboxId, at + 1000 / perSecond)
+  if (at > now) await sleep(at - now)
+}
+/** Google saying "slow down" rather than "no". */
+export class Busy extends Error {}
+
 type Opts = { method?: 'GET' | 'POST'; params?: Record<string, string | string[]>; body?: unknown; token?: string }
 
 /** One Gmail call. Returns null for "not found". Waits and retries when Google says slow down. */
@@ -88,10 +100,12 @@ export async function gmail<T = Record<string, unknown>>(mailboxId: string, path
     const reason = (err.error?.errors ?? []).map(e => e.reason ?? '').join(',')
     if (res.status === 401 && attempt === 0 && !opts.token) { forgetAccess(mailboxId); continue }
     if (res.status === 401) throw new NotConnected('The Google sign-in for this mailbox has ended. Sign in again.')
-    if ((res.status === 429 || (res.status === 403 && /ateLimit/.test(reason)) || res.status >= 500) && attempt < tries - 1) {
+    const slowDown = res.status === 429 || (res.status === 403 && /ateLimit|quota/i.test(reason))
+    if ((slowDown || res.status >= 500) && attempt < tries - 1) {
       await sleep(Math.min(8000, 600 * 2 ** attempt) + Math.random() * 300)
       continue
     }
+    if (slowDown) throw new Busy('Gmail is busy with this mailbox right now. Try again in a moment.')
     if (res.status === 403) throw new UserError('Google refused: this sign-in does not allow that. Sign in again from the mailbox.')
     throw new Error(`Gmail said ${res.status}: ${(err.error?.message ?? '').slice(0, 200)}`)
   }

@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { googleClient, UserError } from './gmail'
-import { myMailboxes, mailboxFor, personalAddress, ensurePersonalMailbox, type Me, type Mailbox } from './access'
+import { myMailboxes, mailboxFor, personalAddress, ensurePersonalMailbox, isMailAdmin, type Me, type Mailbox } from './access'
 import { LIST_COLS, toItem, getSignature, type Item } from './mail-ops'
 import { subjectKey, AUTO_RE } from './parse'
 import { getPrefs } from './extras'
@@ -48,7 +48,9 @@ export async function state(who: Me) {
   if (who.enabled) {
     // The person's own mailbox is set up here, so an address Trae changes in Settings takes effect on their next visit.
     try { await ensurePersonalMailbox(who) } catch (e) { note = e instanceof UserError ? e.message : null }
-    if (!personalAddress(who)) note = 'Your login is not a Gmail address, so RPMail does not know which mailbox is yours. Ask Trae to set your Gmail address in Settings, RPMail.'
+    if (!personalAddress(who)) note = isMailAdmin(who.role)
+      ? 'Your login is not a Gmail address, so you have no mailbox of your own here yet. To add one, set your Gmail address under your name in Settings, RPMail. Shared mailboxes work without it.'
+      : 'Your login is not a Gmail address, so RPMail does not know which mailbox is yours. Ask an owner to set your Gmail address in Settings, RPMail.'
   }
   const boxes = who.enabled ? await myMailboxes(who) : []
   return {
