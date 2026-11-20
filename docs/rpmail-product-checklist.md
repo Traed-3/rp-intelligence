@@ -7,15 +7,14 @@ Marks: **Done** = built and on the live site. **Partly** = some of it works, the
 **Missing** = not built. **Waiting on Trae** = cannot move without a decision, money, or a sign-in only he has.
 
 Last audit: 2026-11-20, against `main` at `aa49e8f` (PR #173). Live database at that time: 0 people with RPMail
-on, 0 mailboxes connected, 1 company. **Nothing in hosted RPMail has been used with a real Gmail mailbox yet**, so
-every "Done" below means "built and type-checked", not "proven on real mail", until the test-mailbox pass is done.
+on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the same day (see "Tested on a real mailbox" below); items it did not reach are listed there.
 
 ## Build order
 
 | Stage | What ships | State |
 |---|---|---|
-| 1 | Dashboard and list basics: right-click menu on mailbox boxes, hide / put back / reorder boxes, Done list with restore, star, select many, keyboard shortcuts + help sheet, print | shipped 2026-11-20 (not yet tried on real mail) |
-| 2 | Writing mail: attach files (button, drag-drop, paste picture), drafts saved automatically, undo send, From picker on every message, address book fill-in, templates | shipped 2026-11-20 (not yet tried on real mail). Formatting, address groups and schedule send moved to later stages |
+| 1 | Dashboard and list basics: right-click menu on mailbox boxes, hide / put back / reorder boxes, Done list with restore, star, select many, keyboard shortcuts + help sheet, print | shipped 2026-11-20, tried on real mail |
+| 2 | Writing mail: attach files (button, drag-drop, paste picture), drafts saved automatically, undo send, From picker on every message, address book fill-in, templates | shipped 2026-11-20, tried on real mail. Formatting, address groups and schedule send moved to later stages |
 | 3 | Organizing: labels (create, rename, delete, move), block sender, empty Trash, snooze / remind me, rules, date and sender filters, download all as zip | not started |
 | 4 | Mail keeps syncing with nobody watching (scheduled sync, catch-up, alert when a mailbox fails over an hour) + browser / phone / text notifications with quiet hours | not started |
 | 5 | One Settings area (profile, mailboxes, signatures, notifications, rules, appearance, defaults) and company admin (read / send / delete per person, blocked-content rule, activity log with export) | not started |
@@ -147,16 +146,44 @@ every "Done" below means "built and type-checked", not "proven on real mail", un
 | Works on a phone, installable | Partly | RP Intelligence is installable and the RPMail page folds to one column. Not checked on a real phone with real mail. |
 | Automated tests + a check before going live | Partly | 50 tests (`npm test`) against a stand-in Gmail and a stand-in database: access rules, loading, reading, filing with Undo, sending, the pricing rule. They run on every pull request (GitHub "Tests") and inside the Vercel build, so a failing test stops a deploy. Not covered: the screens themselves (no browser tests), and the stand-ins are not the real Gmail or the real database. |
 
-## Not tested yet (be honest list)
+## Tested on a real mailbox (2026-11-20)
 
-- Everything that talks to real Gmail: connect, first load, new-mail check, open, attachments, archive / spam / trash / undo,
-  mark read, send, draft, forward. Needs one test mailbox Trae approves and a person to do the Google sign-in.
-- Two people in the same shared mailbox at the same time.
-- A tech login being refused a pricing mailbox, on the live site.
-- Phone layout with real mail.
+Test mailbox: dodson3.trae@gmail.com, added as the shared mailbox "RPMail Test" on Trae's login (hosted RPMail is on for
+Trae; his page links to his local RPMail). Trae did the Google sign-in. Clicked through in his Chrome. Test mail was only
+ever sent from that address to itself.
+
+Worked live: Google sign-in and connect; first load (1,145 messages); dashboard counts, Needs you, Daily summary; list with
+unread in bold; open a message (HTML, internet pictures hidden, not marked read); star; archive, delete and Undo for both;
+right-click menu on a message; mailbox menu (three dots), Hide and put back; Done, the Done list and Put back; compose;
+attach a file; kept draft restored after a reload with its attachment; confirm step; undo countdown; send; reply (threads
+into one conversation); forward (carries the attachment); open an attachment; select two and Mark read; Search all of
+Gmail; keyboard shortcuts and the help sheet.
+
+Found and fixed the same day (PRs #178, #179, #180): loading in bursts made Gmail refuse a message being opened or sent
+(now paced, and the message says "Gmail is busy"); load requests ran past the 60 second limit and the page stopped after
+one failure (shorter requests, retries); no "Sending..." note after the undo countdown; newsletters Gmail files under
+Promotions / Social / Forums showed in Needs you; naming a template used a browser pop-up.
+
+Still not tested:
+- Phone width (the browser tool could not shrink the window), and a real phone.
+- The print dialog itself (the Print button was not pressed, to avoid a system dialog).
+- Reply all with several people, and replying from a different mailbox (only one mailbox is connected).
+- Address fill-in with real contacts (the test mailbox is nearly all newsletters, which it skips on purpose).
+- Sign out / Sign in again on a connected mailbox, an expired Google sign-in, Move earlier / later (needs two mailboxes).
+- Two people in the same shared mailbox at once; a tech login being refused a pricing mailbox (covered by the automated tests only).
+- Spam, Add to My Plate from a message, signature editing, drag-and-drop and pasting a picture.
+
+Known rough edges from the pass (not fixed yet):
+- First load runs at about 4 messages a second (each message is fetched on its own). Fetch them in batches. Stage 4.
+- Opening a message takes 1.3 to 3.9 seconds.
+- Mail goes out under the person's RP Intelligence name ("Trae Dodson - Admin"). Needs a "name on outgoing mail" setting. Stage 5.
+- Needs you has no age limit, so unanswered mail from a year ago shows in a mailbox connected for the first time.
+- Confirmations (sign out, delete a template, turn RPMail off) use browser pop-ups rather than on-page boxes.
+- After the undo countdown the open message does not show the reply under "Also in this conversation" until it is reopened.
 
 ## Stage log
 
+- 2026-11-20: real-mailbox pass with dodson3.trae@gmail.com; fixes in PRs #178 (Gmail pacing, Busy message, retrying loader), #179 (log Gmail refusals: status and reason only), #180 (Gmail categories count as newsletters, on-page template naming).
 - 2026-11-20: tests (stage 6) on branch `feat/rpmail-tests`: vitest, `tests/rpmail/{fakes,setup}.ts` (stand-in database + stand-in Gmail), `access.test.ts`, `mail.test.ts`, `pure.test.ts`; `.github/workflows/tests.yml`; package.json `vercel-build` runs the tests before `next build`. The tests found no bug in stages 1 and 2.
 - 2026-11-20: stage 2 built on branch `feat/rpmail-stage2`: `lib/rpmail/compose-ops.ts`, table `rpmail_templates` and private bucket `rpmail-outbox` (both applied), compose box rewritten, undo-send bar in rpmail-app.tsx, `undo_secs` in `rpmail_prefs`. Known loose end: a file attached and then abandoned (tab closed without Discard) stays in the bucket until the stage 4 clean-up job exists. Checked by type-check, lint and a production build only.
 - 2026-11-20: audit written. Stage 1 built on branch `feat/rpmail-product`: new table `rpmail_prefs` (applied), `lib/rpmail/extras.ts`, new API actions prefs / star / bulk / done_list. Checked by type-check, lint, role-access check and a production build. NOT checked in a browser with mail in it: nobody has RPMail turned on yet and there is no test mailbox.
