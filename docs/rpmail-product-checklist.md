@@ -16,7 +16,7 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 | 1 | Dashboard and list basics: right-click menu on mailbox boxes, hide / put back / reorder boxes, Done list with restore, star, select many, keyboard shortcuts + help sheet, print | shipped 2026-11-20, tried on real mail |
 | 2 | Writing mail: attach files (button, drag-drop, paste picture), drafts saved automatically, undo send, From picker on every message, address book fill-in, templates | shipped 2026-11-20, tried on real mail. Formatting, address groups and schedule send moved to later stages |
 | 3 | Organizing: labels (create, rename, delete, move), block sender, empty Trash, snooze / remind me, rules, date and sender filters, download all as zip | not started |
-| 4 | Mail keeps syncing with nobody watching (scheduled sync, catch-up, alert when a mailbox fails over an hour) + browser / phone / text notifications with quiet hours | not started |
+| 4 | Mail keeps syncing with nobody watching (scheduled sync, catch-up, alert when a mailbox fails over an hour) + browser / phone / text notifications with quiet hours | shipped 2026-11-20. Push delivery is unproven (no device has ever switched push on in RP Intelligence); text messages wait on Trae (paid service); schedule send not built |
 | 5 | One Settings area (profile, mailboxes, signatures, notifications, rules, appearance, defaults) and company admin (read / send / delete per person, blocked-content rule, activity log with export) | not started |
 | 6 | Automated tests + a check that runs before anything goes live; "one company cannot see another" proven by tests | shipped 2026-11-20 (done ahead of stages 3 to 5, because there was no test mailbox). 50 tests |
 | 7 | Selling it: companies as separate customers, sign-up, trial, Stripe plans and seats, billing page, plan limits, public page, help center, first-run walkthrough, owner view | waiting on Trae (Stripe account, prices, legal wording, product shape) |
@@ -86,14 +86,14 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 | Dashboard with a box per mailbox | Done | |
 | Boxes can be closed, put back and reordered | Partly | Mailbox boxes: yes (right-click: Hide, Move earlier / later; closed boxes listed at the bottom with "put back"). The My Plate / Your jobs / Needs you / Daily summary boxes cannot be closed or moved yet, and there is no drag to reorder. |
 | Needs You list | Done | |
-| Daily Summary | Partly | Made the first time the person opens RPMail after 6 AM, not at 6 AM on its own. Fixed by stage 4. |
+| Daily Summary | Done | Made by the scheduled check shortly after 6 AM Eastern, whether or not RPMail is open. |
 | Done buttons with Undo | Done | |
 | See and restore Done items | Done | "Done" section on the dashboard: Show what I marked Done, Put back. |
 | "Your jobs" incl. waiting-on-a-reply even if someone else opened it | Done | |
 | My Plate beside the mail, Add to My Plate, mark done | Done | |
 | Site, job, PO numbers as tags | Partly | Site and PO: yes. Work order numbers: not picked out. |
-| Notifications: browser, phone push, text | Missing | RP Intelligence already has phone push for other things; RPMail does not use it. Stage 4. |
-| Notification settings, quiet hours, per-mailbox on/off | Missing | Stage 4. |
+| Notifications: browser, phone push, text | Partly | Browser and phone push: built on RP Intelligence's existing push, sent by the 5-minute check. Not proven on a real device yet. Text messages: waiting on Trae (needs a paid texting service). |
+| Notification settings, quiet hours, per-mailbox on/off | Done | Notifications button in RPMail: on/off, what sets one off (asks for something / any person / everything), quiet hours (Eastern only for now), which mailboxes, and switching push on for this device. Off by default. |
 
 ## Settings a customer expects
 
@@ -137,10 +137,10 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 | Export all my data | Missing | Stage 9. |
 | Delete my account, and deletion really removes it | Partly | Turning RPMail off removes the Google sign-in; the short mail list for that mailbox stays until reconnect. Stage 9. |
 | Google verification and yearly security review | Missing | Write-up and prepared material in stage 9. Costs money and needs Trae. |
-| Mail keeps syncing without anyone watching | Missing | Mail is only checked while someone has the RPMail page open. Stage 4. |
+| Mail keeps syncing without anyone watching | Done | Supabase's scheduler calls `/api/rpmail/cron` every 5 minutes; the mailbox that has waited longest goes first. A first load also continues there with the page closed. |
 | Retries and respect for Google's limits | Done | Waits and retries when Google says slow down; loads in chunks. |
-| Catch up after an outage | Partly | Catches up the next time the page is open. Automatic once stage 4 lands. |
-| Alert to Trae when a mailbox has failed for over an hour | Missing | Stage 4. |
+| Catch up after an outage | Done | The scheduled check picks up from Gmail's bookmark; if the bookmark is too old it reloads the mailbox. |
+| Alert to Trae when a mailbox has failed for over an hour | Done | Owners get an email, a bell notification and a push, once a day at most per mailbox, and it stops when the mailbox recovers. Covered by a test; not yet seen on a really broken mailbox. |
 | Error tracking, uptime checks | Missing | Stage 9. |
 | Database backups and a tested restore | Partly | Supabase Pro takes daily backups. A restore has not been tested for RPMail. |
 | Works on a phone, installable | Partly | RP Intelligence is installable and the RPMail page folds to one column. Not checked on a real phone with real mail. |
@@ -159,7 +159,7 @@ attach a file; kept draft restored after a reload with its attachment; confirm s
 into one conversation); forward (carries the attachment); open an attachment; select two and Mark read; Search all of
 Gmail; keyboard shortcuts and the help sheet.
 
-Found and fixed the same day (PRs #178, #179, #180): loading in bursts made Gmail refuse a message being opened or sent
+Found and fixed the same day (PRs #178 to #181): loading in bursts made Gmail refuse a message being opened or sent
 (now paced, and the message says "Gmail is busy"); load requests ran past the 60 second limit and the page stopped after
 one failure (shorter requests, retries); no "Sending..." note after the undo countdown; newsletters Gmail files under
 Promotions / Social / Forums showed in Needs you; naming a template used a browser pop-up.
@@ -174,7 +174,7 @@ Still not tested:
 - Spam, Add to My Plate from a message, signature editing, drag-and-drop and pasting a picture.
 
 Known rough edges from the pass (not fixed yet):
-- First load runs at about 4 messages a second (each message is fetched on its own). Fetch them in batches. Stage 4.
+- First load ran at about 3 to 4 messages a second. Stage 4 now reads newsletters by their headers only and fetches the full message just for mail from people or with attachments; the new speed has to be measured on the test mailbox.
 - Opening a message takes 1.3 to 3.9 seconds.
 - Mail goes out under the person's RP Intelligence name ("Trae Dodson - Admin"). Needs a "name on outgoing mail" setting. Stage 5.
 - Needs you has no age limit, so unanswered mail from a year ago shows in a mailbox connected for the first time.
@@ -183,6 +183,7 @@ Known rough edges from the pass (not fixed yet):
 
 ## Stage log
 
+- 2026-11-20: stage 4 on branch `feat/rpmail-stage4`: `lib/rpmail/background.ts` (scheduled check, failing alert, new-mail push, 6 AM summary, outbox clean-up), `/api/rpmail/cron` (Vault token `rps_sync_token`, added to proxy.ts public paths), migration `rpmail_background.sql` (columns failing_since / fail_alerted_at / notify_mark, `rpmail_outbox_stale`, pg_cron job `rpmail-sync` every 5 min), metadata-first loading, `notify` in `rpmail_prefs`, Notifications sheet. 59 tests.
 - 2026-11-20: real-mailbox pass with dodson3.trae@gmail.com; fixes in PRs #178 (Gmail pacing, Busy message, retrying loader), #179 (log Gmail refusals: status and reason only), #180 (Gmail categories count as newsletters, on-page template naming).
 - 2026-11-20: tests (stage 6) on branch `feat/rpmail-tests`: vitest, `tests/rpmail/{fakes,setup}.ts` (stand-in database + stand-in Gmail), `access.test.ts`, `mail.test.ts`, `pure.test.ts`; `.github/workflows/tests.yml`; package.json `vercel-build` runs the tests before `next build`. The tests found no bug in stages 1 and 2.
 - 2026-11-20: stage 2 built on branch `feat/rpmail-stage2`: `lib/rpmail/compose-ops.ts`, table `rpmail_templates` and private bucket `rpmail-outbox` (both applied), compose box rewritten, undo-send bar in rpmail-app.tsx, `undo_secs` in `rpmail_prefs`. Known loose end: a file attached and then abandoned (tab closed without Discard) stays in the bucket until the stage 4 clean-up job exists. Checked by type-check, lint and a production build only.

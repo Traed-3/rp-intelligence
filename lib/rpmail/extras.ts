@@ -10,7 +10,21 @@ import { LIST_COLS, toItem, fileMessage, markRead, markDone, type Item } from '.
 const UUID = /^[0-9a-f-]{36}$/
 const GID = /^[0-9a-f]{6,32}$/i
 
-export type Prefs = { hidden: string[]; order: string[]; undo_secs: number }
+/** New-mail notifications. `what`: 'needs' = mail from a person that asks for something, 'people' = any mail from a person, 'all' = everything. */
+export type NotifyPrefs = { on: boolean; what: 'needs' | 'people' | 'all'; quiet_from: string; quiet_to: string; off: string[] }
+export type Prefs = { hidden: string[]; order: string[]; undo_secs: number; notify: NotifyPrefs }
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
+const notifyPrefs = (v: unknown): NotifyPrefs => {
+  const d = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
+  return { on: d.on === true, what: d.what === 'needs' || d.what === 'all' ? d.what : 'people',
+    quiet_from: typeof d.quiet_from === 'string' && HHMM.test(d.quiet_from) ? d.quiet_from : '', quiet_to: typeof d.quiet_to === 'string' && HHMM.test(d.quiet_to) ? d.quiet_to : '', off: ids(d.off) }
+}
+/** Is `at` inside the person's quiet hours? Times are Eastern for now. A range may run past midnight (21:00 to 06:00). */
+export function inQuietHours(n: Pick<NotifyPrefs, 'quiet_from' | 'quiet_to'>, at: Date): boolean {
+  if (!n.quiet_from || !n.quiet_to || n.quiet_from === n.quiet_to) return false
+  const now = at.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false })
+  return n.quiet_from < n.quiet_to ? now >= n.quiet_from && now < n.quiet_to : now >= n.quiet_from || now < n.quiet_to
+}
 const UNDO = [0, 5, 10, 20, 30]
 const undoSecs = (v: unknown) => UNDO.includes(Number(v)) && v !== null && v !== undefined && v !== '' ? Number(v) : 10
 const ids = (v: unknown): string[] => Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && UUID.test(x)))].slice(0, 60) : []
@@ -18,14 +32,15 @@ const ids = (v: unknown): string[] => Array.isArray(v) ? [...new Set(v.filter((x
 export async function getPrefs(who: Pick<Me, 'id'>): Promise<Prefs> {
   const { data } = await createAdminClient().from('rpmail_prefs').select('data').eq('profile_id', who.id).maybeSingle()
   const d = (data?.data ?? {}) as Partial<Prefs>
-  return { hidden: ids(d.hidden), order: ids(d.order), undo_secs: undoSecs(d.undo_secs) }
+  return { hidden: ids(d.hidden), order: ids(d.order), undo_secs: undoSecs(d.undo_secs), notify: notifyPrefs(d.notify) }
 }
 
 /** Save which dashboard boxes are closed and the order they show in. Only this person's own screen changes. */
-export async function setPrefs(who: Me, p: { hidden?: unknown; order?: unknown; undo_secs?: unknown }) {
+export async function setPrefs(who: Me, p: { hidden?: unknown; order?: unknown; undo_secs?: unknown; notify?: unknown }) {
   const cur = await getPrefs(who)
   const next: Prefs = { hidden: p.hidden === undefined ? cur.hidden : ids(p.hidden), order: p.order === undefined ? cur.order : ids(p.order),
-    undo_secs: p.undo_secs === undefined ? cur.undo_secs : undoSecs(p.undo_secs) }
+    undo_secs: p.undo_secs === undefined ? cur.undo_secs : undoSecs(p.undo_secs),
+    notify: p.notify === undefined ? cur.notify : notifyPrefs(p.notify) }
   const { error } = await createAdminClient().from('rpmail_prefs').upsert({ profile_id: who.id, data: next, updated_at: new Date().toISOString() }, { onConflict: 'profile_id' })
   if (error) throw new Error('Could not save that.')
   return { ok: true, prefs: next }

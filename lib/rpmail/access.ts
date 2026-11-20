@@ -14,6 +14,7 @@ export type Mailbox = {
   id: string; company_id: string; address: string; name: string; kind: 'personal' | 'shared'; owner_id: string | null
   crew_reads: boolean; token_secret_id: string | null; scope: string | null; connected_at: string | null
   history_id: string | null; sync: SyncState; last_sync_at: string | null; last_error: string | null
+  failing_since: string | null; notify_mark: string | null
 }
 export type SyncState = { todo?: string[]; total?: number; started?: string; full_done?: string }
 
@@ -42,7 +43,7 @@ export async function requireMe(): Promise<Me> {
   return m
 }
 
-const BOX_COLS = 'id, company_id, address, name, kind, owner_id, crew_reads, token_secret_id, scope, connected_at, history_id, sync, last_sync_at, last_error'
+export const BOX_COLS = 'id, company_id, address, name, kind, owner_id, crew_reads, token_secret_id, scope, connected_at, history_id, sync, last_sync_at, last_error, failing_since, notify_mark'
 
 /** The mailboxes this person may open: their own first, then shared ones by name. */
 export async function myMailboxes(who: Pick<Me, 'id' | 'company_id' | 'role'>): Promise<Mailbox[]> {

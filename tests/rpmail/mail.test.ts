@@ -231,7 +231,7 @@ describe('customer pricing never goes to or from a mailbox the crew reads', () =
 describe('the person\'s own settings and helpers', () => {
   it('keeps box order, closed boxes and the undo time, and ignores junk', async () => {
     await setPrefs(me, { hidden: [crew, 'not-an-id'], order: [other, box], undo_secs: 20 })
-    expect(await getPrefs(me)).toEqual({ hidden: [crew], order: [other, box], undo_secs: 20 })
+    expect(await getPrefs(me)).toMatchObject({ hidden: [crew], order: [other, box], undo_secs: 20, notify: { on: false } })
     await setPrefs(me, { undo_secs: 999 })
     expect((await getPrefs(me)).undo_secs).toBe(10)
   })

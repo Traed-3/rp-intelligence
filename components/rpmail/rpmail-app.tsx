@@ -4,18 +4,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   Mail, LayoutDashboard, PenSquare, RefreshCw, Paperclip, Check, Archive, Trash2, ShieldAlert, Reply, ReplyAll, Forward, Inbox,
-  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X,
+  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Item } from '@/lib/rpmail/mail-ops'
 import type { BoxInfo } from '@/lib/rpmail/overview'
+import { PushToggle } from '@/app/(app)/settings/alerts/push-toggle'
 import { Compose, clearDraft, type ComposeStart, type Outgoing } from './compose'
 
 // The built-in RPMail page: Dashboard (a tile per mailbox, My Plate, Your jobs, Needs you, Daily summary) and one
 // inbox per mailbox. Unread mail is bold everywhere. Opening a message never marks it read.
 
-type Prefs = { hidden: string[]; order: string[]; undo_secs?: number }
+type Notify = { on: boolean; what: 'needs' | 'people' | 'all'; quiet_from: string; quiet_to: string; off: string[] }
+type Prefs = { hidden: string[]; order: string[]; undo_secs?: number; notify?: Notify }
 type State = { prefs?: Prefs; enabled: boolean; name: string; role: string; googleReady: boolean; personalAddress: string | null; loginEmail: string; boxes: BoxInfo[]; note: string | null }
 type PlateItem = { id: string; title: string; detail: string; kind: string; site_number: string | null; priority: number; due_date: string | null; status: string; waiting_on: string | null; mail: Item | null; mail_n: number }
 type SumItem = { mailbox_id: string; id: string; date: number; from_name: string; subject: string; site: string | null; po: string | null; snippet: string; why?: string; unread?: boolean }
@@ -71,6 +73,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const [menu, setMenu] = useState<{ x: number; y: number; item: Item } | null>(null)
   const [boxMenu, setBoxMenu] = useState<{ x: number; y: number; box: BoxInfo } | null>(null)
   const [help, setHelp] = useState(false)
+  const [notifyOpen, setNotifyOpen] = useState(false)
   const [pending, setPending] = useState<{ out: Outgoing; until: number } | null>(null)
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -235,7 +238,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   }, [pending])
 
   const savePrefs = useCallback((next: Partial<Prefs>) => act(async () => {
-    setSt(s => s ? { ...s, prefs: { hidden: s.prefs?.hidden ?? [], order: s.prefs?.order ?? [], undo_secs: s.prefs?.undo_secs, ...next } } : s)
+    setSt(s => s ? { ...s, prefs: { hidden: s.prefs?.hidden ?? [], order: s.prefs?.order ?? [], undo_secs: s.prefs?.undo_secs, notify: s.prefs?.notify, ...next } } : s)
     await api('prefs', next)
   }), [act])
 
@@ -265,7 +268,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      if (e.key === 'Escape') { setMenu(null); setBoxMenu(null); setHelp(false); return }
+      if (e.key === 'Escape') { setMenu(null); setBoxMenu(null); setHelp(false); setNotifyOpen(false); return }
       if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return
       const k = keyState.current
       if (k.compose) return
@@ -323,6 +326,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           <p className="rp-subtitle">Your mail, what needs a reply and your jobs, in one place.{localUrl && <> <a className="underline" href={localUrl} target="_blank" rel="noopener noreferrer">Open your own RPMail</a></>}</p>
         </div>
         <div className="flex items-center gap-2">
+          <button className={btn('ghost')} onClick={() => setNotifyOpen(true)} title="New-mail notifications"><Bell /><span className="hidden sm:inline">Notifications{st.prefs?.notify?.on ? ' on' : ''}</span></button>
           <button className={cn(btn('ghost'), 'hidden sm:inline-flex')} onClick={() => setHelp(true)} title="Keyboard shortcuts (press ?)"><Keyboard />Shortcuts</button>
           <button className={btn('ghost')} onClick={() => void syncAll(boxes)} disabled={busy} title="Check for new mail"><RefreshCw className={cn(busy && 'animate-spin')} />{busy ? 'Checking' : 'Check mail'}</button>
           <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected ? cur.id : boxes.find(b => b.connected)?.id ?? '' })} disabled={!boxes.some(b => b.connected) || !!pending}><PenSquare />New message</button>
@@ -389,6 +393,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
         </div>
       ) })()}
       {help && <HelpSheet close={() => setHelp(false)} />}
+      {notifyOpen && <NotifySheet start={st.prefs?.notify} boxes={boxes} close={() => setNotifyOpen(false)} save={async n => { await savePrefs({ notify: n }); setNotifyOpen(false); say(n.on ? 'Notifications are on.' : 'Notifications are off.') }} />}
       {toast && (
         <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg bg-foreground text-background px-4 py-2.5 text-sm shadow-lg max-w-[92vw]">
           <span>{toast.text}</span>
@@ -841,6 +846,61 @@ function PendingBar({ to, from, until, undo, now }: { to: string; from: string; 
       <span className="min-w-0 truncate max-w-[60vw]">Sending to {to} from {from} in {left}s</span>
       <button className="font-semibold underline" onClick={undo}>Undo</button>
       <button className="underline opacity-80" onClick={now}>Send now</button>
+    </div>
+  )
+}
+
+const NO_NOTIFY: Notify = { on: false, what: 'people', quiet_from: '', quiet_to: '', off: [] }
+
+/** New-mail notifications: on or off, what sets one off, quiet hours, and which mailboxes. Everything here can be turned back off. */
+function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: BoxInfo[]; close: () => void; save: (n: Notify) => Promise<void> }) {
+  const [n, setN] = useState<Notify>(start ?? NO_NOTIFY)
+  const [busy, setBusy] = useState(false)
+  const what: [Notify['what'], string, string][] = [
+    ['needs', 'Only mail that asks me for something', 'From a person, with a question or a request in it.'],
+    ['people', 'Any mail from a person', 'Newsletters, receipts and other automatic mail stay quiet.'],
+    ['all', 'Everything', 'Every new message, newsletters included.'],
+  ]
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" onClick={close}>
+      <div className="rp-card w-full sm:max-w-lg max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="rp-card-head"><h2 className="rp-card-title">Notifications</h2><button onClick={close} aria-label="Close"><X className="size-5" /></button></div>
+        <div className="p-4 space-y-4 text-sm">
+          <label className="flex items-start gap-2.5"><input type="checkbox" className="mt-0.5 size-4" checked={n.on} onChange={e => setN({ ...n, on: e.target.checked })} />
+            <span><span className="font-semibold text-foreground">Tell me when new mail arrives</span><span className="block text-xs text-muted-foreground">Mail is checked every 5 minutes, even with RPMail closed. You get one notification per check, not one per message.</span></span></label>
+          <fieldset disabled={!n.on} className={cn('space-y-4', !n.on && 'opacity-50')}>
+            <div className="space-y-1.5">
+              <p className="rp-label">What sets one off</p>
+              {what.map(([v, l, d]) => <label key={v} className="flex items-start gap-2.5"><input type="radio" name="rp-notify-what" className="mt-0.5 size-4" checked={n.what === v} onChange={() => setN({ ...n, what: v })} /><span><span className="text-foreground">{l}</span><span className="block text-xs text-muted-foreground">{d}</span></span></label>)}
+            </div>
+            <div>
+              <p className="rp-label mb-1.5">Quiet hours (Eastern time)</p>
+              <div className="flex flex-wrap items-center gap-2 text-muted-foreground">Nothing between
+                <input type="time" className="rp-input !w-auto" value={n.quiet_from} onChange={e => setN({ ...n, quiet_from: e.target.value })} aria-label="Quiet hours start" /> and
+                <input type="time" className="rp-input !w-auto" value={n.quiet_to} onChange={e => setN({ ...n, quiet_to: e.target.value })} aria-label="Quiet hours end" />
+                {(n.quiet_from || n.quiet_to) && <button type="button" className="underline text-xs" onClick={() => setN({ ...n, quiet_from: '', quiet_to: '' })}>No quiet hours</button>}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Mail that arrives in quiet hours is not announced later; it is waiting in RPMail.</p>
+            </div>
+            {boxes.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="rp-label">Which mailboxes</p>
+                {boxes.map(b => <label key={b.id} className="flex items-center gap-2.5"><input type="checkbox" className="size-4" checked={!n.off.includes(b.id)} onChange={e => setN({ ...n, off: e.target.checked ? n.off.filter(x => x !== b.id) : [...n.off, b.id] })} /><span className="text-foreground">{b.name}</span><span className="text-xs text-muted-foreground truncate">{b.address}</span></label>)}
+              </div>
+            )}
+          </fieldset>
+          <div className="rounded-md border border-border bg-raised p-3 space-y-2">
+            <p className="font-semibold text-foreground">This phone or computer</p>
+            <p className="text-xs text-muted-foreground">Notifications arrive on each device where you switch them on here. On an iPhone, add RP Intelligence to the Home Screen first (Share, then Add to Home Screen) and open it from there.</p>
+            <PushToggle />
+          </div>
+          <p className="text-xs text-muted-foreground">Text messages are not available yet.</p>
+          <div className="flex gap-2">
+            <button className={btn('default', 'default')} disabled={busy} onClick={async () => { setBusy(true); await save(n); setBusy(false) }}>Save</button>
+            <button className={btn('ghost', 'default')} onClick={close}>Cancel</button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

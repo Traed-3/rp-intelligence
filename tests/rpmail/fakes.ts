@@ -14,7 +14,7 @@ const cmp = (a: unknown, b: unknown) => (a == null && b == null ? 0 : a == null 
 const SERIAL = new Set(['rpmail_moves', 'rpmail_sent'])
 const UUID_PK = new Set(['rpmail_mailboxes', 'rpmail_templates', 'con_tasks'])
 const DEFAULTS: Record<string, Row> = {
-  rpmail_mailboxes: { crew_reads: false, token_secret_id: null, scope: null, connected_at: null, history_id: null, sync: {}, last_sync_at: null, last_error: null, owner_id: null },
+  rpmail_mailboxes: { crew_reads: false, token_secret_id: null, scope: null, connected_at: null, history_id: null, sync: {}, last_sync_at: null, last_error: null, owner_id: null, failing_since: null, fail_alerted_at: null, notify_mark: null },
   rpmail_moves: { undone: false },
   rpmail_messages: { unread: false, in_inbox: false, sent: false, starred: false, has_att: false, bulk: false, asks: false, labels: [] },
 }
@@ -44,8 +44,8 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string } |
   eq(c: string, v: unknown) { this.filters.push(r => r[c] === v); return this }
   neq(c: string, v: unknown) { this.filters.push(r => r[c] !== v); return this }
   in(c: string, v: unknown[]) { this.filters.push(r => v.includes(r[c])); return this }
-  gte(c: string, v: unknown) { this.filters.push(r => cmp(r[c], v) >= 0); return this }
-  lt(c: string, v: unknown) { this.filters.push(r => cmp(r[c], v) < 0); return this }
+  gte(c: string, v: unknown) { this.filters.push(r => r[c] != null && cmp(r[c], v) >= 0); return this }   // like SQL: nothing compares to an empty value
+  lt(c: string, v: unknown) { this.filters.push(r => r[c] != null && cmp(r[c], v) < 0); return this }
   ilike(c: string, pat: string) { this.filters.push(r => like(r[c], pat)); return this }
   or(expr: string) {
     const parts = expr.split(',').map(p => { const [c, op, ...rest] = p.split('.'); return { c, op, v: rest.join('.') } })
@@ -100,6 +100,7 @@ export class FakeDb {
   serial = 0
   vault = new Map<string, string>()            // mailbox id -> refresh token (stands in for Supabase Vault)
   files = new Map<string, { data: Buffer; type: string }>()   // the rpmail-outbox bucket
+  stale = new Set<string>()                    // outbox paths the database would call older than two days
   client = {
     from: (t: string) => new Query(this, t),
     rpc: (name: string, a: Record<string, unknown>) => Promise.resolve(this.rpc(name, a)),
@@ -125,6 +126,8 @@ export class FakeDb {
       this.tables.rpmail_messages = this.t('rpmail_messages').filter(m => m.mailbox_id !== a.p_mailbox)
       return { data: null, error: null }
     }
+    if (name === 'sync_token_ok') return { data: a.t === 'the-vault-token', error: null }
+    if (name === 'rpmail_outbox_stale') return { data: [...this.files.keys()].filter(k => this.stale.has(k)), error: null }
     const mine = this.t('rpmail_messages').filter(m => this.allowed(String(a.p_profile), String(m.mailbox_id)))
     if (name === 'rpmail_counts') {
       const by = new Map<string, { mailbox_id: string; inbox: number; unread: number; newest: string | null }>()
@@ -157,6 +160,7 @@ export class FakeGmail {
   calls: GCall[] = []
   sent: SentMail[] = []
   revoked = new Set<string>()              // addresses whose sign-in Google has ended
+  metadataReads = 0
   private n = 0
   add(address: string, m: Partial<FakeMsg> & { from: string; subject: string }): FakeMsg {
     const id = (++this.n).toString(16).padStart(16, '0')
@@ -196,7 +200,14 @@ export class FakeGmail {
       const made = this.add(account, { from: account, to: 'someone@example.com', subject: 'sent', labelIds: ['SENT'], threadId: msg.threadId as string | undefined })
       return ok({ id: made.id, threadId: made.threadId })
     }
-    if ((m = path.match(/^messages\/([0-9a-f]+)$/))) { const x = list.find(y => y.id === m![1]); return x ? ok(this.full(x)) : { status: 404, json: {} } }
+    if ((m = path.match(/^messages\/([0-9a-f]+)$/))) {
+      const x = list.find(y => y.id === m![1]); if (!x) return { status: 404, json: {} }
+      const full = this.full(x)
+      if (query.get('format') !== 'metadata') return ok(full)
+      // Headers only, as Gmail does for format=metadata: no parts, no text. A message with files says so in Content-Type.
+      this.metadataReads++
+      return ok({ ...full, payload: { headers: [...full.payload.headers, { name: 'Content-Type', value: x.files?.length ? 'multipart/mixed; boundary=x' : 'multipart/alternative; boundary=x' }] } })
+    }
     if ((m = path.match(/^messages\/([0-9a-f]+)\/modify$/))) { const x = list.find(y => y.id === m![1]); if (!x) return { status: 404, json: {} }; labels([x]); return ok({}) }
     if ((m = path.match(/^messages\/([0-9a-f]+)\/attachments\/att(\d+)$/))) { const f = list.find(y => y.id === m![1])?.files?.[Number(m[2])]; return f ? ok({ data: f.data.toString('base64url') }) : { status: 404, json: {} } }
     if ((m = path.match(/^threads\/([0-9a-f]+)(\/(modify|trash|untrash))?$/))) {
