@@ -245,3 +245,46 @@ grant execute on function public.rpmail_counts(uuid) to service_role;
 revoke all on public.rpmail_users, public.rpmail_mailboxes, public.rpmail_access, public.rpmail_messages, public.rpmail_done,
   public.rpmail_moves, public.rpmail_sent, public.rpmail_signatures, public.rpmail_summaries, public.rpmail_oauth_states
   from anon, authenticated;
+
+-- Applied 11/20/26 as rpmail_staff_role_rule_in_lists: the "Needs you" list and the counts use the same role rule as
+-- lib/rpmail/access.ts, so a tech or shop login never sees a pricing mailbox there even if an old access row remains.
+create or replace function public.rpmail_allowed(p_profile uuid, p_mailbox uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from public.rpmail_access a
+    join public.rpmail_mailboxes b on b.id = a.mailbox_id
+    join public.profiles p on p.id = a.profile_id
+    where a.profile_id = p_profile and a.mailbox_id = p_mailbox and p.company_id = b.company_id
+      and (b.kind = 'personal' or b.crew_reads
+           or coalesce(p.role, '') not in ('service_tech', 'construction_tech', 'mechanic', 'shop_employee')))
+$$;
+revoke all on function public.rpmail_allowed(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.rpmail_allowed(uuid, uuid) to service_role;
+
+create or replace function public.rpmail_needs(p_profile uuid, p_mailbox uuid default null, p_limit int default 80)
+returns setof public.rpmail_messages
+language sql stable security definer set search_path = '' as $$
+  select m.* from public.rpmail_messages m
+  join public.rpmail_mailboxes b on b.id = m.mailbox_id
+  where (p_mailbox is null or m.mailbox_id = p_mailbox)
+    and public.rpmail_allowed(p_profile, m.mailbox_id)
+    and m.in_inbox and not m.sent and not m.bulk and lower(coalesce(m.from_addr, '')) <> b.address
+    and not exists (select 1 from public.rpmail_messages s where s.mailbox_id = m.mailbox_id and s.thread_id = m.thread_id
+                    and s.date > m.date and (s.sent or lower(coalesce(s.from_addr, '')) = b.address))
+    and not exists (select 1 from public.rpmail_done d where d.profile_id = p_profile and d.mailbox_id = m.mailbox_id and d.gmail_id = m.gmail_id)
+  order by m.date desc limit greatest(1, least(p_limit, 500))
+$$;
+
+create or replace function public.rpmail_counts(p_profile uuid)
+returns table (mailbox_id uuid, inbox bigint, unread bigint, newest timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select m.mailbox_id, count(*), count(*) filter (where m.unread), max(m.date)
+  from public.rpmail_messages m
+  where m.in_inbox and m.mailbox_id in (select a.mailbox_id from public.rpmail_access a where a.profile_id = p_profile)
+    and public.rpmail_allowed(p_profile, m.mailbox_id)
+  group by m.mailbox_id
+$$;
+revoke all on function public.rpmail_needs(uuid, uuid, int) from public, anon, authenticated;
+revoke all on function public.rpmail_counts(uuid) from public, anon, authenticated;
+grant execute on function public.rpmail_needs(uuid, uuid, int) to service_role;
+grant execute on function public.rpmail_counts(uuid) to service_role;

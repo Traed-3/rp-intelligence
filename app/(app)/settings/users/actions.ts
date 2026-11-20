@@ -7,6 +7,7 @@ import { VALID_LANDING_PAGES, DEFAULT_LANDING_PAGE } from '@/lib/landing-pages'
 import { MODULE_KEYS, type ModuleKey } from '@/lib/modules'
 import { validateNewPassword } from '@/lib/password-rules'
 import { canManageUser, canAssignRole } from '@/lib/user-admin-rules'
+import { dropPricingMailboxes } from '@/lib/rpmail/access'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -122,6 +123,8 @@ export async function updateUserRole(userId: string, newRole: string) {
   await admin.from('profiles').update(patch)
     .eq('id', userId)
     .eq('company_id', profile.company_id)
+  // RPMail: a tech or shop login keeps only mailboxes the crew reads (no customer pricing).
+  await dropPricingMailboxes(userId, newRole)
 
   revalidatePath('/settings/users')
 }

@@ -10,6 +10,12 @@ import { subjectKey, AUTO_RE } from './parse'
 const DAY = 86_400_000
 type Row = Parameters<typeof toItem>[0] & { msgid?: string | null; refs?: string | null; bulk?: boolean; asks?: boolean; deadline?: string | null }
 
+/** Keep only rows from mailboxes this person may open right now (myMailboxes applies the role rule). */
+const onlyAllowed = <T extends { mailbox_id: string }>(rows: T[], boxes: Pick<Mailbox, 'id'>[]) => {
+  const ok = new Set(boxes.map(b => b.id))
+  return rows.filter(r => ok.has(r.mailbox_id))
+}
+
 export type BoxInfo = {
   id: string; name: string; address: string; kind: 'personal' | 'shared'; crew_reads: boolean; connected: boolean
   inbox: number; unread: number; newest: number | null; needs: number; last_sync_at: string | null; last_error: string | null
@@ -22,7 +28,7 @@ export async function boxInfos(who: Me, boxes: Mailbox[]): Promise<BoxInfo[]> {
   const by = new Map(((counts ?? []) as { mailbox_id: string; inbox: number; unread: number; newest: string | null }[]).map(c => [c.mailbox_id, c]))
   const { data: needs } = await admin.rpc('rpmail_needs', { p_profile: who.id, p_mailbox: null, p_limit: 500 })
   const needBy = new Map<string, number>()
-  for (const n of (needs ?? []) as { mailbox_id: string }[]) needBy.set(n.mailbox_id, (needBy.get(n.mailbox_id) ?? 0) + 1)
+  for (const n of onlyAllowed((needs ?? []) as { mailbox_id: string }[], boxes)) needBy.set(n.mailbox_id, (needBy.get(n.mailbox_id) ?? 0) + 1)
   return Promise.all(boxes.map(async b => {
     const c = by.get(b.id)
     return {
@@ -217,7 +223,7 @@ async function buildSummary(who: Me, boxes: Mailbox[], day: string): Promise<Sum
   }
   const { data: need } = await admin.rpc('rpmail_needs', { p_profile: who.id, p_mailbox: null, p_limit: 60 })
   const cutoff = Date.now() - 2 * DAY
-  for (const r of (need ?? []) as Row[]) (Date.parse(r.date) >= cutoff ? out.needs : out.stale).push(sumItem(r))
+  for (const r of onlyAllowed((need ?? []) as Row[], boxes)) (Date.parse(r.date) >= cutoff ? out.needs : out.stale).push(sumItem(r))
   out.permits = rows.filter(r => !r.bulk && /\bpermit/i.test(r.subject ?? '')).slice(0, 30).map(r => sumItem(r))
   out.pos = rows.filter(r => r.po).slice(0, 30).map(r => sumItem(r))
   out.deadlines = rows.filter(r => r.deadline).slice(0, 25).map(r => sumItem(r, r.deadline ?? undefined))
@@ -268,7 +274,7 @@ export async function overview(who: Me) {
     dailySummary(who, boxes, done),
   ])
   return {
-    boxes: infos, needs: ((needsRes.data ?? []) as Row[]).map(toItem), foryou, plate, summary,
+    boxes: infos, needs: onlyAllowed((needsRes.data ?? []) as Row[], boxes).map(toItem), foryou, plate, summary,
     moves: (movesRes.data ?? []).map(m => ({ ...m, created_at: Date.parse(m.created_at as string) })), now: Date.now(),
   }
 }

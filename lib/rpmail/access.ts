@@ -112,3 +112,18 @@ export async function noPricingAddresses(companyId: string): Promise<Set<string>
   const { data } = await createAdminClient().from('rpmail_mailboxes').select('address').eq('company_id', companyId).eq('crew_reads', true)
   return new Set(['econstruction.rp@gmail.com', ...(data ?? []).map(d => (d.address as string).toLowerCase())])
 }
+
+/**
+ * Called when someone's role changes: a tech, mechanic or shop login loses every shared mailbox the crew does not read.
+ * (The read checks already hide those mailboxes; this removes the access rows too, so nothing lingers.)
+ */
+export async function dropPricingMailboxes(profileId: string, newRole: string | null | undefined) {
+  if (!isLockedRole(newRole)) return
+  const admin = createAdminClient()
+  const { data: acc } = await admin.from('rpmail_access').select('mailbox_id').eq('profile_id', profileId)
+  const ids = (acc ?? []).map(a => a.mailbox_id as string)
+  if (!ids.length) return
+  const { data: pricing } = await admin.from('rpmail_mailboxes').select('id').in('id', ids).eq('kind', 'shared').eq('crew_reads', false)
+  const drop = (pricing ?? []).map(b => b.id as string)
+  if (drop.length) await admin.from('rpmail_access').delete().eq('profile_id', profileId).in('mailbox_id', drop)
+}
