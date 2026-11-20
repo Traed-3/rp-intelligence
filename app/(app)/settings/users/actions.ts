@@ -7,6 +7,7 @@ import { VALID_LANDING_PAGES, DEFAULT_LANDING_PAGE } from '@/lib/landing-pages'
 import { MODULE_KEYS, type ModuleKey } from '@/lib/modules'
 import { validateNewPassword } from '@/lib/password-rules'
 import { canManageUser, canAssignRole } from '@/lib/user-admin-rules'
+import { dropPricingMailboxes } from '@/lib/rpmail/access'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -115,13 +116,16 @@ export async function updateUserRole(userId: string, newRole: string) {
   const admin = createAdminClient()
   // Field Survey Only logins land on the survey list; moving someone off that role clears that landing page.
   const { data: before } = await admin.from('profiles').select('role, default_landing_page').eq('id', userId).eq('company_id', profile.company_id).maybeSingle()
-  if (!canManageUser(profile.role, before?.role)) return   // and a manager cannot change an existing owner's role
+  if (!before) return   // not a person in this company
+  if (!canManageUser(profile.role, before.role)) return   // and a manager cannot change an existing owner's role
   const patch: Record<string, unknown> = { role: newRole }
   if (newRole === 'field_surveyor') patch.default_landing_page = '/construction/surveys'
   else if (before?.role === 'field_surveyor' && before.default_landing_page === '/construction/surveys') patch.default_landing_page = null
-  await admin.from('profiles').update(patch)
+  const { error: roleError } = await admin.from('profiles').update(patch)
     .eq('id', userId)
     .eq('company_id', profile.company_id)
+  // RPMail: a tech or shop login keeps only mailboxes the crew reads (no customer pricing).
+  if (!roleError) await dropPricingMailboxes(userId, newRole, profile.company_id)
 
   revalidatePath('/settings/users')
 }

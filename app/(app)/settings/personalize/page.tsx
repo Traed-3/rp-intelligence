@@ -6,6 +6,7 @@ import { isSurveyOnly } from '@/lib/field-surveys'
 import { allowedDashboardCards, buildNav } from '@/lib/nav-items'
 import { arrange, loadUiPrefs, MAX_TABS } from '@/lib/ui-prefs'
 import { PageHeader } from '@/components/ui/page-header'
+import { hasRpmail } from '@/lib/rpmail/has'
 import { PersonalizeEditor } from './editor'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +26,7 @@ export default async function PersonalizePage() {
     hasComplianceGrant(admin, profile.company_id, user.id),
     loadUiPrefs(admin, user.id),
   ])
-  const { data: rpmail } = await admin.from('rpmail_links').select('profile_id').eq('profile_id', user.id).maybeSingle()
+  const rpmail = await hasRpmail(admin, user.id)   // RPMail is per user: turned on by the person, or their own linked one
   const who = { role: profile.role, userId: user.id, blockedModules: (blocks ?? []).map(b => b.module), complianceGranted, hasRpmail: !!rpmail }
   const { sidebar, defaultTabs, tabChoices } = buildNav(who)
 

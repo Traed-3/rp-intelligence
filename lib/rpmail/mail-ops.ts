@@ -1,0 +1,345 @@
+import { createAdminClient } from '@/lib/supabase/admin'
+import { gmail, b64url, headerMap, isHidden, UserError, type GMessage } from './gmail'
+import { mailboxFor, noPricingAddresses, type Me, type Mailbox } from './access'
+import { knownSites, loadMessages, toRow, walkParts, bodyText, type IndexRow } from './sync'
+import { buildRaw, cleanRecipients, pricingGuard, type OutFile } from './mime'
+import { parseAddrs, decodeWords, splitAddrList } from './parse'
+
+// RPMail: reading, filing and sending for one mailbox. Every function starts from `mailboxFor(me, …)`, so a person
+// can only ever touch a mailbox that is on their own login.
+
+const GID = /^[0-9a-f]{6,32}$/i
+const gid = (v: unknown): string => { if (typeof v !== 'string' || !GID.test(v)) throw new UserError('No such message.'); return v }
+
+export type Item = {
+  mailbox_id: string; id: string; thread_id: string; date: number; from_name: string; from_addr: string; to_addrs: string
+  subject: string; snippet: string; unread: boolean; starred: boolean; has_att: boolean; in_inbox: boolean; sent: boolean
+  site: string | null; po: string | null; count?: number; why?: string; waiting?: boolean
+}
+export const LIST_COLS = 'mailbox_id, gmail_id, thread_id, date, from_name, from_addr, to_addrs, subject, snippet, unread, starred, has_att, in_inbox, sent, site, po'
+type Row = Pick<IndexRow, 'mailbox_id' | 'gmail_id' | 'thread_id' | 'date' | 'from_name' | 'from_addr' | 'to_addrs' | 'subject' | 'snippet' | 'unread' | 'starred' | 'has_att' | 'in_inbox' | 'sent' | 'site' | 'po'>
+export const toItem = (r: Row): Item => ({
+  mailbox_id: r.mailbox_id, id: r.gmail_id, thread_id: r.thread_id, date: Date.parse(r.date), from_name: r.from_name ?? '', from_addr: r.from_addr ?? '',
+  to_addrs: r.to_addrs ?? '', subject: r.subject ?? '', snippet: r.snippet ?? '', unread: !!r.unread, starred: !!r.starred, has_att: !!r.has_att,
+  in_inbox: !!r.in_inbox, sent: !!r.sent, site: r.site ?? null, po: r.po ?? null,
+})
+
+/** One conversation per line, newest message first; bold when anything in it is unread. */
+export function groupThreads(rows: Row[], max = 200): Item[] {
+  const by = new Map<string, Item>()
+  for (const r of rows) {
+    const k = r.mailbox_id + ':' + r.thread_id
+    const g = by.get(k)
+    if (!g) by.set(k, { ...toItem(r), count: 1 })
+    else { g.count = (g.count ?? 1) + 1; g.unread = g.unread || !!r.unread; g.has_att = g.has_att || !!r.has_att }
+  }
+  return [...by.values()].slice(0, max)
+}
+
+const likeSafe = (w: string) => w.replace(/[,()%_*\\"']/g, ' ').trim()
+
+export async function listMessages(who: Me, p: Record<string, string>) {
+  const box = await mailboxFor(who, p.mailbox)
+  const admin = createAdminClient()
+  const view = p.view || 'inbox'
+  if (view === 'needs') {
+    const { data } = await admin.rpc('rpmail_needs', { p_profile: who.id, p_mailbox: box.id, p_limit: 200 })
+    return { messages: ((data ?? []) as Row[]).map(toItem), total: (data ?? []).length }
+  }
+  let q = admin.from('rpmail_messages').select(LIST_COLS).eq('mailbox_id', box.id)
+  if (view === 'inbox') q = q.eq('in_inbox', true)
+  else if (view === 'sent') q = q.eq('sent', true)
+  else if (view === 'filed') q = q.eq('in_inbox', false).eq('sent', false)
+  if (p.unread === '1') q = q.eq('unread', true)
+  if (p.att === '1') q = q.eq('has_att', true)
+  if (p.site) { const s = likeSafe(p.site); if (s) q = q.or(`site.ilike.%${s}%,po.ilike.%${s}%,subject.ilike.%${s}%`) }
+  for (const word of (p.q || '').split(/\s+/).map(likeSafe).filter(Boolean).slice(0, 6)) {
+    q = q.or(`subject.ilike.%${word}%,from_name.ilike.%${word}%,from_addr.ilike.%${word}%,snippet.ilike.%${word}%,to_addrs.ilike.%${word}%`)
+  }
+  const { data, error } = await q.order('date', { ascending: false }).limit(800)
+  if (error) throw new Error('Could not load the list.')
+  const groups = groupThreads((data ?? []) as Row[])
+  return { messages: groups, total: groups.length }
+}
+
+/** Search all of the mailbox in Gmail itself (older than what the index holds), and bring the hits into the index. */
+export async function searchGmail(who: Me, p: { mailbox?: unknown; q?: unknown }) {
+  const box = await mailboxFor(who, p.mailbox)
+  const text = String(p.q ?? '').trim().slice(0, 200)
+  if (text.length < 2) throw new UserError('Type something to search for.')
+  const d = await gmail<{ messages?: { id: string }[] }>(box.id, 'messages', { params: { q: text, maxResults: '40' } })
+  const ids = (d?.messages ?? []).map(m => m.id)
+  if (!ids.length) return { messages: [], total: 0 }
+  await loadMessages(box, ids, await knownSites(box.company_id))
+  const { data } = await createAdminClient().from('rpmail_messages').select(LIST_COLS).eq('mailbox_id', box.id).in('gmail_id', ids).order('date', { ascending: false })
+  const groups = groupThreads((data ?? []) as Row[])
+  return { messages: groups, total: groups.length }
+}
+
+export function sanitizeHtml(h: string): string {
+  // The page also shows mail in a locked frame that cannot run scripts or load anything; this is the second lock.
+  return h
+    .replace(/<(script|iframe|object|embed|noscript)\b[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<\/?(script|iframe|object|embed|noscript|form|link|base|meta)\b[^>]*>/gi, '')
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, 'blocked:')
+}
+
+async function liveMessage(box: Mailbox, id: string): Promise<GMessage> {
+  const m = await gmail<GMessage>(box.id, 'messages/' + id, { params: { format: 'full' } })
+  if (!m) throw new UserError('That message is no longer in Gmail.')
+  return m
+}
+
+/** Open one message: read live from Gmail. Opening never marks it read. Nothing of the body is stored. */
+export async function readMessage(who: Me, p: Record<string, string>) {
+  const box = await mailboxFor(who, p.mailbox)
+  const id = gid(p.id)
+  const m = await liveMessage(box, id)
+  const admin = createAdminClient()
+  const row = toRow(box, m, await knownSites(box.company_id))
+  if (!isHidden(m.labelIds)) await admin.from('rpmail_messages').upsert(row, { onConflict: 'mailbox_id,gmail_id' })
+  const { plain, html, files } = walkParts(m.payload)
+  let safe = html ? sanitizeHtml(html) : null
+  if (safe) {
+    // Pictures that are part of the message itself (logos in a signature, pasted screenshots) are put in place.
+    let budget = 6_000_000
+    for (const f of files.filter(f => f.inline && f.cid && f.attachmentId && f.type.startsWith('image/') && f.size < 2_000_000).slice(0, 12)) {
+      if (!safe.includes('cid:' + f.cid) || budget < f.size) continue
+      const a = await gmail<{ data?: string }>(box.id, `messages/${id}/attachments/${f.attachmentId}`).catch(() => null)
+      if (!a?.data) continue
+      budget -= f.size
+      safe = safe.split('cid:' + f.cid).join(`data:${f.type};base64,${b64url(a.data).toString('base64')}`)
+    }
+  }
+  const h = headerMap(m.payload)
+  const { data: thread } = await admin.from('rpmail_messages').select('gmail_id, date, from_name, from_addr, snippet, unread, sent')
+    .eq('mailbox_id', box.id).eq('thread_id', m.threadId).neq('gmail_id', id).order('date', { ascending: false }).limit(30)
+  const { data: done } = await admin.from('rpmail_done').select('gmail_id').eq('profile_id', who.id).eq('mailbox_id', box.id).eq('gmail_id', id).maybeSingle()
+  return {
+    ...toItem(row), cc_addrs: row.cc_addrs, to_full: decodeWords(h['to'] ?? ''), cc_full: decodeWords(h['cc'] ?? ''),
+    text: bodyText(plain, html).slice(0, 400_000), html: safe && safe.length < 3_000_000 ? safe : null,
+    attachments: files.map((f, i) => ({ i, name: f.name, type: f.type, size: f.size, inline: f.inline })).filter(f => !f.inline || !safe),
+    thread: (thread ?? []).map(t => ({ id: t.gmail_id as string, date: Date.parse(t.date as string), from_name: t.from_name as string, snippet: t.snippet as string, unread: !!t.unread, sent: !!t.sent })),
+    done: !!done, hidden: isHidden(m.labelIds),
+  }
+}
+
+const INLINE_OK = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'text/plain'])
+
+/** One attachment, streamed from Gmail. The file name and type come from Gmail, never from the request. */
+export async function readAttachment(who: Me, p: Record<string, string>): Promise<Response> {
+  const box = await mailboxFor(who, p.mailbox)
+  const id = gid(p.id)
+  const m = await liveMessage(box, id)
+  const f = walkParts(m.payload).files[Number(p.i)]
+  if (!f?.attachmentId) throw new UserError('No such attachment.')
+  if (f.size > 26_000_000) throw new UserError('That attachment is too large to open here. Open it in Gmail.')
+  const a = await gmail<{ data?: string }>(box.id, `messages/${id}/attachments/${f.attachmentId}`)
+  if (!a?.data) throw new UserError('Gmail did not return that attachment.')
+  const inline = INLINE_OK.has(f.type) && p.download !== '1'
+  const name = f.name.replace(/[\r\n"\\/]/g, '_').slice(0, 180) || 'attachment'
+  return new Response(new Uint8Array(b64url(a.data)), { headers: {
+    'Content-Type': inline ? f.type : 'application/octet-stream',
+    'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${name.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+    // Only PDFs, pictures and plain text open in the browser (none of them can run code); everything else downloads.
+    'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store',
+  } })
+}
+
+async function threadIds(box: Mailbox, threadId: string): Promise<string[]> {
+  const t = await gmail<{ messages?: { id: string }[] }>(box.id, 'threads/' + threadId, { params: { format: 'minimal' } })
+  return (t?.messages ?? []).map(m => m.id)
+}
+async function reindexThread(box: Mailbox, threadId: string) {
+  const ids = await threadIds(box, threadId)
+  const admin = createAdminClient()
+  if (!ids.length) { await admin.from('rpmail_messages').delete().eq('mailbox_id', box.id).eq('thread_id', threadId); return }
+  await loadMessages(box, ids, await knownSites(box.company_id))
+}
+async function indexRow(box: Mailbox, id: string) {
+  const { data } = await createAdminClient().from('rpmail_messages').select('gmail_id, thread_id, subject, in_inbox').eq('mailbox_id', box.id).eq('gmail_id', id).maybeSingle()
+  if (data) return data as { gmail_id: string; thread_id: string; subject: string; in_inbox: boolean }
+  const m = await liveMessage(box, id)
+  return { gmail_id: id, thread_id: m.threadId, subject: decodeWords(headerMap(m.payload)['subject'] ?? ''), in_inbox: (m.labelIds ?? []).includes('INBOX') }
+}
+
+/** Mark a conversation read, or one message unread. */
+export async function markRead(who: Me, p: { mailbox?: unknown; id?: unknown; unread?: unknown }) {
+  const box = await mailboxFor(who, p.mailbox)
+  const id = gid(p.id)
+  const row = await indexRow(box, id)
+  const admin = createAdminClient()
+  if (p.unread === true) {
+    await gmail(box.id, `messages/${id}/modify`, { method: 'POST', body: { addLabelIds: ['UNREAD'] } })
+    await admin.from('rpmail_messages').update({ unread: true }).eq('mailbox_id', box.id).eq('gmail_id', id)
+  } else {
+    await gmail(box.id, `threads/${row.thread_id}/modify`, { method: 'POST', body: { removeLabelIds: ['UNREAD'] } })
+    await admin.from('rpmail_messages').update({ unread: false }).eq('mailbox_id', box.id).eq('thread_id', row.thread_id)
+  }
+  return { ok: true, unread: p.unread === true }
+}
+
+const PLACES = ['Archive', 'Inbox', 'Spam', 'Trash'] as const
+type Place = typeof PLACES[number]
+
+/** Archive / Inbox / Spam / Trash for a whole conversation. Trash is Gmail's Trash (kept 30 days), never a permanent delete. */
+export async function fileMessage(who: Me, p: { mailbox?: unknown; id?: unknown; dest?: unknown }) {
+  const box = await mailboxFor(who, p.mailbox)
+  const id = gid(p.id)
+  const dest = p.dest as Place
+  if (!PLACES.includes(dest)) throw new UserError('Mail can go to Archive, Inbox, Spam or Trash.')
+  const row = await indexRow(box, id)
+  const admin = createAdminClient()
+  const t = `threads/${row.thread_id}`
+  if (dest === 'Archive') await gmail(box.id, `${t}/modify`, { method: 'POST', body: { removeLabelIds: ['INBOX'] } })
+  else if (dest === 'Inbox') await gmail(box.id, `${t}/modify`, { method: 'POST', body: { addLabelIds: ['INBOX'], removeLabelIds: ['SPAM'] } })
+  else if (dest === 'Spam') await gmail(box.id, `${t}/modify`, { method: 'POST', body: { addLabelIds: ['SPAM'], removeLabelIds: ['INBOX'] } })
+  else await gmail(box.id, `${t}/trash`, { method: 'POST' })
+  if (dest === 'Archive') await admin.from('rpmail_messages').update({ in_inbox: false }).eq('mailbox_id', box.id).eq('thread_id', row.thread_id)
+  else if (dest === 'Inbox') await reindexThread(box, row.thread_id)
+  else await admin.from('rpmail_messages').delete().eq('mailbox_id', box.id).eq('thread_id', row.thread_id)
+  const { data: mv } = await admin.from('rpmail_moves').insert({ profile_id: who.id, mailbox_id: box.id, gmail_id: id, thread_id: row.thread_id,
+    subject: (row.subject ?? '').slice(0, 300), from_place: row.in_inbox ? 'Inbox' : 'All Mail', to_place: dest }).select('id').single()
+  return { ok: true, move_id: mv?.id ?? null, to: dest }
+}
+
+/** Put a filed conversation back where it was. A person can only undo their own moves. */
+export async function undoMove(who: Me, p: { move?: unknown }) {
+  const admin = createAdminClient()
+  const { data: mv } = await admin.from('rpmail_moves').select('*').eq('id', Number(p.move) || 0).eq('profile_id', who.id).maybeSingle()
+  if (!mv) throw new UserError('That move is not on your list.')
+  if (mv.undone) throw new UserError('That one was already put back.')
+  const box = await mailboxFor(who, mv.mailbox_id)
+  const t = `threads/${mv.thread_id}`
+  const back = mv.from_place === 'Inbox' ? ['INBOX'] : []
+  if (mv.to_place === 'Trash') {
+    await gmail(box.id, `${t}/untrash`, { method: 'POST' })
+    if (back.length) await gmail(box.id, `${t}/modify`, { method: 'POST', body: { addLabelIds: back } })
+  } else if (mv.to_place === 'Spam') await gmail(box.id, `${t}/modify`, { method: 'POST', body: { removeLabelIds: ['SPAM'], addLabelIds: back } })
+  else if (mv.to_place === 'Archive') await gmail(box.id, `${t}/modify`, { method: 'POST', body: { addLabelIds: ['INBOX'] } })
+  else await gmail(box.id, `${t}/modify`, { method: 'POST', body: { removeLabelIds: ['INBOX'] } })
+  await reindexThread(box, mv.thread_id)
+  await admin.from('rpmail_moves').update({ undone: true }).eq('id', mv.id)
+  return { ok: true, back_to: mv.from_place === 'Inbox' ? 'the inbox' : mv.to_place === 'Inbox' ? 'where it was' : 'All Mail' }
+}
+
+/** Tick an item off your own lists (or put it back). Nothing changes in Gmail, and nobody else's lists change. */
+export async function markDone(who: Me, p: { mailbox?: unknown; id?: unknown; on?: unknown }) {
+  const box = await mailboxFor(who, p.mailbox)
+  const id = gid(p.id)
+  const admin = createAdminClient()
+  if (p.on === false) await admin.from('rpmail_done').delete().eq('profile_id', who.id).eq('mailbox_id', box.id).eq('gmail_id', id)
+  else await admin.from('rpmail_done').upsert({ profile_id: who.id, mailbox_id: box.id, gmail_id: id }, { onConflict: 'profile_id,mailbox_id,gmail_id', ignoreDuplicates: true })
+  return { ok: true, done: p.on !== false }
+}
+
+export async function getSignature(who: Me, boxId: string): Promise<string> {
+  const { data } = await createAdminClient().from('rpmail_signatures').select('body').eq('profile_id', who.id).eq('mailbox_id', boxId).maybeSingle()
+  return (data?.body as string | undefined) ?? ''
+}
+export async function setSignature(who: Me, p: { mailbox?: unknown; text?: unknown }) {
+  const box = await mailboxFor(who, p.mailbox)
+  await createAdminClient().from('rpmail_signatures').upsert({ profile_id: who.id, mailbox_id: box.id, body: String(p.text ?? '').trim().slice(0, 4000) }, { onConflict: 'profile_id,mailbox_id' })
+  return { ok: true }
+}
+
+const whenText = (ms: number) => new Date(ms).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; forward: boolean; attachments: string[]; signature: string
+  msgid: string; refs: string; threadId: string; files: ReturnType<typeof walkParts>['files'] }
+
+async function prep(who: Me, box: Mailbox, id: string, all: boolean, forward: boolean): Promise<Prep> {
+  const m = await liveMessage(box, id)
+  const h = headerMap(m.payload)
+  const { plain, html, files } = walkParts(m.payload)
+  const body = bodyText(plain, html)
+  const from = parseAddrs(decodeWords(h['from'] ?? ''))[0] ?? { name: '', addr: '' }
+  const toList = parseAddrs(decodeWords(h['to'] ?? '')).map(a => a.addr)
+  const ccList = parseAddrs(decodeWords(h['cc'] ?? '')).map(a => a.addr)
+  const mine = new Set([box.address, who.email].filter(Boolean))
+  let subj = decodeWords(h['subject'] ?? '')
+  const when = whenText(Number(m.internalDate ?? Date.now()))
+  const signature = await getSignature(who, box.id)
+  const msgid = (h['message-id'] ?? '').trim()
+  const refs = (((h['references'] ?? '') + ' ' + msgid).match(/<[^>]+>/g) ?? []).slice(-20).join(' ')
+  const base = { from: box.address, signature, msgid, refs, threadId: m.threadId, files }
+  if (forward) {
+    if (!/^fwd?\s*:/i.test(subj)) subj = 'Fwd: ' + subj
+    const quoted = `---------- Forwarded message ----------\nFrom: ${from.name} <${from.addr}>\nDate: ${when}\nSubject: ${decodeWords(h['subject'] ?? '')}\nTo: ${toList.join(', ')}\n`
+      + (ccList.length ? `Cc: ${ccList.join(', ')}\n` : '') + '\n' + body
+    return { ...base, to: '', cc: '', subject: subj, quoted, forward: true, attachments: files.filter(f => !f.inline && f.attachmentId).map(f => f.name) }
+  }
+  let to = parseAddrs(decodeWords(h['reply-to'] ?? '')).map(a => a.addr)
+  if (!to.length) to = from.addr ? [from.addr] : []
+  if (mine.has(from.addr)) {
+    // Replying to something this mailbox sent: it goes to the people it was sent to, not back to the mailbox.
+    const others = toList.filter(a => !mine.has(a))
+    if (others.length) to = others
+  }
+  const cc: string[] = []
+  if (all) for (const a of [...toList, ...ccList]) if (!mine.has(a) && !to.includes(a) && !cc.includes(a)) cc.push(a)
+  if (!/^re\s*:/i.test(subj)) subj = 'Re: ' + subj
+  const quoted = `On ${when}, ${from.name} <${from.addr}> wrote:\n` + body.split('\n').slice(0, 200).map(l => '> ' + l).join('\n')
+  return { ...base, to: to.join(', '), cc: cc.join(', '), subject: subj, quoted, forward: false, attachments: [] }
+}
+
+/** What the reply / forward box starts with. */
+export async function draftPrep(who: Me, p: Record<string, string>) {
+  const box = await mailboxFor(who, p.mailbox)
+  const d = await prep(who, box, gid(p.id), p.all === '1', p.fwd === '1')
+  return { from: d.from, to: d.to, cc: d.cc, subject: d.subject, quoted: d.quoted, forward: d.forward, attachments: d.attachments, signature: d.signature }
+}
+
+/**
+ * Send, or save to Gmail Drafts. Called only from the person's own Send / Save draft click.
+ * mode 'new' | 'reply' | 'forward'. A forward carries the original's attachments along.
+ */
+export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; id?: unknown; to?: unknown; cc?: unknown; subject?: unknown; body?: unknown
+  quote?: unknown; draft?: unknown; confirmed?: unknown }) {
+  const box = await mailboxFor(who, p.mailbox)
+  const mode = p.mode === 'reply' || p.mode === 'forward' ? p.mode : 'new'
+  const draft = p.draft === true
+  if (!draft && p.confirmed !== true) throw new UserError('Press Send, then confirm.')
+  const { to, cc } = cleanRecipients(String(p.to ?? ''), String(p.cc ?? ''), !draft)
+  const typed = String(p.body ?? '').replace(/\s+$/, '').slice(0, 200_000)
+  let subject = String(p.subject ?? '').trim().slice(0, 400)
+  let full = typed, inReplyTo: string | undefined, references: string | undefined, threadId: string | undefined
+  const files: OutFile[] = []
+  if (mode !== 'new') {
+    const d = await prep(who, box, gid(p.id), false, mode === 'forward')
+    if (!subject) subject = d.subject
+    if (mode === 'forward' || p.quote !== false) full = typed + '\n\n' + d.quoted
+    if (mode === 'reply') {
+      if (!typed) throw new UserError('The reply is empty.')
+      if (d.msgid) { inReplyTo = d.msgid; references = d.refs }
+      threadId = d.threadId
+    } else {
+      let total = 0
+      for (const f of d.files.filter(f => !f.inline && f.attachmentId)) {
+        total += f.size
+        if (total > 20_000_000) throw new UserError('The attachments on that message are too large to forward from here (over 20 MB). Forward it from Gmail.')
+        const a = await gmail<{ data?: string }>(box.id, `messages/${gid(p.id)}/attachments/${f.attachmentId}`)
+        if (!a?.data) throw new UserError(`Could not load the attachment ${f.name}.`)
+        files.push({ name: f.name, type: f.type, data: b64url(a.data) })
+      }
+    }
+  } else if (!(to.length || subject || typed)) throw new UserError('The message is empty.')
+
+  pricingGuard(box.address, [...to, ...cc], [subject, full, ...files.map(f => f.name)].join('\n'), await noPricingAddresses(box.company_id))
+
+  const raw = buildRaw({ fromName: who.name, fromAddr: box.address, to, cc, subject, body: full, inReplyTo, references, files })
+  const message = { raw, ...(threadId ? { threadId } : {}) }
+  const admin = createAdminClient()
+  if (draft) {
+    const r = await gmail<{ id?: string }>(box.id, 'drafts', { method: 'POST', body: { message } })
+    await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'draft', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
+    return { ok: true, draft: true, from: box.address }
+  }
+  const r = await gmail<{ id?: string; threadId?: string }>(box.id, 'messages/send', { method: 'POST', body: message })
+  await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'send', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
+  if (r?.id) await loadMessages(box, [r.id], await knownSites(box.company_id)).catch(() => null)
+  return { ok: true, sent: true, to: [...to, ...cc].join(', '), from: box.address }
+}
+
+export { splitAddrList }

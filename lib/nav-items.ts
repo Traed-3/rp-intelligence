@@ -51,7 +51,7 @@ const surveysLink = item({ href: '/construction/surveys', label: 'Field Surveys'
 /** Forms: site surveys, ICON boot surveys, hydrostatic and spill bucket test reports (and later pre-trip, accident report). */
 const formsLink = item({ href: '/forms', label: 'Forms', icon: ClipboardCheck, match: ['/forms', '/construction/surveys'] })
 
-/** RPMail: a person's own mail manager. Shown only to people who have a row in rpmail_links (per user, never per role). */
+/** RPMail: a person's own mail. Shown only to a person who turned it on (rpmail_users) or has their own linked one (rpmail_links). Per user, never per role. */
 const rpmailLink = item({ href: '/rpmail', label: 'RPMail', short: 'Mail', icon: Mail })
 
 export type NavWho = { role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean; hasRpmail?: boolean }
