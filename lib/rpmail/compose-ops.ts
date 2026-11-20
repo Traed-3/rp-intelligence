@@ -39,10 +39,15 @@ export async function takeAttachments(who: Me, paths: unknown): Promise<{ files:
   if (list.length > 15) throw new UserError('Attach 15 files or fewer.')
   const files: OutFile[] = [], ok: string[] = []
   const store = createAdminClient().storage.from(OUTBOX)
+  let total = 0
   for (const path of list) {
     if (!mine(who, path)) throw new UserError('One of the attached files is not yours to send. Remove it and attach it again.')
     const { data, error } = await store.download(path)
     if (error || !data) throw new UserError(`The attached file ${path.split('/')[2]} is missing. Remove it and attach it again.`)
+    // Stop as soon as the running total passes the cap, before the file is copied into memory (the size typed into
+    // attach_prepare is only a claim; the bucket itself refuses any single file over 20 MB).
+    total += data.size
+    if (total > MAX_ATTACH) throw new UserError('The attachments add up to more than 20 MB, which is more than email can carry. Take one off.')
     files.push({ name: path.split('/')[2], type: data.type || 'application/octet-stream', data: Buffer.from(await data.arrayBuffer()) })
     ok.push(path)
   }

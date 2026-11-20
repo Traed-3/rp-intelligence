@@ -17,3 +17,6 @@ revoke all on public.rpmail_templates from anon, authenticated;
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('rpmail-outbox', 'rpmail-outbox', false, 26214400)
 on conflict (id) do nothing;
+
+-- No single waiting file over 20 MB (the most one email may carry in all).
+update storage.buckets set file_size_limit = 20000000 where id = 'rpmail-outbox';
