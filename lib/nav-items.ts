@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Truck, Wrench, ClipboardList, Users, BarChart3, Settings, Receipt, FileText, Home, HardHat,
-  CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, Search, LifeBuoy, type LucideIcon,
+  CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, Search, LifeBuoy, Mail, type LucideIcon,
 } from 'lucide-react'
 import { canReadConstruction } from '@/lib/construction'
 import { canUseFieldSurveys, isSurveyOnly } from '@/lib/field-surveys'
@@ -51,9 +51,12 @@ const surveysLink = item({ href: '/construction/surveys', label: 'Field Surveys'
 /** Forms: site surveys, ICON boot surveys, hydrostatic and spill bucket test reports (and later pre-trip, accident report). */
 const formsLink = item({ href: '/forms', label: 'Forms', icon: ClipboardCheck, match: ['/forms', '/construction/surveys'] })
 
-export type NavWho = { role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean }
+/** RPMail: a person's own mail manager. Shown only to people who have a row in rpmail_links (per user, never per role). */
+const rpmailLink = item({ href: '/rpmail', label: 'RPMail', short: 'Mail', icon: Mail })
 
-export function buildNav({ role, userId, blockedModules, complianceGranted }: NavWho) {
+export type NavWho = { role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean; hasRpmail?: boolean }
+
+export function buildNav({ role, userId, blockedModules, complianceGranted, hasRpmail }: NavWho) {
   const canSeeConstruction = canReadConstruction({ id: userId, role })
   const blocked = new Set(blockedModules ?? [])
   const surveyOnly = isSurveyOnly(role)
@@ -70,6 +73,7 @@ export function buildNav({ role, userId, blockedModules, complianceGranted }: Na
     !(i.module && blocked.has(i.module)) &&
     roleMayVisit(role, i.href)   // techs, mechanics, shop employees: only what lib/role-access.ts lists
   ).flatMap(i => (i.href === '/calendar' && isFieldRole(role) ? [i, receiptLink] : [i]))
+    .flatMap(i => (i.href === '/dashboard' && hasRpmail ? [i, rpmailLink] : [i]))
 
   /** The phone bottom bar when the person has not picked their own tabs. */
   const defaultTabs: NavItem[] = surveyOnly ? [{ ...surveysLink, label: 'Surveys' }] : [

@@ -12,10 +12,10 @@ import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { buildNav, type NavItem } from '@/lib/nav-items'
 import { visible, MAX_TABS, type UiPrefs } from '@/lib/ui-prefs'
 
-export default function AppNav({ email, role, userId, blockedModules, complianceGranted, prefs }: { email: string; role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean; prefs?: UiPrefs }) {
+export default function AppNav({ email, role, userId, blockedModules, complianceGranted, prefs, hasRpmail }: { email: string; role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean; prefs?: UiPrefs; hasRpmail?: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { sidebar, defaultTabs, tabChoices, surveyOnly } = buildNav({ role, userId, blockedModules, complianceGranted })
+  const { sidebar, defaultTabs, tabChoices, surveyOnly } = buildNav({ role, userId, blockedModules, complianceGranted, hasRpmail })
 
   // The person's own order and hidden entries (Settings → Personalize). Settings itself can never be hidden.
   const visibleNavItems = surveyOnly ? sidebar : visible(sidebar, prefs?.nav, ['/settings'])
