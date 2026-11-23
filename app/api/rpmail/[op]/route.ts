@@ -11,7 +11,7 @@ import { labelList, labelSave, labelDelete, labelApply, blockList, blockSender, 
 import { setSnooze } from '@/lib/rpmail/snooze'
 import { activityList, activityCsv } from '@/lib/rpmail/activity'
 import { contentSave } from '@/lib/rpmail/company'
-import { attachPrepare, attachRemove, contacts, templateList, templateSave, templateDelete } from '@/lib/rpmail/compose-ops'
+import { attachPrepare, attachRemove, contacts, templateList, templateSave, templateDelete, attachView } from '@/lib/rpmail/compose-ops'
 import { setEnabled, disconnect, oauthStart, adminState, adminSetUser, adminSaveShared, adminDeleteShared, adminGrant } from '@/lib/rpmail/connect'
 
 // RPMail API. One address per action: /api/rpmail/<op>.
@@ -30,6 +30,7 @@ const GETS: Record<string, { any?: boolean; run: (who: Me, q: Q, req: NextReques
   messages: { run: (who, q) => listMessages(who, q) },
   message: { run: (who, q) => readMessage(who, q) },
   attachment: { run: (who, q) => readAttachment(who, q) },
+  attach_view: { run: (who, q) => attachView(who, q) },
   contacts: { run: (who, q) => contacts(who, q) },
   templates: { run: who => templateList(who) },
   done_list: { run: who => doneList(who) },

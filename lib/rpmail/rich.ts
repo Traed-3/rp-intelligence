@@ -11,8 +11,25 @@ const BLOCK = new Set(['div', 'p', 'pre', 'blockquote', 'section', 'article', 'h
 const CELL = new Set(['td', 'th'])
 /** Dropped together with everything inside them. */
 const SKIP = new Set(['script', 'style', 'head', 'title', 'iframe', 'object', 'embed', 'noscript', 'svg', 'math', 'template', 'textarea', 'select', 'xml'])
-/** Tags that never have a closing tag. Nothing of them is kept (a pasted picture goes along as an attachment instead). */
+/** Tags that never have a closing tag. Nothing of them is kept. (A picture is handled on its own: see `pictureFromSrc`.) */
 const VOID = new Set(['img', 'hr', 'input', 'meta', 'link', 'col', 'wbr', 'source', 'area', 'base', 'param', 'track'])
+
+// A picture placed in the text is a file the person uploaded for this message, waiting in their own private folder
+// (`<their id>/<a fresh id>/<name>`). In the message box it is shown from PICTURE_VIEW, which only ever serves the
+// signed-in person their own waiting pictures. No other picture address is kept: not a web address, not a data: one.
+export const PICTURE_VIEW = '/api/rpmail/attach_view?path='
+const PICTURE_PATH = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[^/\\\x00-\x1f"<>]{1,140}\.(png|jpe?g|gif|webp)$/i
+export const pictureSrc = (path: string) => PICTURE_VIEW + encodeURIComponent(path)
+/** A picture exactly as `cleanRich` writes it, so the sender can find it again and point it at the copy that travels with the mail. */
+export const pictureTag = (path: string) => `<img src="${escAttr(pictureSrc(path))}">`
+/** The waiting file a picture in the box points at, or null if it is anything else. A copied picture may carry the site's full address. */
+export function pictureFromSrc(src: string): string | null {
+  const m = /^(?:https?:\/\/[^/?#\s]+)?\/api\/rpmail\/attach_view\?path=([^&#\s"'<>]{1,700})$/.exec(src.trim())
+  if (!m) return null
+  let path: string
+  try { path = decodeURIComponent(m[1]) } catch { return null }
+  return PICTURE_PATH.test(path) && !path.includes('..') ? path : null
+}
 const NAMED: Record<string, string> = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', copy: '©', reg: '®', trade: '™', hellip: '…',
   mdash: '—', ndash: '–', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', bull: '•', middot: '·',
@@ -25,7 +42,7 @@ const INVISIBLE = /[­​-‏‪-‮⁠-⁤﻿]/g
 const MAX_DEPTH = 60
 
 export const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-const escAttr = (s: string) => escHtml(s).replace(/"/g, '&quot;')
+export const escAttr = (s: string) => escHtml(s).replace(/"/g, '&quot;')
 
 export function decodeEntities(s: string): string {
   return s.replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z][a-z0-9]{1,30});?/gi, (all, body: string) => {
@@ -67,14 +84,16 @@ type Open = { name: string; out: string[]; block: boolean; list?: boolean; item?
 
 /**
  * Read typed or pasted HTML and write it again from scratch.
- * `html` holds only b, i, u, ul, ol, li, a (web or email address only), div and br. `text` is the same message as plain text.
+ * `html` holds only b, i, u, ul, ol, li, a (web or email address only), div, br and img (the person's own waiting pictures only).
+ * `text` is the same message as plain text, with [picture] where a picture sits. `pictures` lists the waiting files, in order.
  */
-export function cleanRich(input: string): { html: string; text: string } {
+export function cleanRich(input: string): { html: string; text: string; pictures: string[] } {
   const s = String(input ?? '')
   const n = s.length
   let html = '', text = ''
   const stack: Open[] = []
   const lists: { ordered: boolean; count: number }[] = []
+  const pictures: string[] = []
   let bullet = ''                 // waiting to be written in front of the first words of a list item
   // The plain copy is only ever added to, never read back while it is being built (reading a long string that is still
   // growing is slow enough to matter on a huge paste). `tail` is its last character; open links keep their own words.
@@ -115,6 +134,15 @@ export function cleanRich(input: string): { html: string; text: string } {
 
   const openTag = (name: string, attrs: string) => {
     if (name === 'br') { html += '<br>'; put('\n'); return }
+    if (name === 'img') {
+      const path = pictures.length < 20 ? pictureFromSrc(decodeEntities(attrOf(attrs, 'src') ?? '')) : null
+      if (!path) return
+      html += pictureTag(path)
+      pictures.push(path)
+      if (bullet) { put(bullet); bullet = '' }
+      put('[picture]')
+      return
+    }
     if (VOID.has(name) || stack.length >= MAX_DEPTH) return
     const o: Open = { name, out: [], block: false }
     const style = (attrOf(attrs, 'style') ?? '').toLowerCase()
@@ -183,11 +211,11 @@ export function cleanRich(input: string): { html: string; text: string } {
     else openTag(name, attrs)
   }
   while (stack.length) close(stack.pop()!)
-  return { html, text: text.replace(/[ \t]+\n/g, '\n') }
+  return { html, text: text.replace(/[ \t]+\n/g, '\n'), pictures }
 }
 
 /** True when the message uses any formatting. A message with none goes out as plain text, exactly as it always did. */
-export const hasFormatting = (html: string) => /<(b|i|u|ul|ol|li|a)[\s>]/.test(html)
+export const hasFormatting = (html: string) => /<(b|i|u|ul|ol|li|a|img)[\s>]/.test(html)
 
 /** Plain text (a signature, a template, an older draft) as lines for the message box. */
 export const textToHtml = (t: string) => t ? t.replace(/\r\n?/g, '\n').split('\n').map(l => `<div>${escHtml(l).replace(/ {2}/g, ' &nbsp;') || '<br>'}</div>`).join('') : ''

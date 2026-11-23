@@ -10,6 +10,8 @@ export type OutMail = {
   inReplyTo?: string; references?: string; files?: OutFile[]
   /** The same message with its formatting. Already cleaned (lib/rpmail/rich.ts); `body` must say the same thing in plain text. */
   html?: string
+  /** Pictures that sit inside the HTML copy. Each is shown where the HTML says `cid:<its cid>`. */
+  pictures?: (OutFile & { cid: string })[]
 }
 
 const encWord = (s: string) => /^[\x20-\x7e]*$/.test(s) ? s : s.match(/[\s\S]{1,40}/gu)!.map(c => `=?UTF-8?B?${Buffer.from(c, 'utf8').toString('base64')}?=`).join('\r\n ')
@@ -60,7 +62,20 @@ export function buildRaw(m: OutMail): string {
   let body = textPart
   if (m.html) {
     const a = 'rpmail_alt_' + randomBytes(12).toString('hex')
-    body = [`Content-Type: multipart/alternative; boundary="${a}"`, '', `--${a}`, ...textPart, `--${a}`, ...part('text/html', m.html), `--${a}--`]
+    let htmlPart = part('text/html', m.html)
+    if (m.pictures?.length) {
+      // The HTML and the pictures inside it travel as one unit, so a mail program puts each picture where the text says.
+      const r = 'rpmail_rel_' + randomBytes(12).toString('hex')
+      htmlPart = [`Content-Type: multipart/related; boundary="${r}"`, '', `--${r}`, ...htmlPart]
+      for (const f of m.pictures) {
+        const name = f.name.replace(/[\r\n"\\]/g, '_').slice(0, 180)
+        const type = /^image\/(png|jpeg|gif|webp)$/.test(f.type) ? f.type : 'application/octet-stream'
+        htmlPart.push(`--${r}`, `Content-Type: ${type}; name="${encWord(name)}"`, `Content-ID: <${f.cid.replace(/[^\w.@-]/g, '')}>`, `Content-Disposition: inline; filename="${encWord(name)}"`,
+          'Content-Transfer-Encoding: base64', '', wrap76(f.data.toString('base64')))
+      }
+      htmlPart.push(`--${r}--`)
+    }
+    body = [`Content-Type: multipart/alternative; boundary="${a}"`, '', `--${a}`, ...textPart, `--${a}`, ...htmlPart, `--${a}--`]
   }
   let lines: string[]
   if (!m.files?.length) lines = [...head, ...body]

@@ -717,6 +717,10 @@ is never changed from here). PER USER, NEVER PER ROLE.
   a time). lib/rpmail/thread-view.ts holds the pure layout rules: which start open, quoted-mail folding (`QUOTE_CSS` / `splitPlainQuote`),
   and `frameHeight`. The message frame stays locked (sandbox without allow-scripts or allow-same-origin), so it CANNOT report its height:
   the height is worked out from the words. Do not loosen the sandbox to measure it.
+  Pictures in the text (2026-11-23): a picture is a file the person uploaded to their own outbox folder; the box shows it from
+  `/api/rpmail/attach_view?path=` (`attachView`: own folder only, PNG / JPEG / GIF / WebP only, kind read from the bytes). `cleanRich`
+  keeps NO other `<img>` (no web address, no data: URI) and lists them as `pictures`; `sendMail` loads them with `takePictures`, swaps each
+  for `cid:` and `buildRaw` sends multipart/related. Never let `cleanRich` keep another picture address: a web one is a tracking pixel.
 - Looking at the screens with no mailbox: `node scripts/rpmail-tryout/build.mjs` builds the real page on made-up mail (answers in
   scripts/rpmail-tryout/entry.tsx); serve the output folder with any static server. Add made-up answers there when a new op needs showing.
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,

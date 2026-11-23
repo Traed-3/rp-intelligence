@@ -26,11 +26,37 @@ export type Outgoing = { payload: Record<string, unknown>; to: string; from: str
 type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; forward: boolean; attachments: string[]; signature: string }
 type Att = { path: string; name: string; size: number }
 type Tpl = { id: string; name: string; body: string }
-type Saved = { to: string; cc: string; subject: string; body: string; html?: string; from: string; files: Att[]; at: number }
+type Saved = { to: string; cc: string; subject: string; body: string; html?: string; from: string; files: Att[]; pics?: Att[]; at: number }
 const lab = 'rp-label block mb-1'
 const OUTBOX = 'rpmail-outbox'
 const MAX = 20_000_000
 const UNDO_CHOICES = [0, 5, 10, 20, 30]
+const PICTURE_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }
+
+/**
+ * Gets a picture ready to sit in the text of a message: one of the four kinds mail programs show, and no bigger than it
+ * needs to be (a phone photo is scaled down to 1600 across, which is plenty on a screen and a fraction of the size).
+ */
+async function fitPicture(file: File): Promise<File> {
+  const ext = PICTURE_EXT[file.type]
+  if (!ext) throw new Error('Only PNG, JPEG, GIF and WebP pictures can go in the text. Attach this one as a file instead.')
+  const base = (file.name || '').replace(/\.[a-z0-9]{1,5}$/i, '').replace(/[^\w .()-]/g, '_').trim().slice(0, 80) || `picture-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`
+  const named = (blob: Blob, type: string) => new File([blob], `${base}.${PICTURE_EXT[type]}`, { type })
+  if (file.type === 'image/gif') return named(file, file.type)          // may be animated: left as it is
+  const bmp = await createImageBitmap(file).catch(() => null)
+  if (!bmp) return named(file, file.type)
+  const long = Math.max(bmp.width, bmp.height)
+  if (long <= 1600 && file.size <= 1_500_000) { bmp.close(); return named(file, file.type) }
+  const k = Math.min(1, 1600 / long), c = document.createElement('canvas')
+  c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k))
+  const g = c.getContext('2d')
+  if (!g) { bmp.close(); return named(file, file.type) }
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height)              // a see-through background would turn black as a JPEG
+  g.drawImage(bmp, 0, 0, c.width, c.height); bmp.close()
+  const blob = await new Promise<Blob | null>(res => c.toBlob(res, 'image/jpeg', 0.85))
+  return blob && blob.size < file.size ? named(blob, 'image/jpeg') : named(file, file.type)
+}
+
 const mb = (n: number) => n > 1_048_576 ? (n / 1_048_576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'
 
 const draftKey = (s: ComposeStart) => `rpmail:draft:${s.mode}:${s.mailbox}:${'id' in s ? s.id + (s.all ? ':all' : '') : 'new'}`
@@ -53,6 +79,9 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   const [html, setHtml] = useState(() => start.mode === 'signature' ? '' : kept?.html ? cleanRich(kept.html).html : textToHtml(body))
   const editor = useRef<RichHandle>(null)
   const [files, setFiles] = useState<Att[]>(kept?.files ?? [])
+  // Pictures placed in the text: every one uploaded for this message, and which of them are still in the text right now.
+  const [pics, setPics] = useState<Att[]>(kept?.pics ?? [])
+  const [inText, setInText] = useState<string[]>(() => start.mode === 'signature' ? [] : cleanRich(html).pictures)
   const [prep, setPrep] = useState<Prep | null>(null)
   const [quote, setQuote] = useState(true)
   const [confirm, setConfirm] = useState(false)
@@ -88,13 +117,13 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     if (!isMail || loading) return
     const t = setTimeout(() => {
       const empty = !to && !cc && !files.length && (!body.trim() || sameWords(body, box?.signature ?? '')) && (start.mode !== 'new' || !subject)
-      try { if (empty) localStorage.removeItem(draftKey(start)); else localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, html, from, files, at: Date.now() } satisfies Saved)) } catch { /* storage is off: carry on without it */ }
+      try { if (empty) localStorage.removeItem(draftKey(start)); else localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, html, from, files, pics, at: Date.now() } satisfies Saved)) } catch { /* storage is off: carry on without it */ }
     }, 1200)
     return () => clearTimeout(t)
-  }, [to, cc, subject, body, html, from, files, isMail, loading, start, box])
+  }, [to, cc, subject, body, html, from, files, pics, isMail, loading, start, box])
 
   // Every change in the message box comes through here. The plain-text copy is made the same way the server makes it.
-  const onEdit = useCallback((raw: string) => { const c = cleanRich(raw); setHtml(c.html); setBody(c.text) }, [])
+  const onEdit = useCallback((raw: string) => { const c = cleanRich(raw); setHtml(c.html); setBody(c.text); setInText(c.pictures) }, [])
 
   // The signature follows the From mailbox as long as nothing else has been typed.
   const pickFrom = (id: string) => {
@@ -122,10 +151,26 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     }
   }
 
+  // A picture for the text: made ready, uploaded to the same private waiting place as attachments, and handed back to the box.
+  const addPicture = async (file: File): Promise<string | null> => {
+    setErr('')
+    setUploading(n => n + 1)
+    try {
+      const pic = await fitPicture(file)
+      const used = files.reduce((n, f) => n + f.size, 0) + pics.filter(p => inText.includes(p.path)).reduce((n, p) => n + p.size, 0)
+      if (used + pic.size > MAX) throw new Error(`${pic.name} would take the message over 20 MB, which is more than email can carry.`)
+      const t = await api<{ path: string; token: string }>('attach_prepare', { name: pic.name, size: pic.size })
+      const { error } = await createClient().storage.from(OUTBOX).uploadToSignedUrl(t.path, t.token, pic, { contentType: pic.type })
+      if (error) throw new Error(`${pic.name} did not upload. Try again.`)
+      setPics(p => [...p, { path: t.path, name: pic.name, size: pic.size }])
+      return t.path
+    } catch (e) { setErr((e as Error).message); return null } finally { setUploading(n => n - 1) }
+  }
+
   const removeFile = (a: Att) => { setFiles(f => f.filter(x => x.path !== a.path)); void api('attach_remove', { path: a.path }).catch(() => null) }
 
   const discard = () => {
-    for (const a of files) void api('attach_remove', { path: a.path }).catch(() => null)
+    for (const a of [...files, ...pics]) void api('attach_remove', { path: a.path }).catch(() => null)
     clearDraft(start); onClose()
   }
 
@@ -143,7 +188,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     }
     if (!draft) {
       // Written down right now (not a moment later), so Undo or a failed send can open it again exactly as it was.
-      try { localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, html, from, files, at: Date.now() } satisfies Saved)) } catch { /* storage is off */ }
+      try { localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, html, from, files, pics, at: Date.now() } satisfies Saved)) } catch { /* storage is off */ }
       onSend({ payload: payload(false), to: [to, cc].filter(Boolean).join(', '), from: box?.address ?? '', start }); return
     }
     setBusy(true)
@@ -172,7 +217,9 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   }
 
   const title = start.mode === 'signature' ? 'Signature for ' + (box?.name ?? '') : start.mode === 'new' ? 'New message' : start.mode === 'forward' ? 'Forward' : 'Reply'
-  const total = files.reduce((n, f) => n + f.size, 0)
+  const shown = pics.filter(p => inText.includes(p.path))
+  const total = files.reduce((n, f) => n + f.size, 0) + shown.reduce((n, p) => n + p.size, 0)
+  const carrying = [files.length ? `${files.length} attached` : '', shown.length ? `${shown.length} picture${shown.length === 1 ? '' : 's'} in the text` : ''].filter(Boolean).join(', ')
   return (
     <div className="fixed inset-0 z-40 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
       <div className={cn('rp-card w-full sm:max-w-2xl max-h-[94vh] overflow-y-auto', over && 'ring-2 ring-primary')}
@@ -219,7 +266,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
                       </span>}
                 </span>
               </div>
-              <RichEditor ref={editor} initial={html} onChange={onEdit} onFiles={f => void addFiles(f)} autoFocus={start.mode === 'reply'} />
+              <RichEditor ref={editor} initial={html} onChange={onEdit} onFiles={f => void addFiles(f)} onPicture={addPicture} autoFocus={start.mode === 'reply'} />
             </div>
             {tpls && tpls.length > 0 && (
               <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Manage templates ({tpls.length})</summary>
@@ -230,7 +277,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
               <div className="flex flex-wrap items-center gap-2">
                 <label className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'cursor-pointer')}><Paperclip />Attach files
                   <input type="file" multiple className="sr-only" onChange={e => { void addFiles([...(e.target.files ?? [])]); e.target.value = '' }} /></label>
-                <span className="text-xs text-muted-foreground">{uploading ? `Uploading ${uploading}...` : files.length ? `${files.length} attached, ${mb(total)} of 20 MB` : 'Or drag files onto this box, or paste a picture.'}</span>
+                <span className="text-xs text-muted-foreground">{uploading ? `Uploading ${uploading}...` : carrying ? `${carrying}, ${mb(total)} of 20 MB` : 'Or drag files onto this box. Paste a picture to put it in the text.'}</span>
               </div>
               {files.length > 0 && <div className="flex flex-wrap gap-1.5">{files.map(a => (
                 <span key={a.path} className="rp-pill !py-1"><Paperclip className="size-3" />{a.name} <span className="text-muted-foreground">{mb(a.size)}</span>
@@ -250,7 +297,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
           {err && <p className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{err}</p>}
           {!loading && (confirm ? (
             <div className="rounded-md border border-border bg-raised p-3 space-y-2">
-              <p className="text-sm text-foreground">Send this to <b>{[to, cc].filter(Boolean).join(', ')}</b> from <b>{box?.address}</b>{files.length ? <> with <b>{files.length}</b> attached</> : null}?</p>
+              <p className="text-sm text-foreground">Send this to <b>{[to, cc].filter(Boolean).join(', ')}</b> from <b>{box?.address}</b>{carrying ? <> with <b>{carrying}</b></> : null}?</p>
               <div className="flex flex-wrap items-center gap-2">
                 <button className={buttonVariants({ variant: 'default' })} disabled={busy || uploading > 0} onClick={() => void go(false)}><Send />Yes, send</button>
                 <button className={buttonVariants({ variant: 'outline' })} disabled={busy} onClick={() => setConfirm(false)}>Back</button>

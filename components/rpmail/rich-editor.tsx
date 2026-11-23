@@ -1,9 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react'
-import { Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Unlink, RemoveFormatting } from 'lucide-react'
+import { Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Unlink, RemoveFormatting, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { cleanRich, escHtml, linkFromTyped } from '@/lib/rpmail/rich'
+import { cleanRich, escHtml, linkFromTyped, pictureTag } from '@/lib/rpmail/rich'
 
 // The message box with a formatting bar: bold, italic, underline, bulleted and numbered lists, links.
 // The box holds only what lib/rpmail/rich.ts allows: anything pasted or dropped in is rewritten by `cleanRich` first, so
@@ -35,8 +35,13 @@ function Btn({ title, active, onClick, children }: { title: string; active?: boo
   )
 }
 
-export function RichEditor({ initial, onChange, onFiles, autoFocus, ref, label = 'Message' }: {
-  initial: string; onChange: (html: string) => void; onFiles?: (files: File[]) => void; autoFocus?: boolean; ref?: Ref<RichHandle>; label?: string }) {
+const isPicture = (f: File) => /^image\//.test(f.type)
+
+export function RichEditor({ initial, onChange, onFiles, onPicture, autoFocus, ref, label = 'Message' }: {
+  initial: string; onChange: (html: string) => void; onFiles?: (files: File[]) => void
+  /** Uploads one picture for this message and gives back where it is waiting (or null if it could not be used). Leave out for a box that takes no pictures. */
+  onPicture?: (file: File) => Promise<string | null>
+  autoFocus?: boolean; ref?: Ref<RichHandle>; label?: string }) {
   const [first] = useState(() => cleanRich(initial).html)
   const box = useRef<HTMLDivElement>(null)
   const last = useRef<Range | null>(null)                          // where the cursor was, so a tap on a button does not lose it
@@ -89,6 +94,17 @@ export function RichEditor({ initial, onChange, onFiles, autoFocus, ref, label =
 
   const run = (cmd: string) => { restore(); edit('styleWithCSS', 'false'); edit(cmd); emit() }
 
+  // A picture goes in where the typing cursor was when it was chosen or pasted, once it has finished uploading.
+  const pick = useRef<HTMLInputElement>(null)
+  const addPictures = async (files: File[]) => {
+    if (!onPicture) return
+    for (const f of files) {
+      const path = await onPicture(f)
+      if (!path) continue
+      restore(); edit('insertHTML', pictureTag(path)); emit()
+    }
+  }
+
   const openLink = () => {
     restore()
     const a = anchorAt(window.getSelection()?.anchorNode ?? null)
@@ -123,6 +139,11 @@ export function RichEditor({ initial, onChange, onFiles, autoFocus, ref, label =
         <Btn title="Numbered list" active={on.ol} onClick={() => run('insertOrderedList')}><ListOrdered /></Btn>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
         <Btn title="Link (Ctrl or Cmd + K)" active={on.a || !!link} onClick={() => link ? setLink(null) : openLink()}><LinkIcon /></Btn>
+        {onPicture && <>
+          <Btn title="Put a picture in the text (or paste one)" onClick={() => { restore(); pick.current?.click() }}><ImageIcon /></Btn>
+          <input ref={pick} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple className="sr-only" tabIndex={-1} aria-hidden
+            onChange={e => { const list = [...(e.target.files ?? [])]; e.target.value = ''; void addPictures(list) }} />
+        </>}
         <Btn title="Take the formatting off the selected words" onClick={() => run('removeFormat')}><RemoveFormatting /></Btn>
       </div>
       {link && (
@@ -139,7 +160,7 @@ export function RichEditor({ initial, onChange, onFiles, autoFocus, ref, label =
         </div>
       )}
       <div ref={box} contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label={label} spellCheck
-        className="rp-input min-h-[200px] max-h-[55vh] overflow-y-auto font-sans break-words [&_a]:text-primary [&_a]:underline [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
+        className="rp-input min-h-[200px] max-h-[55vh] overflow-y-auto font-sans break-words [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
         onInput={e => {
           // Something dragged in from another page arrives with that page's own markup: rewrite the box so it shows what will be sent.
           if ((e.nativeEvent as InputEvent).inputType === 'insertFromDrop' && box.current) box.current.innerHTML = cleanRich(box.current.innerHTML).html
@@ -147,8 +168,15 @@ export function RichEditor({ initial, onChange, onFiles, autoFocus, ref, label =
         }}
         onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openLink() } }}
         onPaste={e => {
+          // A pasted picture goes into the text; any other pasted file goes along as an attachment.
           const files = [...e.clipboardData.files]
-          if (files.length) { e.preventDefault(); onFiles?.(files); return }
+          if (files.length) {
+            e.preventDefault()
+            const pictures = onPicture ? files.filter(isPicture) : [], rest = files.filter(f => !pictures.includes(f))
+            if (rest.length) onFiles?.(rest)
+            if (pictures.length) void addPictures(pictures)
+            return
+          }
           const html = e.clipboardData.getData('text/html')
           e.preventDefault()
           if (html) edit('insertHTML', cleanRich(html).html)
