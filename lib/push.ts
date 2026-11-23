@@ -12,11 +12,21 @@ function ensureVapid() {
   vapidSet = true
 }
 
+// A device's address comes from the browser, so only the real push services are ever contacted.
+const PUSH_HOSTS = /(^|\.)(fcm\.googleapis\.com|push\.apple\.com|push\.services\.mozilla\.com|notify\.windows\.com)$/
+export function isPushEndpoint(endpoint: unknown): boolean {
+  try {
+    const u = new URL(String(endpoint))
+    return u.protocol === 'https:' && !u.username && !u.port && PUSH_HOSTS.test(u.hostname.toLowerCase())
+  } catch { return false }
+}
+
 export async function sendPushNotification(
   subscription: { endpoint: string; p256dh: string; auth_key: string },
   payload: { title: string; message: string; link?: string }
 ): Promise<'sent' | 'gone' | 'failed' | 'off'> {
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return 'off'
+  if (!isPushEndpoint(subscription.endpoint)) return 'failed'
   ensureVapid()
 
   try {
