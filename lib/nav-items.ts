@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Truck, Wrench, ClipboardList, Users, BarChart3, Settings, Receipt, FileText, Home, HardHat,
-  CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, Search, LifeBuoy, Mail, type LucideIcon,
+  CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, Search, LifeBuoy, Mail, GraduationCap, type LucideIcon,
 } from 'lucide-react'
 import { canReadConstruction } from '@/lib/construction'
 import { canUseFieldSurveys, isSurveyOnly } from '@/lib/field-surveys'
@@ -39,6 +39,8 @@ const navItems: NavItem[] = [
   item({ href: '/calendar', label: 'Calendar', icon: CalendarDays }),
   item({ href: '/expenses', label: 'Expenses', icon: Receipt }),
   item({ href: '/reports', label: 'Reports', icon: BarChart3, module: 'reports_payroll' }),
+  // Company training videos, starting with the DOT pre-trip inspection (Trae, 11/23/26). Open to everyone who signs in.
+  item({ href: '/training', label: 'Training', short: 'Training', icon: GraduationCap }),
   // How-to guides and videos for the field (Trae, 11/18/26). Open to everyone who signs in.
   item({ href: '/help', label: 'Technical Help', short: 'Help', icon: LifeBuoy }),
   item({ href: '/settings', label: 'Settings', icon: Settings }),
