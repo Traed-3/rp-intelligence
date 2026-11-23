@@ -36,7 +36,7 @@ type Full = Item & { cc_addrs: string; to_full: string; cc_full: string; text: s
   attachments: { i: number; name: string; type: string; size: number; inline: boolean }[]
   thread: ThreadItem[] }
 type Toast = { text: string; undo?: () => void } | null
-type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all' | 'snoozed'; q: string; unread: boolean; att: boolean; starred?: boolean; label?: string; from?: string; after?: string; before?: string }
+type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all' | 'snoozed' | 'drafts'; q: string; unread: boolean; att: boolean; starred?: boolean; label?: string; from?: string; after?: string; before?: string }
 type LabelSet = { box: string; labels: Label[]; can_edit: boolean }
 type BulkAction = 'Archive' | 'Trash' | 'read' | 'unread' | 'done' | 'label'
 type View = { kind: 'dash' } | { kind: 'box'; id: string }
@@ -108,6 +108,11 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const loadList = useCallback((): Promise<void> => {
     const v = viewRef.current, f = filterRef.current
     if (v.kind !== 'box') return Promise.resolve()
+    // Drafts are read live from Gmail Drafts (they are not in the list RPMail keeps), and shown as list lines.
+    if (f.view === 'drafts') return api<{ drafts: { id: string; thread_id: string; date: number; to: string; subject: string; snippet: string }[] }>('drafts', undefined, { mailbox: v.id })
+      .then(r => setList({ key: keyOf(v, f), items: r.drafts.map(d => ({ mailbox_id: v.id, id: d.id, thread_id: d.thread_id, date: d.date, from_name: 'Draft', from_addr: '', to_addrs: d.to || '(nobody yet)',
+        subject: d.subject, snippet: d.snippet, unread: false, starred: false, has_att: false, in_inbox: false, sent: true, site: null, po: null, labels: [] })) }))
+      .catch(e => setErr((e as Error).message))
     return api<{ messages: Item[] }>('messages', undefined, { mailbox: v.id, view: f.view, q: f.q, unread: f.unread ? '1' : '', att: f.att ? '1' : '', starred: f.starred ? '1' : '',
       label: f.label ?? '', from: f.from ?? '', after: f.after ?? '', before: f.before ?? '' })
       .then(r => setList({ key: keyOf(v, f), items: r.messages }))
@@ -401,6 +406,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const canSignOut = (b: BoxInfo) => b.connected && (b.kind === 'personal' || st.role === 'owner')
   const rowProps = { onStar: (it: Item) => void toggleStar(it, !it.starred), onOpen: (it: Item) => { setPeek(it); if (view.kind !== 'box' || view.id !== it.mailbox_id) { setFilter({ view: 'all', q: '', unread: false, att: false }); setView({ kind: 'box', id: it.mailbox_id }) } void openMsg(it.mailbox_id, it.id) },
     onMenu: (e: React.MouseEvent, it: Item) => { e.preventDefault(); setBoxMenu(null); setMenu({ x: e.clientX, y: e.clientY, item: it }) } }
+  // In the Drafts list a line opens the draft to finish it; there is no menu or star (a draft is not a received message).
+  const draftRows = { onOpen: (it: Item) => setCompose({ mode: 'draft', mailbox: it.mailbox_id, draft: it.id }), onMenu: (e: React.MouseEvent) => e.preventDefault() }
 
   return (
     <Compact.Provider value={st.prefs?.density === 'compact'}>
@@ -442,7 +449,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           )}
           {view.kind === 'box' && cur && !cur.connected && <Connect box={cur} st={st} />}
           {view.kind === 'box' && cur && cur.connected && (
-            <BoxView box={cur} filter={filter} setFilter={setFilter} list={list} sel={sel} msg={msg} msgErr={msgErr} peek={peek && peek.id === sel?.id ? peek : null} rowProps={rowProps} reload={loadList} bulk={(ids, action, extra) => void bulk(cur.id, ids, action, extra)}
+            <BoxView box={cur} filter={filter} setFilter={setFilter} list={list} sel={sel} msg={msg} msgErr={msgErr} peek={peek && peek.id === sel?.id ? peek : null} rowProps={filter.view === 'drafts' ? draftRows : rowProps} reload={loadList} bulk={(ids, action, extra) => void bulk(cur.id, ids, action, extra)}
               labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit} openOrganize={from => setOrganize({ from })} makeLabel={name => makeLabel(cur.id, name)} canSend={boxes.some(b => b.connected && b.can_send)}
               close={() => { setSel(null); setMsg(null) }}
               search={() => void act(async () => { say('Searching all of Gmail...'); const r = await api<{ messages: Item[] }>('search', { mailbox: cur.id, q: filter.q }); setList({ key: keyOf(view, filter), items: r.messages }); say(r.messages.length ? `${r.messages.length} found in Gmail.` : 'Nothing found in Gmail.') })}
@@ -757,7 +764,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProp
   box: BoxInfo; filter: Filter; setFilter: (f: Filter) => void; list: Item[] | null; sel: { mailbox: string; id: string } | null; msg: Full | null; msgErr: string; peek: Item | null
   rowProps: RowProps; reload: () => void; bulk: (ids: string[], action: BulkAction, extra?: { label: string; move: boolean }) => void; close: () => void; search: () => void; actions: Actions; editSig: () => void; disconnect?: () => void
   labels: Label[]; canEdit: boolean; openOrganize: (ruleFrom?: string) => void; makeLabel: (name: string) => Promise<Label | null>; canSend: boolean }) {
-  const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['filed', 'Filed'], ['snoozed', 'Snoozed'], ['all', 'All']]
+  const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['drafts', 'Drafts'], ['filed', 'Filed'], ['snoozed', 'Snoozed'], ['all', 'All']]
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const chosen = (list ?? []).filter(m => picked.has(m.id)).map(m => m.id)   // only what is on screen right now
   const toggle = (id: string) => setPicked(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
@@ -824,7 +831,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProp
       )}
       <div className="lg:grid lg:grid-cols-[minmax(280px,38%)_1fr] lg:min-h-[60vh]">
         <div className={cn('lg:border-r border-hairline lg:max-h-[78vh] overflow-y-auto', sel && 'hidden lg:block')}>
-          {list && list.length > 0 && filter.view !== 'needs' && (
+          {list && list.length > 0 && filter.view !== 'needs' && filter.view !== 'drafts' && (
             <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 px-3 py-1.5 border-b border-hairline bg-card text-xs">
               <label className="inline-flex items-center gap-1.5 text-muted-foreground"><input type="checkbox" className="size-4" checked={chosen.length > 0 && chosen.length === Math.min(list.length, 40)} onChange={e => setPicked(e.target.checked ? new Set(list.slice(0, 40).map(m => m.id)) : new Set())} />{chosen.length ? `${chosen.length} selected` : 'Select'}</label>
               {chosen.length > 0 && <>
@@ -846,8 +853,8 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProp
             </div>
           )}
           {list === null && <Empty>Loading...</Empty>}
-          {list && !list.length && <Empty>{box.loading ? 'Your mail is still loading. This fills in as it arrives.' : filter.view === 'snoozed' ? 'Nothing is snoozed. Snooze a message to take it off your lists until a time you pick.' : 'Nothing here.'}</Empty>}
-          {list?.map(m => <Row key={m.id} m={m} selected={sel?.id === m.id} pick={filter.view !== 'needs' ? { on: picked.has(m.id), toggle: () => toggle(m.id) } : undefined} labelNames={labelNames} drag={labels.length > 0} {...rowProps} />)}
+          {list && !list.length && <Empty>{box.loading ? 'Your mail is still loading. This fills in as it arrives.' : filter.view === 'drafts' ? 'No drafts. A message saved with Save to Gmail Drafts (here or in Gmail) shows here, to open and finish.' : filter.view === 'snoozed' ? 'Nothing is snoozed. Snooze a message to take it off your lists until a time you pick.' : 'Nothing here.'}</Empty>}
+          {list?.map(m => <Row key={m.id} m={m} selected={sel?.id === m.id} pick={filter.view !== 'needs' && filter.view !== 'drafts' ? { on: picked.has(m.id), toggle: () => toggle(m.id) } : undefined} labelNames={labelNames} drag={labels.length > 0 && filter.view !== 'drafts'} {...rowProps} />)}
         </div>
         <div className={cn('lg:max-h-[78vh] overflow-y-auto', !sel && 'hidden lg:block')}>
           {!sel && <Empty>Pick a message to read it. Opening a message does not mark it read.</Empty>}

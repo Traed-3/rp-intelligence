@@ -20,6 +20,8 @@ export type ComposeStart =
   | { mode: 'new'; mailbox: string }
   | { mode: 'reply' | 'forward'; mailbox: string; id: string; all?: boolean }
   | { mode: 'signature'; mailbox: string }
+  /** A draft saved in Gmail Drafts, opened again to finish. It is updated or sent in place. */
+  | { mode: 'draft'; mailbox: string; draft: string }
 
 /** Everything the server needs to send one message, plus the words for the "Sending..." bar. */
 export type Outgoing = { payload: Record<string, unknown>; to: string; from: string; start: ComposeStart }
@@ -27,7 +29,9 @@ export type Outgoing = { payload: Record<string, unknown>; to: string; from: str
 type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; forward: boolean; attachments: string[]; signature: string; signature_html?: string | null }
 type Att = { path: string; name: string; size: number }
 type Tpl = { id: string; name: string; body: string; html?: string | null }
-type Saved = { to: string; cc: string; subject: string; body: string; html?: string; from: string; files: Att[]; pics?: Att[]; at: number }
+type Saved = { to: string; cc: string; subject: string; body: string; html?: string; from: string; files: Att[]; pics?: Att[]; keep?: number[]; at: number }
+type DraftFile = { i: number; name: string; size: number }
+type Opened = { draft: string; to: string; cc: string; subject: string; html: string; reply: boolean; attachments: DraftFile[] }
 const lab = 'rp-label block mb-1'
 const OUTBOX = 'rpmail-outbox'
 const MAX = 20_000_000
@@ -64,7 +68,7 @@ async function fitPicture(file: File): Promise<File> {
 
 const mb = (n: number) => n > 1_048_576 ? (n / 1_048_576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'
 
-const draftKey = (s: ComposeStart) => `rpmail:draft:${s.mode}:${s.mailbox}:${'id' in s ? s.id + (s.all ? ':all' : '') : 'new'}`
+const draftKey = (s: ComposeStart) => `rpmail:draft:${s.mode}:${s.mailbox}:${'id' in s ? s.id + (s.all ? ':all' : '') : 'draft' in s ? s.draft : 'new'}`
 const readDraft = (s: ComposeStart): Saved | null => {
   try { const v = JSON.parse(localStorage.getItem(draftKey(s)) ?? 'null') as Saved | null; return v && Date.now() - v.at < 14 * 86_400_000 ? v : null } catch { return null }
 }
@@ -74,7 +78,8 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   start: ComposeStart; boxes: BoxInfo[]; groups: { name: string; addrs: string[] }[]; undoSecs: number; setUndoSecs: (n: number) => void
   onClose: () => void; onDone: (text: string) => void; onSend: (out: Outgoing) => void }) {
   // Mail can only go out from a mailbox this person is allowed to send from (an owner can make a shared mailbox read only for someone).
-  const connected = boxes.filter(b => b.connected && (start.mode === 'signature' || b.can_send !== false))
+  // A reopened draft lives in one mailbox, so it can only go out from that one.
+  const connected = boxes.filter(b => b.connected && (start.mode === 'signature' || b.can_send !== false) && (start.mode !== 'draft' || b.id === start.mailbox))
   const [kept] = useState(() => start.mode === 'signature' ? null : readDraft(start))
   const startBox = boxes.find(b => b.id === start.mailbox)
   const startSig = startBox?.signature ?? ''
@@ -98,7 +103,11 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   const [restored, setRestored] = useState(!!kept)
   const [tpls, setTpls] = useState<Tpl[] | null>(null)
   const [tplName, setTplName] = useState<string | null>(null)   // null = not naming a template right now
-  const [loading, setLoading] = useState(start.mode === 'reply' || start.mode === 'forward')
+  const [loading, setLoading] = useState(start.mode === 'reply' || start.mode === 'forward' || start.mode === 'draft')
+  // The files a reopened draft already carries, and which of them stay on it.
+  const [draftFiles, setDraftFiles] = useState<DraftFile[]>([])
+  const [keep, setKeep] = useState<number[] | null>(kept?.keep ?? null)
+  const [isReply, setIsReply] = useState(false)
   const box = boxes.find(b => b.id === from)
   const isMail = start.mode !== 'signature'
   const [ask, asking] = useAsk()
@@ -106,6 +115,18 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   useEffect(() => {
     if (start.mode === 'signature' || start.mode === 'new') return
     let live = true
+    if (start.mode === 'draft') {
+      api<Opened>('draft_open', undefined, { mailbox: start.mailbox, draft: start.draft })
+        .then(d => {
+          if (!live) return
+          setDraftFiles(d.attachments); setIsReply(d.reply)
+          setKeep(k => k ?? d.attachments.map(a => a.i))
+          if (!kept) { const c = cleanRich(d.html); setTo(d.to); setCc(d.cc); setSubject(d.subject); setHtml(c.html); setBody(c.text) }
+          setLoading(false)
+        })
+        .catch(e => { if (live) { setErr((e as Error).message); setLoading(false) } })
+      return () => { live = false }
+    }
     api<Prep>('draft_prep', undefined, { mailbox: start.mailbox, id: start.id, all: start.all ? '1' : '', fwd: start.mode === 'forward' ? '1' : '' })
       .then(p => {
         if (!live) return
@@ -125,10 +146,10 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     if (!isMail || loading) return
     const t = setTimeout(() => {
       const empty = !to && !cc && !files.length && (!body.trim() || sameWords(body, box?.signature ?? '')) && (start.mode !== 'new' || !subject)
-      try { if (empty) localStorage.removeItem(draftKey(start)); else localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, html, from, files, pics, at: Date.now() } satisfies Saved)) } catch { /* storage is off: carry on without it */ }
+      try { if (empty) localStorage.removeItem(draftKey(start)); else localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, html, from, files, pics, keep: keep ?? undefined, at: Date.now() } satisfies Saved)) } catch { /* storage is off: carry on without it */ }
     }, 1200)
     return () => clearTimeout(t)
-  }, [to, cc, subject, body, html, from, files, pics, isMail, loading, start, box])
+  }, [to, cc, subject, body, html, from, files, pics, keep, isMail, loading, start, box])
 
   // Every change in the message box comes through here. The plain-text copy is made the same way the server makes it.
   const onEdit = useCallback((raw: string) => { const c = cleanRich(raw); setHtml(c.html); setBody(c.text); setInText(c.pictures) }, [])
@@ -183,7 +204,8 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   }
 
   const payload = (draft: boolean) => ({
-    mailbox: start.mailbox, from, mode: start.mode, id: 'id' in start ? start.id : undefined, to, cc, subject, body, html, quote, draft, confirmed: !draft, files: files.map(f => f.path),
+    mailbox: start.mailbox, from, mode: start.mode === 'draft' ? 'new' : start.mode, id: 'id' in start ? start.id : undefined,
+    ...(start.mode === 'draft' ? { draft_id: start.draft, keep: keep ?? [] } : {}), to, cc, subject, body, html, quote, draft, confirmed: !draft, files: files.map(f => f.path),
   })
 
   const go = async (draft: boolean) => {
@@ -196,7 +218,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     }
     if (!draft) {
       // Written down right now (not a moment later), so Undo or a failed send can open it again exactly as it was.
-      try { localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, html, from, files, pics, at: Date.now() } satisfies Saved)) } catch { /* storage is off */ }
+      try { localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, html, from, files, pics, keep: keep ?? undefined, at: Date.now() } satisfies Saved)) } catch { /* storage is off */ }
       onSend({ payload: payload(false), to: [to, cc].filter(Boolean).join(', '), from: box?.address ?? '', start }); return
     }
     setBusy(true)
@@ -224,10 +246,11 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     try { await api('template_delete', { id: t.id }); setTpls(l => (l ?? []).filter(x => x.id !== t.id)) } catch (e) { setErr((e as Error).message) }
   }
 
-  const title = start.mode === 'signature' ? 'Signature for ' + (box?.name ?? '') : start.mode === 'new' ? 'New message' : start.mode === 'forward' ? 'Forward' : 'Reply'
+  const title = start.mode === 'signature' ? 'Signature for ' + (box?.name ?? '') : start.mode === 'new' ? 'New message' : start.mode === 'draft' ? (isReply ? 'Draft reply' : 'Draft') : start.mode === 'forward' ? 'Forward' : 'Reply'
   const shown = pics.filter(p => inText.includes(p.path))
-  const total = files.reduce((n, f) => n + f.size, 0) + shown.reduce((n, p) => n + p.size, 0)
-  const carrying = [files.length ? `${files.length} attached` : '', shown.length ? `${shown.length} picture${shown.length === 1 ? '' : 's'} in the text` : ''].filter(Boolean).join(', ')
+  const fromDraft = draftFiles.filter(f => (keep ?? []).includes(f.i))
+  const total = files.reduce((n, f) => n + f.size, 0) + shown.reduce((n, p) => n + p.size, 0) + fromDraft.reduce((n, f) => n + f.size, 0)
+  const carrying = [files.length + fromDraft.length ? `${files.length + fromDraft.length} attached` : '', shown.length ? `${shown.length} picture${shown.length === 1 ? '' : 's'} in the text` : ''].filter(Boolean).join(', ')
   return (
     <div className="fixed inset-0 z-40 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
       {asking}
@@ -292,6 +315,10 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
                 <span key={a.path} className="rp-pill !py-1"><Paperclip className="size-3" />{a.name} <span className="text-muted-foreground">{mb(a.size)}</span>
                   <button onClick={() => removeFile(a)} aria-label={'Remove ' + a.name} title="Remove"><X className="size-3" /></button></span>
               ))}</div>}
+              {fromDraft.length > 0 && <div className="flex flex-wrap gap-1.5">{fromDraft.map(a => (
+                <span key={'d' + a.i} className="rp-pill !py-1" title="Already on the draft"><Paperclip className="size-3" />{a.name} <span className="text-muted-foreground">{mb(a.size)}</span>
+                  <button onClick={() => setKeep(k => (k ?? []).filter(i => i !== a.i))} aria-label={'Take ' + a.name + ' off'} title="Take off"><X className="size-3" /></button></span>
+              ))}</div>}
               {prep && prep.attachments.length > 0 && <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5"><Paperclip className="size-3.5" />Goes along from the original: {prep.attachments.join(', ')}</p>}
             </div>
             {prep && (
@@ -326,7 +353,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
                     <button className={buttonVariants({ variant: 'outline' })} disabled={busy || uploading > 0} onClick={() => void go(true)}>Save to Gmail Drafts</button>
                   </>}
               <button className={buttonVariants({ variant: 'ghost' })} disabled={busy} onClick={onClose}>{isMail ? 'Close (keeps it)' : 'Cancel'}</button>
-              {isMail && <button className={cn(buttonVariants({ variant: 'ghost' }), 'text-danger')} disabled={busy} onClick={() => void ask({ text: 'Throw this message away? What you typed and attached is deleted.', yes: 'Throw it away', danger: true }).then(ok => { if (ok) discard() })}><Trash2 />Discard</button>}
+              {isMail && <button className={cn(buttonVariants({ variant: 'ghost' }), 'text-danger')} disabled={busy} onClick={() => void ask(start.mode === 'draft' ? { text: 'Throw away the changes you made here? The draft in Gmail stays as it was last saved.', yes: 'Throw away changes', danger: true } : { text: 'Throw this message away? What you typed and attached is deleted.', yes: 'Throw it away', danger: true }).then(ok => { if (ok) discard() })}><Trash2 />Discard</button>}
             </div>
           ))}
         </div>

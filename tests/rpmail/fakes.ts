@@ -183,7 +183,15 @@ export class FakeGmail {
   threadReads = 0
   /** Set to make Gmail refuse to list a conversation, to check the fall-back. */
   threadFails = false
+  drafts = new Map<string, { id: string; msg: string; raw?: string }[]>()   // address -> Gmail drafts (each points at a DRAFT message)
   private n = 0
+  /** A draft as Gmail holds it: a message with the DRAFT label, reached through a draft id. */
+  addDraft(address: string, m: Partial<FakeMsg> & { subject: string }): { id: string; msg: FakeMsg } {
+    const msg = this.add(address, { from: address, labelIds: ['DRAFT'], ...m })
+    const id = 'r' + msg.id
+    this.drafts.set(address, [...(this.drafts.get(address) ?? []), { id, msg: msg.id }])
+    return { id, msg }
+  }
   add(address: string, m: Partial<FakeMsg> & { from: string; subject: string }): FakeMsg {
     const id = (++this.n).toString(16).padStart(16, '0')
     const msg: FakeMsg = { id, threadId: m.threadId ?? id, labelIds: m.labelIds ?? ['INBOX', 'UNREAD'], to: address, body: 'Hello', date: Date.now() - 3_600_000 + this.n * 1000, ...m }
@@ -236,6 +244,25 @@ export class FakeGmail {
       const ids = this.fresh.get(account) ?? []
       this.fresh.set(account, [])
       return ok({ history: ids.length ? [{ messages: ids.map(id => ({ id })) }] : [], historyId: '100' })
+    }
+    if (path === 'drafts' && method === 'GET') return ok({ drafts: (this.drafts.get(account) ?? []).map(d => ({ id: d.id, message: { id: d.msg, threadId: list.find(x => x.id === d.msg)?.threadId } })) })
+    if ((m = path.match(/^drafts\/(r[0-9a-f]+)$/))) {
+      const all = this.drafts.get(account) ?? [], d = all.find(x => x.id === m![1])
+      const x = d && list.find(y => y.id === d.msg)
+      if (!d || !x) return { status: 404, json: {} }
+      if (method === 'PUT') { d.raw = Buffer.from(String((body?.message as Record<string, unknown>)?.raw), 'base64url').toString('utf8'); this.sent.push({ account, raw: d.raw, threadId: (body?.message as Record<string, unknown>)?.threadId as string | undefined, draft: true }); return ok({ id: d.id, message: { id: x.id } }) }
+      if (method === 'DELETE') { this.drafts.set(account, all.filter(y => y !== d)); return { status: 204, json: null } }
+      const full = this.full(x)
+      return ok({ id: d.id, message: query.get('format') === 'metadata' ? { ...full, payload: { headers: full.payload.headers } } : full })
+    }
+    if (path === 'drafts/send') {
+      const all = this.drafts.get(account) ?? [], d = all.find(x => x.id === body?.id)
+      if (!d) return { status: 404, json: {} }
+      this.drafts.set(account, all.filter(y => y !== d))
+      const x = list.find(y => y.id === d.msg)!
+      this.sent.push({ account, raw: d.raw ?? '', threadId: x.threadId, draft: false })
+      x.labelIds = ['SENT']
+      return ok({ id: x.id, threadId: x.threadId })
     }
     if (path === 'messages/send' || path === 'drafts') {
       const msg = (path === 'drafts' ? (body?.message as Record<string, unknown>) : body) ?? {}

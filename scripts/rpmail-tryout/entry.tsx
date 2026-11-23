@@ -26,6 +26,11 @@ const msgs: M[] = [
     html: '<div dir="ltr">FYI<br><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">---------- Forwarded message ---------<br>From: Pat</div><br>See the drawing.</div></div>' },
   { id: 'e1', t: 'T5', name: 'Solo Tech', addr: 'solo@rp.com', to: ME, date: now - 9 * H, subject: 'Truck Q17 back in service', inbox: true, unread: true, text: 'Q17 is back from the shop.' },
 ]
+// Drafts saved in Gmail Drafts. Sending one takes it off this list, as Gmail does.
+const drafts = [
+  { id: 'r1', date: now - 26 * H, to: 'bo@county.gov', subject: 'Inspection window for SU-4710', text: 'Bo, can we move the inspection to Thursday?', html: '<div>Bo, can we move the inspection to <b>Thursday</b>?</div>', files: [{ i: 0, name: 'site-plan.pdf', size: 210_000 }] },
+  { id: 'r2', date: now - 3 * H, to: '', subject: '', text: 'Notes for Monday', html: '<div>Notes for Monday</div><ul><li>Order drop tubes</li></ul>', files: [] as { i: number; name: string; size: number }[] },
+]
 const sentLog: unknown[] = []
 ;(window as unknown as { __sent: unknown[]; __uploads: Map<string, File> }).__sent = sentLog
 ;(window as unknown as { __uploads: Map<string, File> }).__uploads = uploads
@@ -57,6 +62,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (op === 'signature') { const k = keptWording(body.html, body.text, 4000); sig.text = k.text; sig.html = k.html; sentLog.push({ signature: body }); return json({ ok: true, ...k }) }
   if (op === 'prefs') return json({ prefs: { ...state().prefs, ...body } })
   if (op === 'contacts') return json({ contacts: [] })
+  if (op === 'drafts') return json({ drafts: drafts.map(d => ({ id: d.id, thread_id: d.id, date: d.date, to: d.to, subject: d.subject, snippet: d.text.slice(0, 80) })) })
+  if (op === 'draft_open') { const d = drafts.find(x => x.id === q.get('draft')); return d ? json({ draft: d.id, to: d.to, cc: '', subject: d.subject, html: d.html, reply: false, attachments: d.files }) : json({ error: 'That draft is no longer in Gmail.' }, 400) }
   if (op === 'attach_prepare') return json({ path: `${MY_ID}/${crypto.randomUUID()}/${String(body.name)}`, token: 'tok' })
   if (op === 'attach_remove') { uploads.delete(String(body.path)); return json({ ok: true }) }
   if (op === 'messages') {
@@ -79,6 +86,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   }
   if (op === 'send') {
     sentLog.push(body)
+    if (body.draft_id && !body.draft) drafts.splice(drafts.findIndex(d => d.id === body.draft_id), 1)
     const src = msgs.find(x => x.id === body.id)
     if (!body.draft) msgs.push({ id: 's' + sentLog.length, t: src?.t ?? 'TS' + sentLog.length, name: 'Ann Owner', addr: ME, to: body.to, date: Date.now(), subject: body.subject, sent: true, text: body.body, html: body.html ? String(body.html).replace(/<img src="\/api\/rpmail\/attach_view[^"]*">/g, PICTURE) : undefined })
     return json({ ok: true, sent: true, to: body.to, from: ME })
