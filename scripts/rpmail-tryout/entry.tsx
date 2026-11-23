@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { RpmailApp } from '@/components/rpmail/rpmail-app'
+import { RpmailSettings } from '@/components/rpmail/rpmail-settings'
+import { keptWording } from '@/lib/rpmail/rich'
 import { replyQuoteHtml } from '@/lib/rpmail/rich'
 import { uploads } from './supabase-shim'
 
@@ -31,7 +33,13 @@ const MY_ID = '11111111-1111-4111-8111-111111111111'
 // A sent picture is shown as a grey box: the real thing travels inside the mail, which this page does not make.
 const PICTURE = `<img alt="picture" src="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120"><rect width="240" height="120" fill="#cfd6e0"/><text x="120" y="66" font-size="16" text-anchor="middle" fill="#445">picture</text></svg>')}">`
 const item = (m: M) => ({ mailbox_id: BOX, id: m.id, thread_id: m.t, date: m.date, from_name: m.name, from_addr: m.addr, to_addrs: m.to, subject: m.subject, snippet: m.text.split('\n')[0].slice(0, 120), unread: !!m.unread, starred: false, has_att: !!m.files?.length, in_inbox: !!m.inbox, sent: !!m.sent, site: null, po: null, labels: [] })
-const box = () => ({ id: BOX, name: 'Ann', address: ME, kind: 'personal', crew_reads: false, connected: true, inbox: msgs.filter(m => m.inbox).length, unread: msgs.filter(m => m.unread).length, newest: now, needs: 0, last_sync_at: new Date().toISOString(), last_error: null, loading: null, signature: 'Ann Owner\nRappahannock Petroleum', can_send: true, can_delete: true })
+// The signature and the templates start out formatted, and remember what is saved while the page is open.
+const sig = { text: 'Ann Owner\nRappahannock Petroleum', html: '<div><b>Ann Owner</b></div><div><i>Rappahannock Petroleum</i></div>' as string | null }
+const templates: { id: string; name: string; body: string; html: string | null }[] = [
+  { id: 't1', name: 'Permit received', body: 'The permit is in hand.\n- Work can start Monday\n- Call before you dig', html: '<div>The <b>permit</b> is in hand.</div><ul><li>Work can start Monday</li><li>Call before you dig</li></ul>' },
+  { id: 't2', name: 'Plain thanks', body: 'Thanks, got it.', html: null },
+]
+const box = () => ({ id: BOX, name: 'Ann', address: ME, kind: 'personal', crew_reads: false, connected: true, inbox: msgs.filter(m => m.inbox).length, unread: msgs.filter(m => m.unread).length, newest: now, needs: 0, last_sync_at: new Date().toISOString(), last_error: null, loading: null, signature: sig.text, signature_html: sig.html, can_send: true, can_delete: true })
 const state = () => ({ enabled: true, name: 'Ann Owner', role: 'owner', googleReady: true, personalAddress: ME, loginEmail: ME, boxes: [box()], note: null, prefs: { hidden: [], order: [], undo_secs: 0 } })
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
 
@@ -44,7 +52,10 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (op === 'overview') return json({ prefs: state().prefs, boxes: [box()], needs: [], foryou: [], plate: { items: [], error: null }, summary: null, moves: [], now: Date.now() })
   if (op === 'sync') return json({ done: true })
   if (op === 'labels') return json({ labels: [], can_edit: true })
-  if (op === 'templates') return json({ templates: [{ id: 't1', name: 'Permit received', body: 'The permit is in hand.\nWork can start Monday.' }] })
+  if (op === 'templates') return json({ templates })
+  if (op === 'template_save') { const k = keptWording(body.html, body.body, 20_000); templates.push({ id: 't' + (templates.length + 1), name: String(body.name), body: k.text, html: k.html }); sentLog.push({ template: body }); return json({ ok: true }) }
+  if (op === 'signature') { const k = keptWording(body.html, body.text, 4000); sig.text = k.text; sig.html = k.html; sentLog.push({ signature: body }); return json({ ok: true, ...k }) }
+  if (op === 'prefs') return json({ prefs: { ...state().prefs, ...body } })
   if (op === 'contacts') return json({ contacts: [] })
   if (op === 'attach_prepare') return json({ path: `${MY_ID}/${crypto.randomUUID()}/${String(body.name)}`, token: 'tok' })
   if (op === 'attach_remove') { uploads.delete(String(body.path)); return json({ ok: true }) }
@@ -64,7 +75,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   }
   if (op === 'draft_prep') {
     const m = msgs.find(x => x.id === q.get('id'))!
-    return json({ from: ME, to: m.addr, cc: '', subject: /^re:/i.test(m.subject) ? m.subject : 'Re: ' + m.subject, quoted: 'On Mon, ' + m.name + ' wrote:\n> ' + m.text.split('\n').join('\n> '), forward: false, attachments: [], signature: 'Ann Owner\nRappahannock Petroleum' })
+    return json({ from: ME, to: m.addr, cc: '', subject: /^re:/i.test(m.subject) ? m.subject : 'Re: ' + m.subject, quoted: 'On Mon, ' + m.name + ' wrote:\n> ' + m.text.split('\n').join('\n> '), forward: false, attachments: [], signature: sig.text, signature_html: sig.html })
   }
   if (op === 'send') {
     sentLog.push(body)
@@ -76,4 +87,5 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   return json({ ok: true, moves: [], n: 0, templates: [], labels: [], rules: [], blocks: [], items: [] })
 }
 
-createRoot(document.getElementById('root')!).render(<div className="p-4 sm:p-6 max-w-[1500px] mx-auto"><RpmailApp localUrl={null} /></div>)
+// Add #settings to the address to see the person's own Settings page instead of the mail page.
+createRoot(document.getElementById('root')!).render(<div className="p-4 sm:p-6 max-w-[1500px] mx-auto">{location.hash === '#settings' ? <RpmailSettings /> : <RpmailApp localUrl={null} />}</div>)

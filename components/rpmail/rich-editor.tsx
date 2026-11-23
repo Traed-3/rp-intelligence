@@ -37,11 +37,13 @@ function Btn({ title, active, onClick, children }: { title: string; active?: boo
 
 const isPicture = (f: File) => /^image\//.test(f.type)
 
-export function RichEditor({ initial, onChange, onFiles, onPicture, autoFocus, ref, label = 'Message' }: {
+export function RichEditor({ initial, onChange, onFiles, onPicture, autoFocus, ref, label = 'Message', short }: {
   initial: string; onChange: (html: string) => void; onFiles?: (files: File[]) => void
   /** Uploads one picture for this message and gives back where it is waiting (or null if it could not be used). Leave out for a box that takes no pictures. */
   onPicture?: (file: File) => Promise<string | null>
-  autoFocus?: boolean; ref?: Ref<RichHandle>; label?: string }) {
+  autoFocus?: boolean; ref?: Ref<RichHandle>; label?: string
+  /** A lower box, for a few lines (a signature). */
+  short?: boolean }) {
   const [first] = useState(() => cleanRich(initial).html)
   const box = useRef<HTMLDivElement>(null)
   const last = useRef<Range | null>(null)                          // where the cursor was, so a tap on a button does not lose it
@@ -160,7 +162,7 @@ export function RichEditor({ initial, onChange, onFiles, onPicture, autoFocus, r
         </div>
       )}
       <div ref={box} contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label={label} spellCheck
-        className="rp-input min-h-[200px] max-h-[55vh] overflow-y-auto font-sans break-words [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
+        className={cn(short ? 'min-h-24' : 'min-h-[200px]', 'rp-input max-h-[55vh] overflow-y-auto font-sans break-words [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6')}
         onInput={e => {
           // Something dragged in from another page arrives with that page's own markup: rewrite the box so it shows what will be sent.
           if ((e.nativeEvent as InputEvent).inputType === 'insertFromDrop' && box.current) box.current.innerHTML = cleanRich(box.current.innerHTML).html

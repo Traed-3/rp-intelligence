@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { api, NotifySheet, ZONE_NAMES, type Group, type Prefs, type State } from './rpmail-app'
+import { RichEditor } from './rich-editor'
+import { cleanRich, textToHtml } from '@/lib/rpmail/rich'
 
 // RPMail -> Settings: everything a person sets for themselves, in one place. Each part saves on its own, and
 // nothing here changes anything for anyone else.
@@ -125,7 +126,9 @@ export function RpmailSettings() {
 
 /** One mailbox: its state, what this person may do in it, the default-send choice, and its signature. */
 function BoxSettings({ box, isDefault, canDefault, googleReady, setDefault, say, fail }: { box: State['boxes'][number]; isDefault: boolean; canDefault: boolean; googleReady: boolean; setDefault: () => void; say: (t: string) => void; fail: (t: string) => void }) {
-  const [sig, setSig] = useState(box.signature)
+  // The signature is written with the same formatting bar as a message. `saved` is what the server holds, to know when Save has work to do.
+  const [sig, setSig] = useState(() => ({ html: cleanRich(box.signature_html || textToHtml(box.signature)).html, text: box.signature }))
+  const [saved, setSaved] = useState(sig.html)
   const [busy, setBusy] = useState(false)
   const may = box.kind === 'personal' ? 'Your own mailbox.' : !box.can_send ? 'Shared. You can read it; you cannot send from it or delete in it.' : !box.can_delete ? 'Shared. You can read it and send from it; you cannot delete in it.' : 'Shared. You can read, send and delete.'
   return (
@@ -139,11 +142,12 @@ function BoxSettings({ box, isDefault, canDefault, googleReady, setDefault, say,
       </div>
       {canDefault && <label className="flex items-center gap-2"><input type="radio" name="rp-default-from" className="size-4" checked={isDefault} onChange={setDefault} />New messages start from this mailbox</label>}
       {box.connected && box.can_send && (
-        <form className="space-y-1.5" onSubmit={e => { e.preventDefault(); setBusy(true); void api('signature', { mailbox: box.id, text: sig }).then(() => say(`Signature for ${box.name} saved.`)).catch(x => fail((x as Error).message)).finally(() => setBusy(false)) }}>
-          <label className="rp-label" htmlFor={'sig-' + box.id}>Signature</label>
-          <textarea id={'sig-' + box.id} className={cn('rp-input min-h-20 font-sans')} maxLength={4000} placeholder="Your name, title and phone number" value={sig} onChange={e => setSig(e.target.value)} />
-          <button className={btn('outline', 'xs')} type="submit" disabled={busy || sig === box.signature}>Save signature</button>
-        </form>
+        <div className="space-y-1.5">
+          <p className="rp-label">Signature</p>
+          <RichEditor initial={sig.html} short label={'Signature for ' + box.name} onChange={raw => { const c = cleanRich(raw); setSig({ html: c.html, text: c.text }) }} />
+          <button className={btn('outline', 'xs')} type="button" disabled={busy || sig.html === saved}
+            onClick={() => { setBusy(true); void api('signature', { mailbox: box.id, text: sig.text, html: sig.html }).then(() => { setSaved(sig.html); say(`Signature for ${box.name} saved.`) }).catch(x => fail((x as Error).message)).finally(() => setBusy(false)) }}>Save signature</button>
+        </div>
       )}
     </div>
   )

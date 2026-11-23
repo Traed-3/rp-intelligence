@@ -21,6 +21,8 @@ export type BoxInfo = {
   id: string; name: string; address: string; kind: 'personal' | 'shared'; crew_reads: boolean; connected: boolean
   inbox: number; unread: number; newest: number | null; needs: number; last_sync_at: string | null; last_error: string | null
   loading: { total: number; left: number } | null; signature: string
+  /** The signature with its formatting, when it has any. `signature` is always its plain wording. */
+  signature_html: string | null
   /** What this person may do here beyond reading. */
   can_send: boolean; can_delete: boolean
 }
@@ -33,13 +35,13 @@ export async function boxInfos(who: Me, boxes: Mailbox[]): Promise<BoxInfo[]> {
   const needBy = new Map<string, number>()
   for (const n of onlyAllowed((needs ?? []) as { mailbox_id: string }[], boxes)) needBy.set(n.mailbox_id, (needBy.get(n.mailbox_id) ?? 0) + 1)
   return Promise.all(boxes.map(async b => {
-    const c = by.get(b.id)
+    const c = by.get(b.id), sig = await getSignature(who, b.id)
     return {
       id: b.id, name: b.name, address: b.address, kind: b.kind, crew_reads: b.crew_reads, connected: !!b.token_secret_id,
       inbox: Number(c?.inbox ?? 0), unread: Number(c?.unread ?? 0), newest: c?.newest ? Date.parse(c.newest) : null, needs: needBy.get(b.id) ?? 0,
       last_sync_at: b.last_sync_at, last_error: b.last_error,
       loading: b.sync?.todo?.length ? { total: b.sync.total ?? 0, left: b.sync.todo.length } : null,
-      signature: await getSignature(who, b.id), can_send: maySend(b), can_delete: mayDelete(b),
+      signature: sig.text, signature_html: sig.html, can_send: maySend(b), can_delete: mayDelete(b),
     }
   }))
 }

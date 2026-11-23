@@ -4,6 +4,7 @@ import { UserError } from './gmail'
 import { myMailboxes, Forbidden, type Me } from './access'
 import { ADDR_RE } from './parse'
 import type { OutFile } from './mime'
+import { keptWording } from './rich'
 
 // RPMail: what the "write a message" box needs besides sending: files waiting to be attached, the address book
 // that fills in as you type, and the person's own templates.
@@ -135,21 +136,23 @@ export async function contacts(who: Me, p: Record<string, string>) {
 }
 
 export async function templateList(who: Me) {
-  const { data } = await createAdminClient().from('rpmail_templates').select('id, name, body').eq('profile_id', who.id).order('name').limit(100)
+  const { data } = await createAdminClient().from('rpmail_templates').select('id, name, body, html').eq('profile_id', who.id).order('name').limit(100)
   return { templates: data ?? [] }
 }
-export async function templateSave(who: Me, p: { id?: unknown; name?: unknown; body?: unknown }) {
-  const name = String(p.name ?? '').trim().slice(0, 80), body = String(p.body ?? '').slice(0, 20_000)
+export async function templateSave(who: Me, p: { id?: unknown; name?: unknown; body?: unknown; html?: unknown }) {
+  // A template may carry formatting. The HTML is cleaned here and the plain wording taken from the cleaned copy.
+  const kept = keptWording(p.html, p.body, 20_000)
+  const name = String(p.name ?? '').trim().slice(0, 80), body = kept.text, html = kept.html
   if (!name) throw new UserError('Give the template a name.')
   if (!body.trim()) throw new UserError('The template is empty.')
   const admin = createAdminClient()
   if (typeof p.id === 'string' && UUID.test(p.id)) {
-    const { data } = await admin.from('rpmail_templates').update({ name, body, updated_at: new Date().toISOString() }).eq('id', p.id).eq('profile_id', who.id).select('id')
+    const { data } = await admin.from('rpmail_templates').update({ name, body, html, updated_at: new Date().toISOString() }).eq('id', p.id).eq('profile_id', who.id).select('id')
     if (!data?.length) throw new UserError('That template is not yours.')
   } else {
     const { count } = await admin.from('rpmail_templates').select('id', { count: 'exact', head: true }).eq('profile_id', who.id)
     if ((count ?? 0) >= 100) throw new UserError('You have 100 templates. Delete one first.')
-    const { error } = await admin.from('rpmail_templates').insert({ profile_id: who.id, name, body })
+    const { error } = await admin.from('rpmail_templates').insert({ profile_id: who.id, name, body, html })
     if (error) throw new Error('Could not save the template.')
   }
   return { ok: true }

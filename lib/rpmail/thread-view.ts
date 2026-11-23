@@ -32,7 +32,8 @@ export const isForward = (subject: string, text: string) =>
   /^\s*(fwd?|fw)\s*:/i.test(subject) || /-{3,}\s*Forwarded message\s*-{3,}|Begin forwarded message:/i.test(text.slice(0, 4000))
 
 // The marks the common mail programs put on "the mail I am answering": Gmail, Apple Mail, Outlook on the web, Yahoo, Thunderbird.
-const QUOTE_MARK = /class\s*=\s*["'][^"']*\bgmail_quote\b|<blockquote[^>]+type\s*=\s*["']?cite|id\s*=\s*["']?divRplyFwdMsg|class\s*=\s*["'][^"']*\byahoo_quoted\b|class\s*=\s*["'][^"']*\bmoz-cite-prefix\b/i
+// (Each "anything up to" below has a limit, so mail built from thousands of half-written tags cannot make the search crawl.)
+const QUOTE_MARK = /class\s{0,9}=\s{0,9}["'][^"']{0,400}\bgmail_quote\b|<blockquote[^>]{1,300}type\s{0,9}=\s{0,9}["']?cite|id\s{0,9}=\s{0,9}["']?divRplyFwdMsg|class\s{0,9}=\s{0,9}["'][^"']{0,400}\byahoo_quoted\b|class\s{0,9}=\s{0,9}["'][^"']{0,400}\bmoz-cite-prefix\b/i
 export const QUOTE_CSS = '.gmail_quote,.gmail_extra,blockquote[type=cite],.yahoo_quoted,.moz-cite-prefix,.moz-cite-prefix+blockquote,#divRplyFwdMsg,#divRplyFwdMsg~*,#appendonsend~*{display:none!important}'
 export const htmlHasQuote = (html: string) => QUOTE_MARK.test(html)
 
@@ -45,7 +46,10 @@ export function shownText(html: string, withoutQuoted: boolean): string {
   return htmlToText((at > 0 ? html.slice(0, html.lastIndexOf('<', at)) : html).slice(0, 400_000))
 }
 /** Pictures that are part of the message itself (a logo in a signature, a pasted screenshot). They always show, so they need room. */
-export const ownPictures = (html: string) => (html.slice(0, 3_000_000).match(/<img[^>]+src\s*=\s*["']?data:/gi) ?? []).length
+export const ownPictures = (html: string) => (html.slice(0, 3_000_000).match(/\ssrc\s{0,9}=\s{0,9}["']?data:image\//gi) ?? []).length
+
+/** True when the message asks for a picture from the internet. Those stay hidden until the person asks for them. */
+export const wantsRemotePictures = (html: string) => /\ssrc\s{0,9}=\s{0,9}["']?https?:/i.test(html)
 
 // Where the quoted mail starts in a plain-text message.
 const PLAIN_QUOTE = /\n[ \t]*On [^\n]{0,200}(?:\n[^\n]{0,100})?wrote:[ \t]*\n|\n>|\n-{2,} ?Original Message ?-{2,}|\n_{10,}[ \t]*\n|\nFrom: [^\n]+\n(?:Sent|Date): /

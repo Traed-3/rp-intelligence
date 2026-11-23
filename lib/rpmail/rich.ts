@@ -211,7 +211,33 @@ export function cleanRich(input: string): { html: string; text: string; pictures
     else openTag(name, attrs)
   }
   while (stack.length) close(stack.pop()!)
-  return { html, text: text.replace(/[ \t]+\n/g, '\n'), pictures }
+  return { html, text: trimLineEnds(text), pictures }
+}
+
+// The two tidy-ups below are written as plain loops on purpose. As patterns (`/[ \t]+\n/`, `/(<div><br><\/div>)+$/`) they
+// re-read a long run from every position in it, so a message made of tens of thousands of spaces or empty lines took
+// seconds to minutes of server time. A loop reads each character once.
+
+/** Spaces and tabs at the end of each line, taken off. */
+function trimLineEnds(t: string): string {
+  let out = '', from = 0
+  for (;;) {
+    const nl = t.indexOf('\n', from)
+    if (nl < 0) return out + t.slice(from)
+    let end = nl
+    while (end > from && (t[end - 1] === ' ' || t[end - 1] === '\t')) end--
+    out += t.slice(from, end) + '\n'
+    from = nl + 1
+  }
+}
+
+const EMPTY_LINE = '<div><br></div>'
+/** Empty lines taken off the end of cleaned HTML (and off the start too, with `bothEnds`). */
+function trimEmptyLines(h: string, bothEnds = false): string {
+  let a = 0, b = h.length
+  if (bothEnds) while (h.startsWith(EMPTY_LINE, a)) a += EMPTY_LINE.length
+  while (b - EMPTY_LINE.length >= a && h.startsWith(EMPTY_LINE, b - EMPTY_LINE.length)) b -= EMPTY_LINE.length
+  return h.slice(a, b)
 }
 
 /** True when the message uses any formatting. A message with none goes out as plain text, exactly as it always did. */
@@ -224,6 +250,35 @@ export const textToHtml = (t: string) => t ? t.replace(/\r\n?/g, '\n').split('\n
 export const sameWords = (a: string, b: string) => {
   const tidy = (x: string) => x.replace(/ /g, ' ').replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').trim()
   return tidy(a) === tidy(b)
+}
+
+/**
+ * Wording that is kept and used again (a signature, a template): cleaned, with any picture taken out (a picture only
+ * waits until its message is sent, so one kept here would soon point at nothing). `html` is null when nothing is formatted.
+ */
+export function keptWording(html: unknown, text: unknown, max: number): { text: string; html: string | null } {
+  if (typeof html !== 'string' || !html.trim()) return { text: String(text ?? '').trim().slice(0, max), html: null }
+  const c = cleanRich(cleanRich(html.slice(0, max * 12)).html.replace(/<img [^>]*>/g, ''))
+  const tidy = trimEmptyLines(c.html, true)
+  return { text: c.text.trim().slice(0, max), html: c.text.length <= max && hasFormatting(tidy) ? tidy : null }
+}
+
+/**
+ * `html` without the block of wording it ends with. Used when a message is saved as a template: the signature that
+ * sits under the message is not part of the template.
+ */
+export function withoutEnding(html: string, ending: string): string {
+  const tidy = (x: string) => x.replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').trim()
+  const all = tidy(cleanRich(html).text), end = tidy(ending)
+  if (!end || !all.endsWith(end)) return html
+  const want = all.slice(0, all.length - end.length).trim()
+  // Cut at the start of each block, working back from the end, until what is left reads as the message without its ending.
+  const cuts = [...html.matchAll(/<(?:div|ul|ol)>/g)].map(m => m.index).reverse().slice(0, 120)
+  for (const at of cuts) {
+    const c = cleanRich(html.slice(0, at))
+    if (tidy(c.text) === want) return trimEmptyLines(c.html)
+  }
+  return html
 }
 
 const lines = (t: string) => t.replace(/\r\n?/g, '\n').split('\n').map(escHtml).join('<br>')
