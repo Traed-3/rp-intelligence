@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { gmail, pace, pooled, b64url, headerMap, isHidden, NotConnected, type GMessage, type GPart } from './gmail'
+import { gmail, pace, pooled, b64url, headerMap, isHidden, NotConnected, Busy, type GMessage, type GPart } from './gmail'
 import { parseAddrs, decodeWords, htmlToText, topOf, asksForSomething, deadlineHint, findSite, findPo, isBulk } from './parse'
 import type { Mailbox, SyncState } from './access'
 import { onArrival } from './arrival'
@@ -109,25 +109,32 @@ async function listIds(boxId: string, q: string, max: number): Promise<string[]>
 }
 
 /** Fetch these messages from Gmail and write them to the index; ones that are gone or hidden are removed. */
-export async function loadMessages(box: Mailbox, ids: string[], sites: Set<string>, fast = false): Promise<{ stored: number; failed: string[] }> {
+export async function loadMessages(box: Mailbox, ids: string[], sites: Set<string>, fast = false): Promise<{ stored: number; failed: string[]; retry: string[]; busy: boolean }> {
   const admin = createAdminClient()
-  const rows: IndexRow[] = [], gone: string[] = [], failed: string[] = []
-  await pooled(ids, 5, async id => {
+  const rows: IndexRow[] = [], gone: string[] = [], failed: string[] = [], retry: string[] = []
+  // The first load of a mailbox (fast) is the one thing that can use up Google's allowance for the mailbox, and a person
+  // opening a message at the same moment would then wait. So the first load goes slower, asks each message at most
+  // twice, and stops at Google's first "slow down": what it did not get is tried again on the next round, not dropped.
+  let busy = false
+  const opts = fast ? { tries: 2 } : {}
+  await pooled(ids, fast ? 3 : 5, async id => {
+    if (busy) { retry.push(id); return }
     try {
-      await pace(box.id)
+      await pace(box.id, fast ? 10 : 18)
       // First load of a whole mailbox: ask for the headers only (much smaller), and fetch the full message just for
       // mail from people and for anything that may carry an attachment. Newsletters never need their text read.
-      let m = await gmail<GMessage>(box.id, 'messages/' + id, { params: fast ? { format: 'metadata', metadataHeaders: META_HEADERS } : { format: 'full' } })
+      let m = await gmail<GMessage>(box.id, 'messages/' + id, { params: fast ? { format: 'metadata', metadataHeaders: META_HEADERS } : { format: 'full' }, ...opts })
       if (m && fast && !isHidden(m.labelIds)) {
         const row = toRow(box, m, sites)
         if (row.bulk && !/multipart\/mixed/i.test(headerMap(m.payload)['content-type'] ?? '')) { rows.push(row); return }
-        await pace(box.id)
-        m = await gmail<GMessage>(box.id, 'messages/' + id, { params: { format: 'full' } })
+        await pace(box.id, 10)
+        m = await gmail<GMessage>(box.id, 'messages/' + id, { params: { format: 'full' }, ...opts })
       }
       if (!m || isHidden(m.labelIds)) gone.push(id)
       else rows.push(toRow(box, m, sites))
     } catch (e) {
       if (e instanceof NotConnected) throw e
+      if (fast && e instanceof Busy) { busy = true; retry.push(id); return }
       failed.push(id)
     }
   })
@@ -136,7 +143,7 @@ export async function loadMessages(box: Mailbox, ids: string[], sites: Set<strin
     if (error) throw new Error('Could not save the mail index: ' + error.message)
   }
   if (gone.length) await admin.from('rpmail_messages').delete().eq('mailbox_id', box.id).in('gmail_id', gone)
-  return { stored: rows.length, failed }
+  return { stored: rows.length, failed, retry, busy }
 }
 
 export type SyncResult = { done: boolean; total: number; left: number; changed: number; busy?: boolean }
@@ -168,6 +175,7 @@ export async function syncMailbox(box: Mailbox, budgetMs = 18_000): Promise<Sync
       await save({ history_id: historyId, sync: { ...sync, busy: new Date().toISOString() }, last_error: null })
     }
 
+    let slowed = false
     if (sync.todo?.length) {
       let todo = sync.todo
       while (todo.length && Date.now() - started < budgetMs) {
@@ -175,11 +183,13 @@ export async function syncMailbox(box: Mailbox, budgetMs = 18_000): Promise<Sync
         const batch = todo.slice(0, CHUNK)
         const r = await loadMessages(box, batch, sites, true)
         changed += r.stored
-        todo = todo.slice(CHUNK)   // a message that would not load is skipped, not retried forever
+        // A message Google said "slow down" about goes back to the front; one that failed for any other reason is skipped, not retried forever.
+        todo = [...r.retry, ...todo.slice(CHUNK)]
+        if (r.busy) { slowed = true; break }
       }
       sync = todo.length ? { ...sync, todo } : { total: sync.total, started: sync.started, full_done: new Date().toISOString() }
       await save({ sync, last_sync_at: new Date().toISOString(), last_error: null, failing_since: null, fail_alerted_at: null })
-      if (todo.length) return { done: false, total: sync.total ?? 0, left: todo.length, changed }
+      if (todo.length) return { done: false, total: sync.total ?? 0, left: todo.length, changed, ...(slowed ? { busy: true } : {}) }
     }
 
     if (historyId) {
