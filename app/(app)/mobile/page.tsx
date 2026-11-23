@@ -247,7 +247,7 @@ export default async function MobilePage() {
       <div className="px-6 pb-24 text-center space-y-3">
         <p className="text-xs text-gray-400">
           Add to Home Screen for quick access:{' '}
-          <span className="font-medium">tap Share → Add to Home Screen</span>
+          <Link href="/help/home-screen" className="font-medium underline">show me how</Link>
         </p>
         <div className="flex items-center justify-center gap-6">
           <ShareAppButton />
