@@ -320,6 +320,16 @@
   .rp-card-link:hover { border-color: color-mix(in oklab, var(--brand) 45%, var(--border)); box-shadow: var(--shadow-2); }
   .rp-card-link:active { transform: translateY(1px); box-shadow: var(--shadow-1); }
 
+  /* Navy Header card (Trae, 11/23/26): the title sits in a navy band across the top with a gold rule under it,
+     and the icon is the same gold as the active icon in the side menu. Used by the Dashboard department cards. */
+  .rp-card-banded { box-shadow: 0 1px 2px oklch(0.2 0.03 258 / 0.06), 0 14px 32px -12px oklch(0.2 0.03 258 / 0.32); transition: transform 180ms, box-shadow 180ms, border-color 180ms; }
+  .rp-card-banded.rp-card-link:hover { transform: translateY(-3px); box-shadow: 0 2px 4px oklch(0.2 0.03 258 / 0.08), 0 20px 40px -12px oklch(0.2 0.03 258 / 0.4); }
+  .rp-band { --gold: #f0b43a; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin: -1.25rem -1.25rem 1rem; padding: 0.9rem 1.25rem; border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0; background: linear-gradient(120deg, #0f2547 0%, var(--sidebar-navy) 50%, #24508f 100%); border-bottom: 3px solid var(--gold); }
+  .rp-band-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.25rem; height: 2.25rem; border-radius: 0.75rem; color: var(--gold); background: oklch(1 0 0 / 0.1); box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.14); }
+  .rp-band-arrow { color: oklch(1 0 0 / 0.55); transition: color 150ms, transform 150ms; }
+  .rp-card-link:hover .rp-band-arrow { color: var(--gold); transform: translateX(2px); }
+  .dark .rp-card-banded { box-shadow: 0 1px 2px oklch(0 0 0 / 0.35), 0 14px 32px -12px oklch(0 0 0 / 0.6); }
+
   /* List item card (the My Plate card): its own card, a colored left stripe
      for status, room for a site tag, muted detail, pills and one action. */
   .rp-item { --stripe: var(--color-gray-300); background: var(--card); border: 1px solid var(--border); border-left: 6px solid var(--stripe); border-radius: var(--radius-lg); padding: 0.75rem 0.875rem; box-shadow: var(--shadow-1); transition: box-shadow 150ms, border-color 150ms; }
@@ -406,6 +416,8 @@
 @media (min-width: 640px) { .rp-main h1:not([data-hero] *) { font-size: 2.25rem; } }
 .rp-main :is(h2, summary > h2, details > summary.rp-fold) { font-family: var(--font-display); font-size: 1.15rem; line-height: 1.1; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
 .rp-main h2 small { font-family: var(--font-sans); letter-spacing: 0; text-transform: none; }
+/* Navy Header card title (see .rp-band): unlayered so it wins over the h2 rule above. */
+.rp-main .rp-band-title { font-size: 1.35rem; color: #fff; overflow-wrap: anywhere; }
 
 /* ── Motion ─────────────────────────────────────────────────────────────────
    One small, consistent set: page rise, ring loader, sign-in logo reveal,
