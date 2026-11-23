@@ -700,6 +700,9 @@ is never changed from here). PER USER, NEVER PER ROLE.
   lib/rpmail/activity.ts `logActivity` writes the owner's activity log (`rpmail_activity`: subject lines and addresses only, NEVER message text;
   it must never throw). lib/rpmail/company.ts holds the company's own blocked-content rules (`rpmail_company.data.blocked`), checked by
   `contentGuard` right after the built-in pricing guard, which stays hard-coded and cannot be switched off.
+  A person's own settings are lib/rpmail/prefs.ts (`rpmail_prefs.data`, validated on read AND write; extras.ts re-exports getPrefs/setPrefs):
+  sender name, default send mailbox, start page, density, time zone (`ZONES`), address groups. Times on the server go through `dayStartIn` /
+  `inQuietHours` / `hourIn` with the person's `tz`. The page is /rpmail/settings (components/rpmail/rpmail-settings.tsx).
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.

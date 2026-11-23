@@ -4,7 +4,7 @@ import { sendPushNotification } from '@/lib/push'
 import { isLockedRole } from '@/lib/role-access'
 import { syncMailbox } from './sync'
 import { BOX_COLS, myMailboxes, type Mailbox, type Me } from './access'
-import { getPrefs, inQuietHours, type NotifyPrefs } from './extras'
+import { getPrefs, inQuietHours, hourIn, type NotifyPrefs } from './prefs'
 import { ensureSummary } from './overview'
 import { OUTBOX } from './compose-ops'
 import { cleanActivity } from './activity'
@@ -142,8 +142,8 @@ export async function notifyNewMail(box: Pick<Mailbox, 'id' | 'name' | 'kind' | 
     // The same rule as reading the mailbox: right company, RPMail on, and no pricing mailbox for a tech or shop login.
     if (p.is_active === false || p.company_id !== box.company_id || !enabled.has(p.id as string)) continue
     if (box.kind === 'shared' && !box.crew_reads && isLockedRole(p.role as string)) continue
-    const n = (await getPrefs({ id: p.id as string })).notify
-    if (!n.on || n.off.includes(box.id) || inQuietHours(n, new Date())) continue
+    const prefs = await getPrefs({ id: p.id as string }), n = prefs.notify
+    if (!n.on || n.off.includes(box.id) || inQuietHours(n, new Date(), prefs.tz)) continue
     const mine = fresh.filter(r => wants(n.what, r))
     if (!mine.length) continue
     const first = mine[0]
@@ -184,7 +184,8 @@ export async function wakeSnoozes(): Promise<number> {
     if (z.kind === 'remind' && thread.some(m => !m.sent && Date.parse(m.date as string) > Date.parse(z.created_at as string))) { await gone(); continue }   // they wrote back: nothing to remind about
     await admin.from('rpmail_snoozes').update({ woke_at: now.toISOString() }).eq('id', z.id)
     n++
-    if (inQuietHours((await getPrefs({ id: z.profile_id as string })).notify, now)) continue
+    const prefs = await getPrefs({ id: z.profile_id as string })
+    if (inQuietHours(prefs.notify, now, prefs.tz)) continue
     await push(z.profile_id as string, { title: `${z.kind === 'remind' ? 'No reply yet' : 'Back in your inbox'} (${box.name})`, message: (z.subject as string) || '(no subject)', link: '/rpmail' })
   }
   return n
@@ -203,6 +204,7 @@ async function morningSummaries(budgetMs: number): Promise<number> {
   let made = 0
   for (const u of users ?? []) {
     if (done.has(u.profile_id as string) || Date.now() - started > budgetMs) continue
+    if (hourIn((await getPrefs({ id: u.profile_id as string })).tz) < 6) continue      // 6 in the morning by the person's own clock
     const { data: p } = await admin.from('profiles').select('id, company_id, role, full_name, email, is_active').eq('id', u.profile_id).maybeSingle()
     if (!p || p.is_active === false) continue
     const who: Me = { id: p.id, company_id: p.company_id, role: p.role ?? '', name: p.full_name ?? '', email: (p.email ?? '').toLowerCase(), enabled: true, mailAddress: null }
