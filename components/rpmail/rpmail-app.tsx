@@ -856,6 +856,16 @@ const NO_NOTIFY: Notify = { on: false, what: 'people', quiet_from: '', quiet_to:
 function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: BoxInfo[]; close: () => void; save: (n: Notify) => Promise<void> }) {
   const [n, setN] = useState<Notify>(start ?? NO_NOTIFY)
   const [busy, setBusy] = useState(false)
+  const [test, setTest] = useState('')
+  const runTest = async () => {
+    setTest('Sending…')
+    try {
+      const r = await api<{ devices: number; sent: number; failed: number }>('notify_test', {})
+      setTest(!r.devices ? 'No phone or computer has notifications switched on yet. Press the Enable button above first.'
+        : r.sent ? `Sent to ${r.sent} device${r.sent === 1 ? '' : 's'}. It should appear within a few seconds.${r.failed ? ` ${r.failed} other device${r.failed === 1 ? '' : 's'} did not take it; switch notifications on again there.` : ''}`
+        : 'The notification service refused it. Switch notifications off and on again on this device, then try once more.')
+    } catch { setTest('Could not send the test. Try again in a minute.') }
+  }
   const what: [Notify['what'], string, string][] = [
     ['needs', 'Only mail that asks me for something', 'From a person, with a question or a request in it.'],
     ['people', 'Any mail from a person', 'Newsletters, receipts and other automatic mail stay quiet.'],
@@ -893,6 +903,10 @@ function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: Box
             <p className="font-semibold text-foreground">This phone or computer</p>
             <p className="text-xs text-muted-foreground">Notifications arrive on each device where you switch them on here. On an iPhone, add RP Intelligence to the Home Screen first (Share, then Add to Home Screen) and open it from there.</p>
             <PushToggle />
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button type="button" className={btn('outline', 'sm')} onClick={runTest}>Send a test notification</button>
+              {test && <span className="text-xs text-muted-foreground" role="status">{test}</span>}
+            </div>
           </div>
           <p className="text-xs text-muted-foreground">Text messages are not available yet.</p>
           <div className="flex gap-2">

@@ -15,8 +15,8 @@ function ensureVapid() {
 export async function sendPushNotification(
   subscription: { endpoint: string; p256dh: string; auth_key: string },
   payload: { title: string; message: string; link?: string }
-) {
-  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return
+): Promise<'sent' | 'gone' | 'failed' | 'off'> {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return 'off'
   ensureVapid()
 
   try {
@@ -24,11 +24,13 @@ export async function sendPushNotification(
       { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth_key } },
       JSON.stringify({ title: payload.title, body: payload.message, link: payload.link ?? '/' }),
     )
+    return 'sent'
   } catch (err: unknown) {
     // 410 = subscription is gone; silently ignore
-    if ((err as { statusCode?: number })?.statusCode !== 410) {
-      console.error('[push] delivery failed:', (err as Error)?.message)
-    }
+    const code = (err as { statusCode?: number })?.statusCode
+    if (code === 410 || code === 404) return 'gone'
+    console.error('[push] delivery failed:', (err as Error)?.message)
+    return 'failed'
   }
 }
 
