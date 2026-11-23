@@ -209,6 +209,11 @@ export default async function MobilePage() {
             <span className="text-sm font-semibold text-gray-800">Log Shop Time</span>
           </Link>
 
+          <Link href="/training" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
+            <span className="text-3xl">🎓</span>
+            <span className="text-sm font-semibold text-gray-800">Training</span>
+          </Link>
+
           <Link href="/help" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">🛟</span>
             <span className="text-sm font-semibold text-gray-800">Technical Help</span>

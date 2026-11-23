@@ -34,9 +34,10 @@ const FORMS_PATHS = ['/forms', '/construction/surveys', '/api/construction/surve
 // The shop side of the app.
 // '/my' = My Plate: everyone who signs in has one (Trae 11/13/26). Non-construction roles get the simple plate.
 // '/help' = Technical Help (how-to guides and videos): everyone.
+// '/training' = Training (company training videos): everyone.
 // '/rpmail' = RPMail: the page opens for any login, but it only does anything for a person who turned it on, and it
 // only shows mailboxes that are on that person's own login (per user, checked in lib/rpmail/access.ts).
-const SHOP_PAGES = ['/my', '/maintenance', '/assets', '/tickets', '/shop', '/time', '/notifications', '/help', '/rpmail']
+const SHOP_PAGES = ['/my', '/maintenance', '/assets', '/tickets', '/shop', '/time', '/notifications', '/help', '/training', '/rpmail']
 const SHOP_MOBILE = ['/mobile/report-issue', '/mobile/mileage', '/mobile/ticket']
 const SHOP_API = ['/api/assistant', '/api/push', '/api/upload', '/api/tickets', '/api/auth', '/api/daily-summary', '/api/rpmail']
 
