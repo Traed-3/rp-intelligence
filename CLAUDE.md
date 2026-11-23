@@ -722,6 +722,11 @@ is never changed from here). PER USER, NEVER PER ROLE.
   `/api/rpmail/attach_view?path=` (`attachView`: own folder only, PNG / JPEG / GIF / WebP only, kind read from the bytes). `cleanRich`
   keeps NO other `<img>` (no web address, no data: URI) and lists them as `pictures`; `sendMail` loads them with `takePictures`, swaps each
   for `cid:` and `buildRaw` sends multipart/related. Never let `cleanRich` keep another picture address: a web one is a tracking pixel.
+- SLOW PATTERNS (2026-11-23): anything that reads mail, received or about to be sent, must take time in step with its length. Four
+  patterns that re-read from every match were found and replaced by single passes: `[ \t]+\n` and `(<div><br></div>)+$` in rich.ts,
+  `<(script)\b[\s\S]*?</\1>` and `<[^>]+>` in `sanitizeHtml` / `htmlToText` (now `dropBlocks` in parse.ts plus plain loops). Before, 40,000
+  odd spaces in a message cost 2.5 s and mail made of unclosed `<script` tags cost a minute to open or to sync. Do not bring such patterns
+  back; give every "anything up to" a limit; and add a worst-case line to tests/rpmail/slow-input.test.ts for any new reader.
 - Looking at the screens with no mailbox: `node scripts/rpmail-tryout/build.mjs` builds the real page on made-up mail (answers in
   scripts/rpmail-tryout/entry.tsx); serve the output folder with any static server. Add made-up answers there when a new op needs showing.
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,

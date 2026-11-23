@@ -47,9 +47,52 @@ export function decodeWords(s: string): string {
   })
 }
 
+// Received mail is read with the two functions below, and anyone can send mail. They are written as single passes on
+// purpose: a pattern such as /<(script)\b[\s\S]*?<\/\1>/ or /<[^>]+>/ starts its search again at every "<", so mail
+// built from tens of thousands of unclosed tags took a minute of server time, in the reader and in the background check.
+
+const CLOSERS = new Map<string, RegExp>()
+/**
+ * `html` without whole blocks of the named kinds (`names` is a pattern such as "script|style"): opening tag, what is
+ * inside, closing tag. `put` goes in place of each. A block that is never closed is left alone, opening tag and all.
+ */
+export function dropBlocks(html: string, names: string, put = ''): string {
+  const open = new RegExp(`<(${names})\\b`, 'gi')
+  const neverCloses = new Set<string>()        // a kind with no closing tag ahead: looked for once, not once per opening tag
+  let out = '', i = 0
+  for (;;) {
+    open.lastIndex = i
+    const m = open.exec(html)
+    if (!m) return out + html.slice(i)
+    const name = m[1].toLowerCase(), after = open.lastIndex
+    let end = -1
+    if (!neverCloses.has(name)) {
+      let close = CLOSERS.get(name)
+      if (!close) CLOSERS.set(name, close = new RegExp(`</${name}\\s*>`, 'gi'))
+      close.lastIndex = after
+      const c = close.exec(html)
+      if (c) end = c.index + c[0].length; else neverCloses.add(name)
+    }
+    out += end < 0 ? html.slice(i, after) : html.slice(i, m.index) + put
+    i = end < 0 ? after : end
+  }
+}
+
+const LINE_END = /^<(?:br\s*\/?|\/p|\/div|\/tr|\/li|\/h\d)>$/i
+
 export function htmlToText(h: string): string {
-  let t = h.replace(/<(script|style|head)\b[\s\S]*?<\/\1>/gi, ' ')
-  t = t.replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>|<\/li>|<\/h\d>/gi, '\n').replace(/<[^>]+>/g, ' ')
+  const src = dropBlocks(h, 'script|style|head', ' ')
+  // Every tag becomes a space, or a line break where a line ends. A "<" with no ">" after it is not a tag: it stays as it is.
+  let t = '', i = 0
+  for (;;) {
+    const lt = src.indexOf('<', i)
+    if (lt < 0) { t += src.slice(i); break }
+    const gt = src.indexOf('>', lt + 1)
+    if (gt < 0) { t += src.slice(i); break }
+    if (gt === lt + 1) { t += src.slice(i, gt + 1); i = gt + 1; continue }      // "<>" holds nothing
+    t += src.slice(i, lt) + (gt - lt < 40 && LINE_END.test(src.slice(lt, gt + 1)) ? '\n' : ' ')
+    i = gt + 1
+  }
   t = t.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"')
     .replace(/&#39;|&apos;/gi, "'").replace(/&#(\d+);/g, (_m, n: string) => { try { return String.fromCodePoint(+n) } catch { return ' ' } })
   return t.replace(/[ \t ]+/g, ' ').replace(/\n\s*\n\s*\n+/g, '\n\n').trim()

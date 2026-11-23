@@ -6,7 +6,7 @@ import { contentRules, contentGuard } from './company'
 import { getPrefs, dayStartIn, DEFAULT_TZ } from './prefs'
 import { knownSites, loadMessages, toRow, walkParts, bodyText, type IndexRow } from './sync'
 import { buildRaw, cleanRecipients, pricingGuard, type OutFile } from './mime'
-import { parseAddrs, decodeWords, splitAddrList } from './parse'
+import { parseAddrs, decodeWords, splitAddrList, dropBlocks } from './parse'
 import { takeAttachments, takePictures, dropAttachments, MAX_ATTACH } from './compose-ops'
 import { randomBytes } from 'crypto'
 import { cleanRich, hasFormatting, replyQuoteHtml, forwardQuoteHtml, pictureTag, escAttr, keptWording } from './rich'
@@ -117,11 +117,27 @@ export async function searchGmail(who: Me, p: { mailbox?: unknown; q?: unknown }
   return { messages: groups, total: groups.length }
 }
 
-export function sanitizeHtml(h: string): string {
-  // The page also shows mail in a locked frame that cannot run scripts or load anything; this is the second lock.
-  return h
-    .replace(/<(script|iframe|object|embed|noscript)\b[\s\S]*?<\/\1\s*>/gi, '')
-    .replace(/<\/?(script|iframe|object|embed|noscript|form|link|base|meta)\b[^>]*>/gi, '')
+const BARE_TAG = /<\/?(?:script|iframe|object|embed|noscript|form|link|base|meta)\b/gi
+
+/**
+ * Takes out of received mail anything that could run or load. The page also shows mail in a locked frame that cannot
+ * run scripts or load anything; this is the second lock. Single passes, for the reason given in parse.ts.
+ */
+export function sanitizeHtml(html: string): string {
+  // 1. Whole blocks, with what is inside them. One that is never closed keeps its opening tag for step 2, and what follows stays as words.
+  const h = dropBlocks(html, 'script|iframe|object|embed|noscript')
+  // 2. The tags themselves, wherever one is left.
+  let out = '', i = 0
+  for (;;) {
+    BARE_TAG.lastIndex = i
+    const m = BARE_TAG.exec(h)
+    if (!m) { out += h.slice(i); break }
+    out += h.slice(i, m.index)
+    const gt = h.indexOf('>', BARE_TAG.lastIndex)
+    if (gt < 0) break                            // a tag that never ends: a browser shows nothing after it either
+    i = gt + 1
+  }
+  return out
     .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
     .replace(/javascript:/gi, 'blocked:')
 }

@@ -13,7 +13,7 @@ import type { BoxInfo } from '@/lib/rpmail/overview'
 import type { Label } from '@/lib/rpmail/organize'
 import type { Rule } from '@/lib/rpmail/arrival'
 import { makeZip } from '@/lib/rpmail/zip'
-import { buildStack, startOpen, shownOf, isForward, htmlHasQuote, splitPlainQuote, shownText, ownPictures, frameHeight, messageDoc } from '@/lib/rpmail/thread-view'
+import { buildStack, startOpen, shownOf, isForward, htmlHasQuote, splitPlainQuote, shownText, ownPictures, wantsRemotePictures, frameHeight, messageDoc } from '@/lib/rpmail/thread-view'
 import { PushToggle } from '@/app/(app)/settings/alerts/push-toggle'
 import { Compose, clearDraft, type ComposeStart, type Outgoing } from './compose'
 
@@ -987,7 +987,7 @@ function MessageCard({ f, many, fold, canSend, actions }: { f: Full; many: boole
   const split = canHide ? splitPlainQuote(f.text) : null
   const htmlQuote = !!f.html && canHide && htmlHasQuote(f.html)
   const hiding = !quoted && (f.html ? htmlQuote : !!split)
-  const hasRemote = !!f.html && /<img[^>]+src\s*=\s*["']?https?:/i.test(f.html)
+  const hasRemote = !!f.html && wantsRemotePictures(f.html)
   const doc = useMemo(() => f.html ? messageDoc(f.html, { pictures: imgs, hideQuoted: htmlQuote && !quoted }) : '', [f.html, imgs, htmlQuote, quoted])
   // The frame cannot report its own height (nothing in it may run), so the height is worked out from the words that will show.
   const sizing = useMemo(() => f.html ? { text: shownText(f.html, htmlQuote && !quoted), pics: ownPictures(f.html) } : { text: '', pics: 0 }, [f.html, htmlQuote, quoted])
