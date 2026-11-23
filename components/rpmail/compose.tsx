@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { BoxInfo } from '@/lib/rpmail/overview'
 import { api } from './rpmail-app'
 import { RichEditor, type RichHandle } from './rich-editor'
-import { cleanRich, sameWords, textToHtml } from '@/lib/rpmail/rich'
+import { cleanRich, sameWords, textToHtml, withoutEnding } from '@/lib/rpmail/rich'
 
 // New message, reply, reply all, forward, and the signature editor.
 // Send always asks first ("Send this to ... from ...?"), and then waits a few seconds so it can be undone.
@@ -23,14 +23,18 @@ export type ComposeStart =
 /** Everything the server needs to send one message, plus the words for the "Sending..." bar. */
 export type Outgoing = { payload: Record<string, unknown>; to: string; from: string; start: ComposeStart }
 
-type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; forward: boolean; attachments: string[]; signature: string }
+type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; forward: boolean; attachments: string[]; signature: string; signature_html?: string | null }
 type Att = { path: string; name: string; size: number }
-type Tpl = { id: string; name: string; body: string }
+type Tpl = { id: string; name: string; body: string; html?: string | null }
 type Saved = { to: string; cc: string; subject: string; body: string; html?: string; from: string; files: Att[]; pics?: Att[]; at: number }
 const lab = 'rp-label block mb-1'
 const OUTBOX = 'rpmail-outbox'
 const MAX = 20_000_000
 const UNDO_CHOICES = [0, 5, 10, 20, 30]
+/** A signature as it goes into the message box: with its formatting when it has any, under two empty lines to type on. */
+const sigHtml = (b?: { signature: string; signature_html?: string | null } | null) => b ? (b.signature_html || textToHtml(b.signature)) : ''
+const underGap = (sig: string) => sig ? '<div><br></div><div><br></div>' + sig : ''
+
 const PICTURE_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }
 
 /**
@@ -71,12 +75,14 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   // Mail can only go out from a mailbox this person is allowed to send from (an owner can make a shared mailbox read only for someone).
   const connected = boxes.filter(b => b.connected && (start.mode === 'signature' || b.can_send !== false))
   const [kept] = useState(() => start.mode === 'signature' ? null : readDraft(start))
-  const startSig = boxes.find(b => b.id === start.mailbox)?.signature ?? ''
+  const startBox = boxes.find(b => b.id === start.mailbox)
+  const startSig = startBox?.signature ?? ''
   const [from, setFrom] = useState(kept?.from && connected.some(b => b.id === kept.from) ? kept.from : connected.some(b => b.id === start.mailbox) ? start.mailbox : connected[0]?.id ?? start.mailbox)
   const [to, setTo] = useState(kept?.to ?? ''), [cc, setCc] = useState(kept?.cc ?? ''), [subject, setSubject] = useState(kept?.subject ?? '')
   const [body, setBody] = useState(kept?.body ?? (start.mode === 'signature' ? startSig : start.mode === 'new' && startSig ? '\n\n' + startSig : ''))
   // What the message box starts with: the kept draft with its formatting, else the plain starting text (the signature).
-  const [html, setHtml] = useState(() => start.mode === 'signature' ? '' : kept?.html ? cleanRich(kept.html).html : textToHtml(body))
+  const [html, setHtml] = useState(() => kept?.html ? cleanRich(kept.html).html : kept ? textToHtml(kept.body)
+    : start.mode === 'signature' ? sigHtml(startBox) : start.mode === 'new' ? underGap(sigHtml(startBox)) : '')
   const editor = useRef<RichHandle>(null)
   const [files, setFiles] = useState<Att[]>(kept?.files ?? [])
   // Pictures placed in the text: every one uploaded for this message, and which of them are still in the text right now.
@@ -102,7 +108,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
       .then(p => {
         if (!live) return
         setPrep(p)
-        if (!kept) { const t = p.signature ? '\n\n' + p.signature : ''; setTo(p.to); setCc(p.cc); setSubject(p.subject); setBody(t); setHtml(textToHtml(t)) }
+        if (!kept) { setTo(p.to); setCc(p.cc); setSubject(p.subject); setBody(p.signature ? '\n\n' + p.signature : ''); setHtml(underGap(sigHtml(p))) }
         setLoading(false)
       })
       .catch(e => { if (live) { setErr((e as Error).message); setLoading(false) } })
@@ -127,8 +133,8 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
 
   // The signature follows the From mailbox as long as nothing else has been typed.
   const pickFrom = (id: string) => {
-    const old = boxes.find(b => b.id === from)?.signature ?? '', next = boxes.find(b => b.id === id)?.signature ?? ''
-    if (!body.trim() || sameWords(body, old)) editor.current?.set(textToHtml(next ? '\n\n' + next : ''))
+    const old = boxes.find(b => b.id === from)?.signature ?? ''
+    if (!body.trim() || sameWords(body, old)) editor.current?.set(underGap(sigHtml(boxes.find(b => b.id === id))))
     setFrom(id); setConfirm(false)
   }
 
@@ -183,7 +189,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     if (uploading) { setErr('A file is still uploading. Give it a moment.'); return }
     if (start.mode === 'signature') {
       setBusy(true)
-      try { await api('signature', { mailbox: start.mailbox, text: body }); onDone('Signature saved.') } catch (e) { setErr((e as Error).message) }
+      try { await api('signature', { mailbox: start.mailbox, text: body, html }); onDone('Signature saved.') } catch (e) { setErr((e as Error).message) }
       setBusy(false); return
     }
     if (!draft) {
@@ -200,16 +206,16 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     setBusy(false)
   }
 
-  const insertTpl = (t: Tpl) => editor.current?.insert(textToHtml(t.body))
+  const insertTpl = (t: Tpl) => editor.current?.insert(t.html || textToHtml(t.body))
   const saveTpl = async () => {
-    // A template keeps the wording (not the bold or the lists), without the signature that sits under it.
+    // A template keeps the wording and its formatting, without the signature that sits under it. Pictures are not kept.
     const tidy = (x: string) => x.replace(/[ \t]+\n/g, '\n').trim()
     const sig = tidy(box?.signature ?? ''), all = tidy(body)
     const text = sig && all.endsWith(sig) ? all.slice(0, -sig.length).trim() : all
     if (!text) { setErr('Type the wording first, then save it as a template.'); setTplName(null); return }
     const name = (tplName ?? '').trim()
     if (!name) { setErr('Give the template a name.'); return }
-    try { await api('template_save', { name, body: text }); setTpls((await api<{ templates: Tpl[] }>('templates')).templates); setTplName(null); setErr('') } catch (e) { setErr((e as Error).message) }
+    try { await api('template_save', { name, body: text, html: withoutEnding(html, box?.signature ?? '') }); setTpls((await api<{ templates: Tpl[] }>('templates')).templates); setTplName(null); setErr('') } catch (e) { setErr((e as Error).message) }
   }
   const delTpl = async (t: Tpl) => {
     if (!window.confirm(`Delete the template "${t.name}"?`)) return
@@ -233,7 +239,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
             <p className="rounded-md border border-info/30 bg-info-soft px-3 py-2 text-xs text-foreground">Picked up where you left off. <button className="underline" onClick={() => { discard() }}>Throw it away</button> <button className="underline ml-2" onClick={() => setRestored(false)}>OK</button></p>
           )}
           {!loading && start.mode === 'signature' && (
-            <div><label className={lab}>Added to the end of what you write from {box?.address}</label><textarea className="rp-input min-h-[160px] font-sans" value={body} onChange={e => setBody(e.target.value)} /></div>
+            <div><label className={lab}>Added to the end of what you write from {box?.address}</label><RichEditor ref={editor} initial={html} onChange={onEdit} label="Signature" short autoFocus /></div>
           )}
           {!loading && isMail && (<>
             <div>
@@ -257,7 +263,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
                     </select>
                   )}
                   {tplName === null
-                    ? <button className="underline" type="button" title="Keeps the wording so you can drop it into any message. Bold, lists and links are not kept." onClick={() => setTplName('')}><FileText className="inline size-3" /> Save as template</button>
+                    ? <button className="underline" type="button" title="Keeps the wording and its formatting so you can drop it into any message. Pictures are not kept." onClick={() => setTplName('')}><FileText className="inline size-3" /> Save as template</button>
                     : <span className="inline-flex items-center gap-1.5">
                         <input className="rp-input !w-44 !py-1 text-xs" autoFocus placeholder="Name, e.g. Permit received" value={tplName} onChange={e => setTplName(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveTpl() } else if (e.key === 'Escape') { e.stopPropagation(); setTplName(null) } }} />

@@ -9,7 +9,7 @@ import { buildRaw, cleanRecipients, pricingGuard, type OutFile } from './mime'
 import { parseAddrs, decodeWords, splitAddrList } from './parse'
 import { takeAttachments, takePictures, dropAttachments, MAX_ATTACH } from './compose-ops'
 import { randomBytes } from 'crypto'
-import { cleanRich, hasFormatting, replyQuoteHtml, forwardQuoteHtml, pictureTag, escAttr } from './rich'
+import { cleanRich, hasFormatting, replyQuoteHtml, forwardQuoteHtml, pictureTag, escAttr, keptWording } from './rich'
 
 // RPMail: reading, filing and sending for one mailbox. Every function starts from `mailboxFor(me, …)`, so a person
 // can only ever touch a mailbox that is on their own login.
@@ -301,19 +301,22 @@ export async function markDone(who: Me, p: { mailbox?: unknown; id?: unknown; on
   return { ok: true, done: p.on !== false }
 }
 
-export async function getSignature(who: Me, boxId: string): Promise<string> {
-  const { data } = await createAdminClient().from('rpmail_signatures').select('body').eq('profile_id', who.id).eq('mailbox_id', boxId).maybeSingle()
-  return (data?.body as string | undefined) ?? ''
+/** A person's signature for one mailbox: the plain wording, and the same with its formatting when it has any. */
+export async function getSignature(who: Me, boxId: string): Promise<{ text: string; html: string | null }> {
+  const { data } = await createAdminClient().from('rpmail_signatures').select('body, html').eq('profile_id', who.id).eq('mailbox_id', boxId).maybeSingle()
+  return { text: (data?.body as string | undefined) ?? '', html: (data?.html as string | null | undefined) || null }
 }
-export async function setSignature(who: Me, p: { mailbox?: unknown; text?: unknown }) {
+export async function setSignature(who: Me, p: { mailbox?: unknown; text?: unknown; html?: unknown }) {
   const box = await mailboxFor(who, p.mailbox)
-  await createAdminClient().from('rpmail_signatures').upsert({ profile_id: who.id, mailbox_id: box.id, body: String(p.text ?? '').trim().slice(0, 4000) }, { onConflict: 'profile_id,mailbox_id' })
-  return { ok: true }
+  // With formatting, the HTML is cleaned here and the plain wording is taken from the cleaned copy (as for a message).
+  const sig = keptWording(p.html, p.text, 4000)
+  await createAdminClient().from('rpmail_signatures').upsert({ profile_id: who.id, mailbox_id: box.id, body: sig.text, html: sig.html }, { onConflict: 'profile_id,mailbox_id' })
+  return { ok: true, text: sig.text, html: sig.html }
 }
 
 const whenText = (ms: number, tz = DEFAULT_TZ) => new Date(ms).toLocaleString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 
-type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; quotedHtml: string; forward: boolean; attachments: string[]; signature: string
+type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; quotedHtml: string; forward: boolean; attachments: string[]; signature: string; signature_html: string | null
   msgid: string; refs: string; threadId: string; files: ReturnType<typeof walkParts>['files'] }
 
 async function prep(who: Me, box: Mailbox, id: string, all: boolean, forward: boolean): Promise<Prep> {
@@ -327,10 +330,10 @@ async function prep(who: Me, box: Mailbox, id: string, all: boolean, forward: bo
   const mine = new Set([box.address, who.email].filter(Boolean))
   let subj = decodeWords(h['subject'] ?? '')
   const when = whenText(Number(m.internalDate ?? Date.now()), (await getPrefs(who)).tz)
-  const signature = await getSignature(who, box.id)
+  const sig = await getSignature(who, box.id)
   const msgid = (h['message-id'] ?? '').trim()
   const refs = (((h['references'] ?? '') + ' ' + msgid).match(/<[^>]+>/g) ?? []).slice(-20).join(' ')
-  const base = { from: box.address, signature, msgid, refs, threadId: m.threadId, files }
+  const base = { from: box.address, signature: sig.text, signature_html: sig.html, msgid, refs, threadId: m.threadId, files }
   if (forward) {
     if (!/^fwd?\s*:/i.test(subj)) subj = 'Fwd: ' + subj
     const head = `---------- Forwarded message ----------\nFrom: ${from.name} <${from.addr}>\nDate: ${when}\nSubject: ${decodeWords(h['subject'] ?? '')}\nTo: ${toList.join(', ')}`
@@ -357,7 +360,7 @@ async function prep(who: Me, box: Mailbox, id: string, all: boolean, forward: bo
 export async function draftPrep(who: Me, p: Record<string, string>) {
   const box = await mailboxFor(who, p.mailbox)
   const d = await prep(who, box, gid(p.id), p.all === '1', p.fwd === '1')
-  return { from: d.from, to: d.to, cc: d.cc, subject: d.subject, quoted: d.quoted, forward: d.forward, attachments: d.attachments, signature: d.signature }
+  return { from: d.from, to: d.to, cc: d.cc, subject: d.subject, quoted: d.quoted, forward: d.forward, attachments: d.attachments, signature: d.signature, signature_html: d.signature_html }
 }
 
 const tooLong = (): never => { throw new UserError('That message is too long to send from here. Shorten it, or put the long part in an attached file.') }

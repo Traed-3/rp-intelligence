@@ -710,7 +710,8 @@ is never changed from here). PER USER, NEVER PER ROLE.
   lib/rpmail/rich.ts `cleanRich` is the only thing that may fill the box or build outgoing HTML: it re-writes the HTML tag by tag into
   b / i / u / ul / ol / li / a (http, https, mailto only) / div / br and makes the plain-text copy in the same pass. `sendMail` takes `html`,
   cleans it again, and takes the plain text FROM THE CLEANED HTML, never from the page's `body`, so the pricing and blocked-content rules read
-  exactly what goes out. No formatting in it = plain text only, as before. Signatures and templates are still plain text.
+  exactly what goes out. No formatting in it = plain text only, as before. Signatures and templates keep formatting too: `body` is the
+  plain wording, `html` (nullable, migration rpmail_rich_text.sql) the formatted copy, both written through `keptWording` (no pictures).
   Conversation view (2026-11-23): opening a message (`readMessage`) also returns the rest of its conversation, live from Gmail, as `thread`
   (who / when / first words only; `restOfThread` asks once with `tries: 1` and falls back to the index). The reader (`Reader` + `MessageCard`
   in rpmail-app.tsx) stacks them oldest first and fetches another message's text only when it is pressed (the same `message` op, three at

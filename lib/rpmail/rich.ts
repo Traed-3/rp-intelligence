@@ -226,6 +226,35 @@ export const sameWords = (a: string, b: string) => {
   return tidy(a) === tidy(b)
 }
 
+/**
+ * Wording that is kept and used again (a signature, a template): cleaned, with any picture taken out (a picture only
+ * waits until its message is sent, so one kept here would soon point at nothing). `html` is null when nothing is formatted.
+ */
+export function keptWording(html: unknown, text: unknown, max: number): { text: string; html: string | null } {
+  if (typeof html !== 'string' || !html.trim()) return { text: String(text ?? '').trim().slice(0, max), html: null }
+  const c = cleanRich(cleanRich(html.slice(0, max * 12)).html.replace(/<img [^>]*>/g, ''))
+  const tidy = c.html.replace(/^(<div><br><\/div>)+|(<div><br><\/div>)+$/g, '')
+  return { text: c.text.trim().slice(0, max), html: c.text.length <= max && hasFormatting(tidy) ? tidy : null }
+}
+
+/**
+ * `html` without the block of wording it ends with. Used when a message is saved as a template: the signature that
+ * sits under the message is not part of the template.
+ */
+export function withoutEnding(html: string, ending: string): string {
+  const tidy = (x: string) => x.replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').trim()
+  const all = tidy(cleanRich(html).text), end = tidy(ending)
+  if (!end || !all.endsWith(end)) return html
+  const want = all.slice(0, all.length - end.length).trim()
+  // Cut at the start of each block, working back from the end, until what is left reads as the message without its ending.
+  const cuts = [...html.matchAll(/<(?:div|ul|ol)>/g)].map(m => m.index).reverse().slice(0, 300)
+  for (const at of cuts) {
+    const c = cleanRich(html.slice(0, at))
+    if (tidy(c.text) === want) return c.html.replace(/(<div><br><\/div>)+$/, '')
+  }
+  return html
+}
+
 const lines = (t: string) => t.replace(/\r\n?/g, '\n').split('\n').map(escHtml).join('<br>')
 
 /**
