@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { UserError } from './gmail'
-import { myMailboxes, type Me } from './access'
+import { myMailboxes, Forbidden, type Me } from './access'
 import { ADDR_RE } from './parse'
 import type { OutFile } from './mime'
 
@@ -53,6 +53,58 @@ export async function takeAttachments(who: Me, paths: unknown): Promise<{ files:
   }
   return { files, paths: ok }
 }
+const PICTURE_TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' }
+/** What kind of picture the bytes really are, whatever the file is called. Null for anything that is not one of the four kinds. */
+function pictureKind(b: Buffer): string | null {
+  if (b.length > 8 && b[0] === 0x89 && b.toString('latin1', 1, 4) === 'PNG') return 'image/png'
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg'
+  if (b.length > 6 && /^GIF8[79]a$/.test(b.toString('latin1', 0, 6))) return 'image/gif'
+  if (b.length > 12 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') return 'image/webp'
+  return null
+}
+const NOT_A_PICTURE = 'That file is not a picture RPMail can place in the text (PNG, JPEG, GIF or WebP). Attach it as a file instead.'
+
+async function loadPicture(who: Pick<Me, 'id'>, path: unknown): Promise<OutFile> {
+  if (!mine(who, path)) throw new UserError('One of the pictures in the message is not yours to send. Take it out and put it in again.')
+  const name = path.split('/')[2]
+  if (!PICTURE_TYPES[name.split('.').pop()?.toLowerCase() ?? '']) throw new UserError(NOT_A_PICTURE)
+  const { data, error } = await createAdminClient().storage.from(OUTBOX).download(path)
+  if (error || !data) throw new UserError(`The picture ${name} is no longer waiting to be sent. Take it out of the message and put it in again.`)
+  if (data.size > MAX_ATTACH) throw new UserError('That picture is over 20 MB.')
+  const bytes = Buffer.from(await data.arrayBuffer())
+  const type = pictureKind(bytes)
+  if (!type) throw new UserError(NOT_A_PICTURE)
+  return { name, type, data: bytes }
+}
+
+/** The pictures a person placed in the text of a message, read back for sending. Only their own, and only real pictures. */
+export async function takePictures(who: Me, paths: string[]): Promise<{ files: OutFile[]; paths: string[] }> {
+  const list = [...new Set(paths)]
+  if (list.length > 20) throw new UserError('Put 20 pictures or fewer in one message.')
+  const files: OutFile[] = []
+  let total = 0
+  for (const path of list) {
+    const f = await loadPicture(who, path)
+    total += f.data.length
+    if (total > MAX_ATTACH) throw new UserError('The pictures add up to more than 20 MB, which is more than email can carry. Take one out.')
+    files.push(f)
+  }
+  return { files, paths: list }
+}
+
+/**
+ * Shows a person one of their own waiting pictures, for the message box they are writing in. Never anyone else's, and
+ * never anything that is not a picture: the type sent back comes from the bytes, not from the file's name.
+ */
+export async function attachView(who: Me, p: Record<string, string>): Promise<Response> {
+  if (!mine(who, p.path)) throw new Forbidden('That picture is not yours.')
+  const f = await loadPicture(who, p.path)
+  return new Response(new Uint8Array(f.data), { headers: {
+    'Content-Type': f.type, 'Content-Disposition': 'inline', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, max-age=600',
+    'Content-Security-Policy': "default-src 'none'; sandbox",
+  } })
+}
+
 export async function dropAttachments(paths: string[]) {
   if (paths.length) await createAdminClient().storage.from(OUTBOX).remove(paths).catch(() => null)
 }

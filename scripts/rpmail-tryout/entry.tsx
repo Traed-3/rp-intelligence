@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { RpmailApp } from '@/components/rpmail/rpmail-app'
 import { replyQuoteHtml } from '@/lib/rpmail/rich'
+import { uploads } from './supabase-shim'
 
 // A stand-in for the server: a mailbox with a few conversations, held in memory. Nothing leaves this page.
 type M = { id: string; t: string; name: string; addr: string; to: string; date: number; subject: string; text: string; html?: string; unread?: boolean; sent?: boolean; inbox?: boolean; files?: { name: string; size: number }[] }
@@ -24,7 +25,11 @@ const msgs: M[] = [
   { id: 'e1', t: 'T5', name: 'Solo Tech', addr: 'solo@rp.com', to: ME, date: now - 9 * H, subject: 'Truck Q17 back in service', inbox: true, unread: true, text: 'Q17 is back from the shop.' },
 ]
 const sentLog: unknown[] = []
-;(window as unknown as { __sent: unknown[] }).__sent = sentLog
+;(window as unknown as { __sent: unknown[]; __uploads: Map<string, File> }).__sent = sentLog
+;(window as unknown as { __uploads: Map<string, File> }).__uploads = uploads
+const MY_ID = '11111111-1111-4111-8111-111111111111'
+// A sent picture is shown as a grey box: the real thing travels inside the mail, which this page does not make.
+const PICTURE = `<img alt="picture" src="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120"><rect width="240" height="120" fill="#cfd6e0"/><text x="120" y="66" font-size="16" text-anchor="middle" fill="#445">picture</text></svg>')}">`
 const item = (m: M) => ({ mailbox_id: BOX, id: m.id, thread_id: m.t, date: m.date, from_name: m.name, from_addr: m.addr, to_addrs: m.to, subject: m.subject, snippet: m.text.split('\n')[0].slice(0, 120), unread: !!m.unread, starred: false, has_att: !!m.files?.length, in_inbox: !!m.inbox, sent: !!m.sent, site: null, po: null, labels: [] })
 const box = () => ({ id: BOX, name: 'Ann', address: ME, kind: 'personal', crew_reads: false, connected: true, inbox: msgs.filter(m => m.inbox).length, unread: msgs.filter(m => m.unread).length, newest: now, needs: 0, last_sync_at: new Date().toISOString(), last_error: null, loading: null, signature: 'Ann Owner\nRappahannock Petroleum', can_send: true, can_delete: true })
 const state = () => ({ enabled: true, name: 'Ann Owner', role: 'owner', googleReady: true, personalAddress: ME, loginEmail: ME, boxes: [box()], note: null, prefs: { hidden: [], order: [], undo_secs: 0 } })
@@ -41,6 +46,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (op === 'labels') return json({ labels: [], can_edit: true })
   if (op === 'templates') return json({ templates: [{ id: 't1', name: 'Permit received', body: 'The permit is in hand.\nWork can start Monday.' }] })
   if (op === 'contacts') return json({ contacts: [] })
+  if (op === 'attach_prepare') return json({ path: `${MY_ID}/${crypto.randomUUID()}/${String(body.name)}`, token: 'tok' })
+  if (op === 'attach_remove') { uploads.delete(String(body.path)); return json({ ok: true }) }
   if (op === 'messages') {
     const by = new Map<string, M[]>()
     for (const m of msgs) by.set(m.t, [...(by.get(m.t) ?? []), m])
@@ -62,7 +69,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (op === 'send') {
     sentLog.push(body)
     const src = msgs.find(x => x.id === body.id)
-    if (!body.draft) msgs.push({ id: 's' + sentLog.length, t: src?.t ?? 'TS' + sentLog.length, name: 'Ann Owner', addr: ME, to: body.to, date: Date.now(), subject: body.subject, sent: true, text: body.body, html: body.html })
+    if (!body.draft) msgs.push({ id: 's' + sentLog.length, t: src?.t ?? 'TS' + sentLog.length, name: 'Ann Owner', addr: ME, to: body.to, date: Date.now(), subject: body.subject, sent: true, text: body.body, html: body.html ? String(body.html).replace(/<img src="\/api\/rpmail\/attach_view[^"]*">/g, PICTURE) : undefined })
     return json({ ok: true, sent: true, to: body.to, from: ME })
   }
   if (op === 'mark') { for (const m of msgs) { const src = msgs.find(x => x.id === body.id); if (src && m.t === src.t && !body.unread) m.unread = false; if (m.id === body.id && body.unread) m.unread = true } return json({ ok: true }) }

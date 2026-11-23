@@ -34,7 +34,6 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 Nothing here needs money. In rough order of how much a person would notice:
 
 1. A pass on real mail for stages 3 and 5, formatting and the conversation view (needs a mailbox connected; ask Trae before reconnecting the test one). Until then the screens can be looked at with made-up mail: `node scripts/rpmail-tryout/build.mjs`.
-2. Pictures inside the text (a pasted picture goes along as an attachment today).
 3. Open a draft saved to Gmail Drafts again in RPMail.
 4. Signatures and templates that keep their formatting.
 5. Rough edges: message open speed, an age limit on Needs you, on-page boxes instead of browser pop-ups.
@@ -43,7 +42,7 @@ Nothing here needs money. In rough order of how much a person would notice:
 8. A short how-to for staff under Technical Help.
 9. Two-step sign-in for RP Intelligence (the whole site, not only RPMail).
 
-Done from this list: conversation view (2026-11-23).
+Done from this list: conversation view, pictures inside the text (2026-11-23).
 
 ## Accounts and sign-in
 
@@ -73,7 +72,7 @@ Done from this list: conversation view (2026-11-23).
 | Filter: sender, date, label / folder | Missing | Stage 3. |
 | Write with formatting (bold, lists, links) | Done | A bar over the message box: bold, italic, underline, bulleted list, numbered list, link, remove formatting (Ctrl or Cmd + B / I / U / K too). A formatted message goes out with an HTML copy and a plain copy; one with no formatting goes as plain text as before. Pasting from Word, Docs or a web page keeps bold, italic, lists and links and drops everything else. Not kept with formatting yet: signatures and templates (plain wording), and the quoted original under a reply (its words only). Not built: font, size, colour, pictures inside the text. |
 | Attach files by button | Done | Up to 15 files, 20 MB in all. They wait in private storage under the person's own id and are deleted on Send or Save. |
-| Drag-and-drop files, paste images | Partly | Both work, but a pasted picture goes along as an attachment, not inside the text (that needs formatting). |
+| Drag-and-drop files, paste images | Done | Files dragged onto the message box are attached. A pasted picture, or one chosen with the Picture button, goes inside the text where the cursor is (PNG, JPEG, GIF, WebP; a large photo is scaled down to 1600 across first; up to 20 in one message, counted toward the 20 MB). Any other pasted file is attached. |
 | Drafts saved automatically | Partly | What is typed (and what is attached) is kept in that browser and comes back when the same message is opened again. It does not follow the person to another device, and a draft saved to Gmail Drafts cannot be reopened in RPMail yet. |
 | Undo send | Done | After the confirm step a bar counts down with Undo and Send now. The person picks none / 5 / 10 / 20 / 30 seconds. The tab must stay open for those seconds (the browser warns if it is closed). |
 | Schedule send | Missing | Stage 4 (needs the scheduled job; it will only ever send what the person scheduled). |
@@ -208,6 +207,7 @@ Known rough edges from the pass (not fixed yet):
 
 ## Stage log
 
+- 2026-11-23: pictures inside the text on branch `feat/rpmail-pictures`: `cleanRich` keeps one kind of `<img>` only, the person's own waiting upload shown from `/api/rpmail/attach_view?path=` (new GET action `attach_view`: own folder only, raster pictures only, kind read from the bytes); `takePictures` reads them for sending; `sendMail` points each at a `cid:` and `buildRaw` wraps the HTML and its pictures in multipart/related; picture names are read by the pricing rule like attachment names; `rich-editor.tsx` has a Picture button and puts pasted pictures in the text; `compose.tsx` `fitPicture` scales big ones down. The try-out page understands pictures. No database change. 156 tests. Tried in a browser on the try-out page; NOT on a real mailbox, so how Gmail and Outlook show the pictures is unseen.
 - 2026-11-23: conversation view on branch `feat/rpmail-conversation`: `readMessage` returns the rest of the conversation live from Gmail (`restOfThread`: one `threads.get` with headers only, asked once, falling back to the short list; drafts, Trash and Spam left out; nothing stored), `lib/rpmail/thread-view.ts` (how the stack is laid out, quoted-mail folding, frame height worked out from the words because the locked frame cannot report its own), `Reader` + `MessageCard` in rpmail-app.tsx, a reply shows in the open conversation as soon as it is sent, replies written in RPMail mark their quoted part the way Gmail does (`gmail_quote`), on a phone the filters step aside while a conversation is open, the Settings button in the top bar is the same size as its neighbours. New developer tool `scripts/rpmail-tryout` (the real page on made-up mail, for looking at screens with no mailbox connected). No database change. 139 tests. Tried in a browser on the try-out page at desktop and phone width; NOT on a real mailbox.
 - 2026-11-23: writing with formatting on branch `feat/rpmail-formatting`: `lib/rpmail/rich.ts` (`cleanRich` rebuilds typed or pasted HTML from scratch into b / i / u / ul / ol / li / a / div / br and makes the plain copy in the same pass; `safeHref` allows only http, https and mailto), `components/rpmail/rich-editor.tsx` (the message box and its bar), `buildRaw` sends multipart/alternative when there is an HTML copy, `sendMail` takes `html` and makes the plain text from the cleaned HTML (never from the page), so the pricing and blocked-content rules read exactly what goes out, link addresses included. No database change. 124 tests. Found while trying it in a browser and fixed: the page re-drawing wiped the box as you typed, and a link landed at the top of the message instead of on the selected words. NOT sent through a real mailbox (there is none connected).
 - 2026-11-23: stage 5 part two (a person's own Settings) on branch `feat/rpmail-stage5b`: `lib/rpmail/prefs.ts` (settings moved out of extras.ts; new `sender_name`, `default_from`, `start`, `density`, `tz`, `groups`; `dayStartIn`, `inQuietHours` and `hourIn` take a time zone), `app/(app)/rpmail/settings` + `components/rpmail/rpmail-settings.tsx`, the Settings button, compact lists, address groups in the To and Cc boxes. No database change. 103 tests.

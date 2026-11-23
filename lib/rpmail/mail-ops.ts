@@ -7,8 +7,9 @@ import { getPrefs, dayStartIn, DEFAULT_TZ } from './prefs'
 import { knownSites, loadMessages, toRow, walkParts, bodyText, type IndexRow } from './sync'
 import { buildRaw, cleanRecipients, pricingGuard, type OutFile } from './mime'
 import { parseAddrs, decodeWords, splitAddrList } from './parse'
-import { takeAttachments, dropAttachments, MAX_ATTACH } from './compose-ops'
-import { cleanRich, hasFormatting, replyQuoteHtml, forwardQuoteHtml } from './rich'
+import { takeAttachments, takePictures, dropAttachments, MAX_ATTACH } from './compose-ops'
+import { randomBytes } from 'crypto'
+import { cleanRich, hasFormatting, replyQuoteHtml, forwardQuoteHtml, pictureTag, escAttr } from './rich'
 
 // RPMail: reading, filing and sending for one mailbox. Every function starts from `mailboxFor(me, …)`, so a person
 // can only ever touch a mailbox that is on their own login.
@@ -411,11 +412,17 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
   // Files the person attached themselves (they wait in private storage under their own id until now).
   const own = await takeAttachments(who, p.files)
   files.push(...own.files)
-  if (files.reduce((n, f) => n + f.data.length, 0) > MAX_ATTACH) throw new UserError('The attachments add up to more than 20 MB, which is more than email can carry. Take one off.')
+  // Pictures placed in the text: read from the same private folder, checked to be real pictures, and given a name the HTML can point at.
+  const pics = rich?.pictures.length ? await takePictures(who, rich.pictures) : { files: [], paths: [] }
+  const pictures = pics.files.map(f => ({ ...f, cid: randomBytes(10).toString('hex') + '@rpmail' }))
+  if (html !== null) pics.paths.forEach((path, i) => {
+    html = html!.split(pictureTag(path)).join(`<img src="cid:${pictures[i].cid}" alt="${escAttr(pictures[i].name)}" style="max-width:100%;height:auto">`)
+  })
+  if ([...files, ...pictures].reduce((n, f) => n + f.data.length, 0) > MAX_ATTACH) throw new UserError('The attachments and pictures add up to more than 20 MB, which is more than email can carry. Take one off.')
 
   // The built-in pricing rule, then any rules the company wrote for itself. A refused send is written to the activity log.
   try {
-    const crewReads = await noPricingAddresses(box.company_id), text = [subject, full, ...files.map(f => f.name)].join('\n')
+    const crewReads = await noPricingAddresses(box.company_id), text = [subject, full, ...files.map(f => f.name), ...pictures.map(f => f.name)].join('\n')
     pricingGuard(box.address, [...to, ...cc], text, crewReads)
     contentGuard(await contentRules(box.company_id), box.address, [...to, ...cc], text, crewReads)
   } catch (e) {
@@ -424,19 +431,19 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
   }
 
   const raw = buildRaw({ fromName: (await getPrefs(who)).sender_name || who.name, fromAddr: box.address, to, cc, subject, body: full, inReplyTo, references, files,
-    ...(html !== null ? { html: `<div dir="ltr">${html}</div>` } : {}) })
+    ...(html !== null ? { html: `<div dir="ltr">${html}</div>`, pictures } : {}) })
   const message = { raw, ...(threadId ? { threadId } : {}) }
   const admin = createAdminClient()
   if (draft) {
     const r = await gmail<{ id?: string }>(box.id, 'drafts', { method: 'POST', body: { message } })
     await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'draft', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
-    await dropAttachments(own.paths)
+    await dropAttachments([...own.paths, ...pics.paths])
     await logActivity(who, 'draft', { box, detail: `To ${[...to, ...cc].join(', ').slice(0, 120) || '(nobody yet)'}: ${subject.slice(0, 120)}` })
     return { ok: true, draft: true, from: box.address }
   }
   const r = await gmail<{ id?: string; threadId?: string }>(box.id, 'messages/send', { method: 'POST', body: message })
   await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'send', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
-  await dropAttachments(own.paths)
+  await dropAttachments([...own.paths, ...pics.paths])
   await logActivity(who, 'send', { box, detail: `To ${[...to, ...cc].join(', ').slice(0, 120)}: ${subject.slice(0, 120)}` })
   if (r?.id) await loadMessages(box, [r.id], await knownSites(box.company_id)).catch(() => null)
   return { ok: true, sent: true, to: [...to, ...cc].join(', '), from: box.address }
