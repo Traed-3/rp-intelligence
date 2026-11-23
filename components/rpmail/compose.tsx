@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { BoxInfo } from '@/lib/rpmail/overview'
 import { api } from './rpmail-app'
 import { RichEditor, type RichHandle } from './rich-editor'
+import { useAsk } from './ask'
 import { cleanRich, sameWords, textToHtml, withoutEnding } from '@/lib/rpmail/rich'
 
 // New message, reply, reply all, forward, and the signature editor.
@@ -100,6 +101,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   const [loading, setLoading] = useState(start.mode === 'reply' || start.mode === 'forward')
   const box = boxes.find(b => b.id === from)
   const isMail = start.mode !== 'signature'
+  const [ask, asking] = useAsk()
 
   useEffect(() => {
     if (start.mode === 'signature' || start.mode === 'new') return
@@ -218,7 +220,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     try { await api('template_save', { name, body: text, html: withoutEnding(html, box?.signature ?? '') }); setTpls((await api<{ templates: Tpl[] }>('templates')).templates); setTplName(null); setErr('') } catch (e) { setErr((e as Error).message) }
   }
   const delTpl = async (t: Tpl) => {
-    if (!window.confirm(`Delete the template "${t.name}"?`)) return
+    if (!await ask({ text: `Delete the template "${t.name}"?`, yes: 'Delete', danger: true })) return
     try { await api('template_delete', { id: t.id }); setTpls(l => (l ?? []).filter(x => x.id !== t.id)) } catch (e) { setErr((e as Error).message) }
   }
 
@@ -228,6 +230,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   const carrying = [files.length ? `${files.length} attached` : '', shown.length ? `${shown.length} picture${shown.length === 1 ? '' : 's'} in the text` : ''].filter(Boolean).join(', ')
   return (
     <div className="fixed inset-0 z-40 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
+      {asking}
       <div className={cn('rp-card w-full sm:max-w-2xl max-h-[94vh] overflow-y-auto', over && 'ring-2 ring-primary')}
         onDragOver={e => { if (isMail && e.dataTransfer.types.includes('Files')) { e.preventDefault(); setOver(true) } }}
         onDragLeave={() => setOver(false)}
@@ -323,7 +326,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
                     <button className={buttonVariants({ variant: 'outline' })} disabled={busy || uploading > 0} onClick={() => void go(true)}>Save to Gmail Drafts</button>
                   </>}
               <button className={buttonVariants({ variant: 'ghost' })} disabled={busy} onClick={onClose}>{isMail ? 'Close (keeps it)' : 'Cancel'}</button>
-              {isMail && <button className={cn(buttonVariants({ variant: 'ghost' }), 'text-danger')} disabled={busy} onClick={() => { if (window.confirm('Throw this message away?')) discard() }}><Trash2 />Discard</button>}
+              {isMail && <button className={cn(buttonVariants({ variant: 'ghost' }), 'text-danger')} disabled={busy} onClick={() => void ask({ text: 'Throw this message away? What you typed and attached is deleted.', yes: 'Throw it away', danger: true }).then(ok => { if (ok) discard() })}><Trash2 />Discard</button>}
             </div>
           ))}
         </div>

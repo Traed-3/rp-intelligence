@@ -154,7 +154,9 @@ export class FakeDb {
     }
     if (name === 'rpmail_needs') {
       const addr = (id: unknown) => String(this.t('rpmail_mailboxes').find(b => b.id === id)?.address ?? '')
-      const rows = mine.filter(m => (!a.p_mailbox || m.mailbox_id === a.p_mailbox) && m.in_inbox && !m.sent && !m.bulk && String(m.from_addr ?? '').toLowerCase() !== addr(m.mailbox_id)
+      const recent = (m: Row) => Date.parse(String(m.date)) > Date.now() - 30 * 86_400_000
+        || this.t('rpmail_snoozes').some(w => w.profile_id === a.p_profile && w.mailbox_id === m.mailbox_id && w.thread_id === m.thread_id && !!w.woke_at)
+      const rows = mine.filter(m => (!a.p_mailbox || m.mailbox_id === a.p_mailbox) && m.in_inbox && !m.sent && !m.bulk && String(m.from_addr ?? '').toLowerCase() !== addr(m.mailbox_id) && recent(m)
         && !mine.some(s => s.mailbox_id === m.mailbox_id && s.thread_id === m.thread_id && String(s.date) > String(m.date) && (s.sent || String(s.from_addr ?? '').toLowerCase() === addr(m.mailbox_id)))
         && !this.t('rpmail_done').some(d => d.profile_id === a.p_profile && d.mailbox_id === m.mailbox_id && d.gmail_id === m.gmail_id)
         && !this.t('rpmail_snoozes').some(z => z.profile_id === a.p_profile && z.mailbox_id === m.mailbox_id && z.thread_id === m.thread_id && z.kind === 'snooze' && !z.woke_at))

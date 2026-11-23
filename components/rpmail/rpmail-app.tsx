@@ -16,6 +16,7 @@ import { makeZip } from '@/lib/rpmail/zip'
 import { buildStack, startOpen, shownOf, isForward, htmlHasQuote, splitPlainQuote, shownText, ownPictures, wantsRemotePictures, frameHeight, messageDoc } from '@/lib/rpmail/thread-view'
 import { PushToggle } from '@/app/(app)/settings/alerts/push-toggle'
 import { Compose, clearDraft, type ComposeStart, type Outgoing } from './compose'
+import { useAsk } from './ask'
 
 // The built-in RPMail page: Dashboard (a tile per mailbox, My Plate, Your jobs, Needs you, Daily summary) and one
 // inbox per mailbox. Unread mail is bold everywhere. Opening a message never marks it read.
@@ -76,6 +77,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const [sel, setSel] = useState<{ mailbox: string; id: string } | null>(null)
   const [msg, setMsg] = useState<Full | null>(null)
   const [msgErr, setMsgErr] = useState('')
+  const [peek, setPeek] = useState<Item | null>(null)   // the list line of the message being opened, shown until the message arrives
   const selNow = useRef(sel)                       // what is open right now, for work that finishes later (a send)
   useEffect(() => { selNow.current = sel })
   const [toast, setToast] = useState<Toast>(connected ? { text: 'Connected. Your mail is loading.' } : null)
@@ -85,6 +87,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const [menu, setMenu] = useState<{ x: number; y: number; item: Item } | null>(null)
   const [boxMenu, setBoxMenu] = useState<{ x: number; y: number; box: BoxInfo } | null>(null)
   const [help, setHelp] = useState(false)
+  const [ask, asking] = useAsk()
   const [notifyOpen, setNotifyOpen] = useState(false)
   const [labelSet, setLabelSet] = useState<LabelSet | null>(null)
   const [organize, setOrganize] = useState<{ from?: string } | null>(null)
@@ -349,6 +352,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'Escape') { setMenu(null); setBoxMenu(null); setHelp(false); setNotifyOpen(false); setOrganize(null); return }
       if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return
+      if (document.querySelector('[role=alertdialog]')) return   // an "are you sure?" box is open: no shortcut acts behind it
       const k = keyState.current
       if (k.compose) return
       const first = k.view.kind === 'box' ? k.boxes.find(b => b.id === (k.view as { id: string }).id && b.connected) : k.boxes.find(b => b.connected)
@@ -393,9 +397,9 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
 
   const onBoxMenu = (e: React.MouseEvent, b: BoxInfo) => { e.preventDefault(); e.stopPropagation(); setMenu(null); setBoxMenu({ x: e.clientX, y: e.clientY, box: b }) }
   const goBox = (id: string) => { setFilter({ view: 'inbox', q: '', unread: false, att: false }); setView({ kind: 'box', id }); setSel(null); setMsg(null) }
-  const signOut = (b: BoxInfo) => { if (window.confirm(`Sign ${b.address} out of RPMail? Nothing in Gmail is touched. ${b.kind === 'shared' ? 'Everyone who has this shared mailbox loses it here until someone signs it in again.' : 'You can sign in again any time.'}`)) void act(async () => { await api('disconnect', { mailbox: b.id }); await boot(); say('Signed out.') }) }
+  const signOut = (b: BoxInfo) => void ask({ text: `Sign ${b.address} out of RPMail? Nothing in Gmail is touched. ${b.kind === 'shared' ? 'Everyone who has this shared mailbox loses it here until someone signs it in again.' : 'You can sign in again any time.'}`, yes: 'Sign out' }).then(ok => { if (ok) void act(async () => { await api('disconnect', { mailbox: b.id }); await boot(); say('Signed out.') }) })
   const canSignOut = (b: BoxInfo) => b.connected && (b.kind === 'personal' || st.role === 'owner')
-  const rowProps = { onStar: (it: Item) => void toggleStar(it, !it.starred), onOpen: (it: Item) => { if (view.kind !== 'box' || view.id !== it.mailbox_id) { setFilter({ view: 'all', q: '', unread: false, att: false }); setView({ kind: 'box', id: it.mailbox_id }) } void openMsg(it.mailbox_id, it.id) },
+  const rowProps = { onStar: (it: Item) => void toggleStar(it, !it.starred), onOpen: (it: Item) => { setPeek(it); if (view.kind !== 'box' || view.id !== it.mailbox_id) { setFilter({ view: 'all', q: '', unread: false, att: false }); setView({ kind: 'box', id: it.mailbox_id }) } void openMsg(it.mailbox_id, it.id) },
     onMenu: (e: React.MouseEvent, it: Item) => { e.preventDefault(); setBoxMenu(null); setMenu({ x: e.clientX, y: e.clientY, item: it }) } }
 
   return (
@@ -433,12 +437,12 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           {view.kind === 'dash' && !ov && <p className="text-sm text-muted-foreground">Loading...</p>}
           {view.kind === 'dash' && (
             <p className="mt-6 text-xs text-muted-foreground">RPMail is on for your login.{' '}
-              <button className="underline" onClick={() => { if (window.confirm('Turn RPMail off? Your own mailbox is disconnected from RP Intelligence. Your mail in Gmail is not touched, and you can turn it back on any time.')) void act(async () => { await api('enable', { on: false }); await boot() }) }}>Turn it off</button>
+              <button className="underline" onClick={() => void ask({ text: 'Turn RPMail off? Your own mailbox is disconnected from RP Intelligence. Your mail in Gmail is not touched, and you can turn it back on any time.', yes: 'Turn it off', danger: true }).then(ok => { if (ok) void act(async () => { await api('enable', { on: false }); await boot() }) })}>Turn it off</button>
             </p>
           )}
           {view.kind === 'box' && cur && !cur.connected && <Connect box={cur} st={st} />}
           {view.kind === 'box' && cur && cur.connected && (
-            <BoxView box={cur} filter={filter} setFilter={setFilter} list={list} sel={sel} msg={msg} msgErr={msgErr} rowProps={rowProps} reload={loadList} bulk={(ids, action, extra) => void bulk(cur.id, ids, action, extra)}
+            <BoxView box={cur} filter={filter} setFilter={setFilter} list={list} sel={sel} msg={msg} msgErr={msgErr} peek={peek && peek.id === sel?.id ? peek : null} rowProps={rowProps} reload={loadList} bulk={(ids, action, extra) => void bulk(cur.id, ids, action, extra)}
               labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit} openOrganize={from => setOrganize({ from })} makeLabel={name => makeLabel(cur.id, name)} canSend={boxes.some(b => b.connected && b.can_send)}
               close={() => { setSel(null); setMsg(null) }}
               search={() => void act(async () => { say('Searching all of Gmail...'); const r = await api<{ messages: Item[] }>('search', { mailbox: cur.id, q: filter.q }); setList({ key: keyOf(view, filter), items: r.messages }); say(r.messages.length ? `${r.messages.length} found in Gmail.` : 'Nothing found in Gmail.') })}
@@ -486,6 +490,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
       {organize && cur && <OrganizeSheet box={cur} labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit} ruleFrom={organize.from}
         reload={async () => { await loadLabels(cur.id); await refresh() }} close={() => setOrganize(null)} say={say} />}
       {notifyOpen && <NotifySheet start={st.prefs?.notify} boxes={boxes} zone={ZONE_NAMES[st.prefs?.tz ?? ''] ?? 'Eastern'} close={() => setNotifyOpen(false)} save={async n => { await savePrefs({ notify: n }); setNotifyOpen(false); say(n.on ? 'Notifications are on.' : 'Notifications are off.') }} />}
+      {asking}
       {toast && (
         <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg bg-foreground text-background px-4 py-2.5 text-sm shadow-lg max-w-[92vw]">
           <span>{toast.text}</span>
@@ -748,8 +753,8 @@ type Actions = {
   reply: (m: Full, all: boolean, fwd: boolean) => void
 }
 
-function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, reload, bulk, close, search, actions, editSig, disconnect, labels, canEdit, openOrganize, makeLabel, canSend }: {
-  box: BoxInfo; filter: Filter; setFilter: (f: Filter) => void; list: Item[] | null; sel: { mailbox: string; id: string } | null; msg: Full | null; msgErr: string
+function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProps, reload, bulk, close, search, actions, editSig, disconnect, labels, canEdit, openOrganize, makeLabel, canSend }: {
+  box: BoxInfo; filter: Filter; setFilter: (f: Filter) => void; list: Item[] | null; sel: { mailbox: string; id: string } | null; msg: Full | null; msgErr: string; peek: Item | null
   rowProps: RowProps; reload: () => void; bulk: (ids: string[], action: BulkAction, extra?: { label: string; move: boolean }) => void; close: () => void; search: () => void; actions: Actions; editSig: () => void; disconnect?: () => void
   labels: Label[]; canEdit: boolean; openOrganize: (ruleFrom?: string) => void; makeLabel: (name: string) => Promise<Label | null>; canSend: boolean }) {
   const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['filed', 'Filed'], ['snoozed', 'Snoozed'], ['all', 'All']]
@@ -846,7 +851,16 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
         </div>
         <div className={cn('lg:max-h-[78vh] overflow-y-auto', !sel && 'hidden lg:block')}>
           {!sel && <Empty>Pick a message to read it. Opening a message does not mark it read.</Empty>}
-          {sel && !msg && <Empty>{msgErr || 'Opening...'}</Empty>}
+          {sel && !msg && (peek && !msgErr
+            // While the message comes from Gmail, what the list already knows is shown, so the screen does not sit empty.
+            ? <div className="px-4 py-3" aria-busy="true">
+                <button className={cn(btn('ghost', 'xs'), 'lg:hidden mb-2')} onClick={close}><ArrowLeft />Back to the list</button>
+                <h3 className="text-base font-semibold text-foreground">{peek.subject || '(no subject)'}</h3>
+                <p className="mt-0.5 text-sm text-muted-foreground"><span className="font-medium text-foreground">{peek.from_name || peek.from_addr}</span> · {when(peek.date)}</p>
+                <p className="mt-3 text-sm text-muted-foreground">{peek.snippet}</p>
+                <p className="mt-3 text-xs text-muted-foreground" role="status">Opening the whole conversation...</p>
+              </div>
+            : <Empty>{msgErr || 'Opening...'}</Empty>)}
           {sel && msg && <Reader key={msg.id} m={msg} close={close} actions={actions} labels={labels} canEdit={canEdit} makeLabel={makeLabel} makeRule={openOrganize} canSend={canSend} canDelete={box.can_delete} />}
         </div>
       </div>

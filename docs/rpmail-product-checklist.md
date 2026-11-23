@@ -35,13 +35,12 @@ Nothing here needs money. In rough order of how much a person would notice:
 
 1. A pass on real mail for stages 3 and 5, formatting and the conversation view (needs a mailbox connected; ask Trae before reconnecting the test one). Until then the screens can be looked at with made-up mail: `node scripts/rpmail-tryout/build.mjs`.
 3. Open a draft saved to Gmail Drafts again in RPMail.
-5. Rough edges: message open speed, an age limit on Needs you, on-page boxes instead of browser pop-ups.
 6. Schedule send: Trae's say-so first (mail would leave after the person has walked away).
 7. Out-of-office: needs one more Google permission, so each person presses Sign in again once. Empty Trash stays set aside (it needs full-mailbox permission, and Gmail empties Trash itself after 30 days).
 8. A short how-to for staff under Technical Help.
 9. Two-step sign-in for RP Intelligence (the whole site, not only RPMail).
 
-Done from this list: conversation view, pictures inside the text, signatures and templates that keep their formatting (2026-11-23). Still plain: a picture (a logo) in a signature.
+Done from this list: conversation view, pictures inside the text, signatures and templates that keep their formatting, the rough edges (2026-11-23). Still plain: a picture (a logo) in a signature.
 
 ## Accounts and sign-in
 
@@ -198,14 +197,15 @@ Still not tested:
 
 Known rough edges from the pass (not fixed yet):
 - First load ran at about 3 to 4 messages a second. Stage 4 now reads newsletters by their headers only and fetches the full message just for mail from people or with attachments; the new speed has to be measured on the test mailbox.
-- Opening a message takes 1.3 to 3.9 seconds.
+- (Improved 2026-11-23) Opening a message: its parts are now fetched together, and the list line shows at once while the rest arrives. Not re-measured on real mail.
 - Mail goes out under the person's RP Intelligence name ("Trae Dodson - Admin"). Needs a "name on outgoing mail" setting. Stage 5.
-- Needs you has no age limit, so unanswered mail from a year ago shows in a mailbox connected for the first time.
-- Confirmations (sign out, delete a template, turn RPMail off) use browser pop-ups rather than on-page boxes.
+- (Fixed 2026-11-23) Needs you covers the last 30 days, plus anything that came back from a snooze or reminder.
+- (Fixed 2026-11-23) Confirmations are on-page boxes (components/rpmail/ask.tsx), not browser pop-ups.
 - (Fixed 2026-11-23) A reply now shows in the open conversation as soon as it is sent.
 
 ## Stage log
 
+- 2026-11-23: rough edges on branch `feat/rpmail-rough-edges`: Needs you limited to 30 days (migration `rpmail_needs_age.sql`, applied; a conversation back from a snooze or reminder still counts), `readMessage` fetches the message, sites, Done and snoozes together and the inline pictures all at once, the list line shows while a message opens, and every browser `confirm()` pop-up in RPMail (6) is an on-page box (`useAsk`). 207 RPMail tests. Tried in a browser on the try-out page; open speed NOT re-measured on real mail.
 - 2026-11-23: slow-input fix, in the same pull request as the formatted signatures. The automatic security review flagged one pattern in the new signature code; checking the rest turned up three more of the same kind, two of them already live: a message full of odd spaces tied up the sender's request (2.5 seconds for 40,000, minutes at the size limit; live since the formatting change earlier the same day), and received mail made of thousands of unclosed tags took a minute to open and could stall the background check for that mailbox (there since stage 1). All are now single passes that read each character once (`trimLineEnds`, `trimEmptyLines` in rich.ts; `dropBlocks` and a rewritten `htmlToText` in parse.ts; `sanitizeHtml` in mail-ops.ts; limits on the reader's own patterns in thread-view.ts). `tests/rpmail/slow-input.test.ts` feeds each one worst-case input and checks the new versions take out exactly what the old ones did. 204 RPMail tests.
 - 2026-11-23: formatted signatures and templates on branch `feat/rpmail-rich-signatures`: migration `rpmail_rich_text.sql` (nullable `html` on `rpmail_signatures` and `rpmail_templates`; applied), `keptWording` in rich.ts (cleans, takes pictures out, plain wording from the cleaned copy, `html` null when nothing is formatted), `getSignature` returns `{ text, html }`, `BoxInfo.signature_html`, `draft_prep.signature_html`, `signature` and `template_save` take `html`, `withoutEnding` cuts the signature off a message saved as a template, the signature editor (compose window and Settings page) is the formatting box without the Picture button. The try-out page shows the Settings page at `#settings`. 168 RPMail tests. Tried in a browser on the try-out page (first look at the Settings page in any browser); NOT on a real mailbox.
 - 2026-11-23: pictures inside the text on branch `feat/rpmail-pictures`: `cleanRich` keeps one kind of `<img>` only, the person's own waiting upload shown from `/api/rpmail/attach_view?path=` (new GET action `attach_view`: own folder only, raster pictures only, kind read from the bytes); `takePictures` reads them for sending; `sendMail` points each at a `cid:` and `buildRaw` wraps the HTML and its pictures in multipart/related; picture names are read by the pricing rule like attachment names; `rich-editor.tsx` has a Picture button and puts pasted pictures in the text; `compose.tsx` `fitPicture` scales big ones down. The try-out page understands pictures. No database change. 156 tests. Tried in a browser on the try-out page; NOT on a real mailbox, so how Gmail and Outlook show the pictures is unseen.
