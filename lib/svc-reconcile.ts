@@ -95,10 +95,12 @@ async function replayStatuses(
   const { data: open } = await admin
     .from('svc_work_orders')
     .select('id, portal_wo_number, status, notes, last_update_at, completed_at, dispatch_gmail_message_id, dispatch_gmail_thread_id, return_trip_needed')
-    .eq('company_id', COMPANY_ID).eq('archived', false).neq('status', 'completed')
+    .eq('company_id', COMPANY_ID).eq('archived', false)
     .not('portal_wo_number', 'is', null)
+  // Completed calls are replayed too: the only thing that can happen to one here is being REOPENED by a return-trip
+  // ticket that is newer than everything that completed it (see `isDone` below).
   const calls = (open ?? []).filter(c => !opts.onlyWo || c.portal_wo_number === opts.onlyWo)
-  result.openCalls = calls.length
+  result.openCalls = calls.filter(c => c.status !== 'completed').length
   if (!calls.length) return
 
   const byWo = new Map<string, typeof calls[number]>()
@@ -146,13 +148,21 @@ async function replayStatuses(
   }
 
   // 2 + 3. Closure notices in rpdispatcher (older imports carry no flag for these, so match on the subject).
-  const { data: notices } = await admin
-    .from('svc_gmail_imports')
-    .select('id, gmail_message_id, received_at, subject, sender, parsed')
-    .eq('mailbox', 'rpdispatcher')
-    .neq('status', 'ignored')   // older rows: the live sync logged a notice that failed its DKIM/SPF check as 'ignored'
-    .or('subject.ilike.%invoice approved%,subject.ilike.%has been redirected%,subject.ilike.%is terminated%')
-  for (const n of notices ?? []) {
+  const notices: { id: string; gmail_message_id: string; received_at: string; subject: string | null; sender: string | null; parsed: any }[] = []
+  for (let from = 0; ; from += 1000) {   // paged: a single query silently stops at 1,000 rows
+    const { data, error } = await admin
+      .from('svc_gmail_imports')
+      .select('id, gmail_message_id, received_at, subject, sender, parsed')
+      .eq('mailbox', 'rpdispatcher')
+      .neq('status', 'ignored')   // older rows: the live sync logged a notice that failed its DKIM/SPF check as 'ignored'
+      .or('subject.ilike.%invoice approved%,subject.ilike.%has been redirected%,subject.ilike.%is terminated%')
+      .order('received_at', { ascending: true })
+      .range(from, from + 999)
+    if (error) throw new Error(`closure notices: ${error.message}`)
+    notices.push(...(data ?? []))
+    if ((data ?? []).length < 1000) break
+  }
+  for (const n of notices) {
     const wo = (n.parsed as any)?.woNumber as string | undefined
     if (!wo || !byWo.has(wo)) continue
     if (!isTrustedPortalNotice(n.sender ?? '')) continue   // only the customer's ticketing system can close a call
@@ -183,14 +193,13 @@ async function replayStatuses(
     evs.sort((a, b) => a.at.localeCompare(b.at))
     const deciding = evs.filter(e => e.decisive !== false)
     if (!deciding.length) { if (!dryRun) await attachImports(admin, call.id, evs, result); continue }
-    let last = deciding[deciding.length - 1]
-    let target = targetFor(last.kind)
-    // The customer approving the invoice after a tech asked for a return trip does not prove the return
-    // happened: keep the call on Return Trip (the billing replay below still marks it invoiced).
-    if (last.kind === 'approved') {
-      const lastTicket = [...deciding].reverse().find(e => e.kind === 'rtn' || e.kind === 'complete' || e.kind === 'incomplete')
-      if (lastTicket?.kind === 'rtn') { last = lastTicket; target = 'rtn_needed' }
-    }
+    const isDone = call.status === 'completed'
+    const last = deciding[deciding.length - 1]
+    const target = targetFor(last.kind)
+    // Trae 2026-11-11: the customer approving the invoice after a tech asked for a return trip means the call is
+    // complete (they only approve billed work), so an approval after a return-trip ticket simply completes the call.
+    // A completed call is only ever reopened (by a return-trip ticket newer than everything that completed it).
+    if (isDone && target !== 'rtn_needed') continue
 
     // 'construction_active' only ever promotes a call nobody has touched; it must not downgrade real progress.
     if (last.kind === 'construction_active' && call.status !== 'dispatched') continue
@@ -223,6 +232,7 @@ async function replayStatuses(
           if (last.kind === 'approved') { updates.invoiced = true; if (last.invoiceNumber) updates.invoice_number = last.invoiceNumber }
           if (last.kind === 'complete') { updates.completion_note_raw = last.note ?? null; updates.completion_gmail_message_id = last.msgId }
         } else if (target === 'rtn_needed') {
+          if (isDone) updates.completed_at = null
           updates.return_trip_needed = true
           updates.return_trip_reason = last.note ?? null
           updates.completion_note_raw = last.note ?? null
