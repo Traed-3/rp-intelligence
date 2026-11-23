@@ -5,6 +5,7 @@ import { syncMailbox } from '@/lib/rpmail/sync'
 import { state, overview } from '@/lib/rpmail/overview'
 import { notifyTest } from '@/lib/rpmail/background'
 import { plateDone, plateAdd } from '@/lib/rpmail/overview'
+import { draftList, draftOpen } from '@/lib/rpmail/drafts'
 import { listMessages, searchGmail, readMessage, readAttachment, markRead, fileMessage, undoMove, markDone, setSignature, draftPrep, sendMail } from '@/lib/rpmail/mail-ops'
 import { setPrefs, doneList, setStar, bulk } from '@/lib/rpmail/extras'
 import { labelList, labelSave, labelDelete, labelApply, blockList, blockSender, ruleList, ruleSave, ruleDelete } from '@/lib/rpmail/organize'
@@ -38,6 +39,8 @@ const GETS: Record<string, { any?: boolean; run: (who: Me, q: Q, req: NextReques
   blocks: { run: (who, q) => blockList(who, q) },
   rules: { run: (who, q) => ruleList(who, q) },
   draft_prep: { run: (who, q) => draftPrep(who, q) },
+  drafts: { run: (who, q) => draftList(who, q) },
+  draft_open: { run: (who, q) => draftOpen(who, q) },
   connect: { any: true, run: async (who, q, req) => NextResponse.redirect(await oauthStart(who, q.mailbox, req.nextUrl.origin)) },
   admin_state: { any: true, run: who => adminState(who) },
   admin_activity: { any: true, run: (who, q) => activityList(who, q) },

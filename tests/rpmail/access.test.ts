@@ -9,7 +9,7 @@ import { world, addPerson, addBox, signInAs, type Person } from './fakes'
 const A = 'aaaaaaaa-0000-4000-8000-000000000001', B = 'bbbbbbbb-0000-4000-8000-000000000002'
 let ann: Person, bob: Person, tom: Person, off: Person, zed: Person
 let annBox: string, bobBox: string, pricing: string, crew: string, zedBox: string
-let annMsg: string, zedMsg: string, pricingMsg: string
+let annMsg: string, zedMsg: string, pricingMsg: string, annDraft: string
 
 const call = async (method: 'GET' | 'POST', op: string, data: Record<string, unknown> = {}) => {
   const url = new URL('https://rpintelligence.app/api/rpmail/' + op)
@@ -32,6 +32,7 @@ beforeEach(() => {
   crew = addBox(A, 'crew@gmail.com', 'shared', [ann, tom], { crew_reads: true })
   zedBox = addBox(B, 'zed@gmail.com', 'personal', [zed])
   annMsg = world.gmail.add('ann@gmail.com', { from: 'Customer <c@example.com>', subject: 'Private to Ann', files: [{ name: 'a.pdf', type: 'application/pdf', data: Buffer.from('pdf') }] }).id
+  annDraft = world.gmail.addDraft('ann@gmail.com', { to: 'x@example.com', subject: 'Ann draft' }).id
   zedMsg = world.gmail.add('zed@gmail.com', { from: 'x@example.com', subject: 'Other company' }).id
   pricingMsg = world.gmail.add('invoices@gmail.com', { from: 'x@example.com', subject: 'Invoice 12 for $500' }).id
   world.gmail.add('bob@gmail.com', { from: 'x@example.com', subject: 'For Bob' })
@@ -39,8 +40,8 @@ beforeEach(() => {
 })
 
 /** Every action that takes a mailbox, aimed at a mailbox + message that are not the caller's. */
-const everyAction = (mailbox: string, id: string): [method: 'GET' | 'POST', op: string, data: Record<string, unknown>][] => [
-  ['GET', 'messages', { mailbox }], ['GET', 'message', { mailbox, id }], ['GET', 'attachment', { mailbox, id, i: 0 }], ['GET', 'draft_prep', { mailbox, id }],
+const everyAction = (mailbox: string, id: string, draft = 'r' + id): [method: 'GET' | 'POST', op: string, data: Record<string, unknown>][] => [
+  ['GET', 'messages', { mailbox }], ['GET', 'message', { mailbox, id }], ['GET', 'attachment', { mailbox, id, i: 0 }], ['GET', 'draft_prep', { mailbox, id }], ['GET', 'drafts', { mailbox }], ['GET', 'draft_open', { mailbox, draft }],
   ['POST', 'sync', { mailbox }], ['POST', 'search', { mailbox, q: 'private' }], ['POST', 'mark', { mailbox, id }], ['POST', 'file', { mailbox, id, dest: 'Trash' }],
   ['POST', 'done', { mailbox, id }], ['POST', 'star', { mailbox, id }], ['POST', 'bulk', { mailbox, ids: [id], action: 'Trash' }], ['POST', 'signature', { mailbox, text: 'x' }],
   ['POST', 'send', { mailbox, mode: 'new', to: 'x@example.com', subject: 'hi', body: 'hi', confirmed: true }],
@@ -128,7 +129,7 @@ describe('one person cannot reach another person\'s mailbox', () => {
 describe('control: the same actions work for the person the mailbox belongs to', () => {
   it('lets Ann do all of it on her own mailbox (so the refusals above are real refusals, not a broken test)', async () => {
     signInAs(ann)
-    for (const [method, op, data] of everyAction(annBox, annMsg).filter(([, op]) => op !== 'disconnect' && op !== 'file' && op !== 'bulk')) {
+    for (const [method, op, data] of everyAction(annBox, annMsg, annDraft).filter(([, op]) => op !== 'disconnect' && op !== 'file' && op !== 'bulk')) {
       const r = await call(method, op, data)
       expect(r.status, `${op} on Ann's own mailbox`).toBe(200)
     }

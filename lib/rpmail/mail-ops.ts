@@ -9,6 +9,7 @@ import { buildRaw, cleanRecipients, pricingGuard, type OutFile } from './mime'
 import { parseAddrs, decodeWords, splitAddrList, dropBlocks } from './parse'
 import { takeAttachments, takePictures, dropAttachments, MAX_ATTACH } from './compose-ops'
 import { randomBytes } from 'crypto'
+import { draftCarry, draftId } from './drafts'
 import { cleanRich, hasFormatting, replyQuoteHtml, forwardQuoteHtml, pictureTag, escAttr, keptWording } from './rich'
 
 // RPMail: reading, filing and sending for one mailbox. Every function starts from `mailboxFor(me, …)`, so a person
@@ -388,12 +389,16 @@ const tooLong = (): never => { throw new UserError('That message is too long to 
  * mode 'new' | 'reply' | 'forward'. A forward carries the original's attachments along.
  */
 export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; id?: unknown; to?: unknown; cc?: unknown; subject?: unknown; body?: unknown
-  quote?: unknown; draft?: unknown; confirmed?: unknown; from?: unknown; files?: unknown; html?: unknown }) {
+  quote?: unknown; draft?: unknown; confirmed?: unknown; from?: unknown; files?: unknown; html?: unknown
+  /** A Gmail draft opened again in RPMail: it is updated (or sent) in place, and `keep` lists which of its files stay. */
+  draft_id?: unknown; keep?: unknown }) {
   // `src` is the mailbox the original message is in; `box` is the mailbox this goes out from (the From picker).
   const src = await mailboxFor(who, p.mailbox)
-  const box = p.from && p.from !== src.id ? await mailboxFor(who, p.from) : src
+  // A draft lives in one mailbox, so it goes out from that one.
+  const fromDraft = p.draft_id != null ? draftId(p.draft_id) : null
+  const box = p.from && p.from !== src.id && !fromDraft ? await mailboxFor(who, p.from) : src
   if (!maySend(box)) throw new Forbidden(`You can read ${box.name} but not send from it. An owner can change that in Settings, RPMail.`)
-  const mode = p.mode === 'reply' || p.mode === 'forward' ? p.mode : 'new'
+  const mode = fromDraft ? 'new' : p.mode === 'reply' || p.mode === 'forward' ? p.mode : 'new'
   const draft = p.draft === true
   if (!draft && p.confirmed !== true) throw new UserError('Press Send, then confirm.')
   const { to, cc } = cleanRecipients(String(p.to ?? ''), String(p.cc ?? ''), !draft)
@@ -429,6 +434,12 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
       }
     }
   } else if (!(to.length || subject || typed)) throw new UserError('The message is empty.')
+  if (fromDraft) {
+    // Reopened draft: it keeps the conversation and reply headers it had, and the files on it that were not taken off.
+    const c = await draftCarry(box, fromDraft, p.keep)
+    inReplyTo = c.inReplyTo; references = c.references; threadId = c.threadId
+    files.push(...c.files)
+  }
 
   // Files the person attached themselves (they wait in private storage under their own id until now).
   const own = await takeAttachments(who, p.files)
@@ -456,13 +467,19 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
   const message = { raw, ...(threadId ? { threadId } : {}) }
   const admin = createAdminClient()
   if (draft) {
-    const r = await gmail<{ id?: string }>(box.id, 'drafts', { method: 'POST', body: { message } })
+    const r = fromDraft
+      ? await gmail<{ id?: string }>(box.id, 'drafts/' + fromDraft, { method: 'PUT', body: { id: fromDraft, message } })
+      : await gmail<{ id?: string }>(box.id, 'drafts', { method: 'POST', body: { message } })
     await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'draft', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
     await dropAttachments([...own.paths, ...pics.paths])
     await logActivity(who, 'draft', { box, detail: `To ${[...to, ...cc].join(', ').slice(0, 120) || '(nobody yet)'}: ${subject.slice(0, 120)}` })
     return { ok: true, draft: true, from: box.address }
   }
-  const r = await gmail<{ id?: string; threadId?: string }>(box.id, 'messages/send', { method: 'POST', body: message })
+  // A reopened draft is brought up to date and then sent as itself, so Gmail does not keep the old copy in Drafts.
+  if (fromDraft) await gmail(box.id, 'drafts/' + fromDraft, { method: 'PUT', body: { id: fromDraft, message } })
+  const r = fromDraft
+    ? await gmail<{ id?: string; threadId?: string }>(box.id, 'drafts/send', { method: 'POST', body: { id: fromDraft } })
+    : await gmail<{ id?: string; threadId?: string }>(box.id, 'messages/send', { method: 'POST', body: message })
   await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'send', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
   await dropAttachments([...own.paths, ...pics.paths])
   await logActivity(who, 'send', { box, detail: `To ${[...to, ...cc].join(', ').slice(0, 120)}: ${subject.slice(0, 120)}` })
