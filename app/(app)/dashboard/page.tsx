@@ -10,6 +10,7 @@ import { loadFiles } from '@/lib/compliance-data'
 import { allowedDashboardCards, type DashboardCardKey } from '@/lib/nav-items'
 import { loadUiPrefs, visible, cardStyleOf } from '@/lib/ui-prefs'
 import { DepartmentCard } from '@/components/dashboard/department-card'
+import { SortableGrid } from '@/components/dashboard/sortable-grid'
 
 const SVC_OPEN_STATUSES = ['dispatched', 'new', 'on_site', 'in_progress', 'waiting_parts', 'rtn_needed']
 
@@ -220,16 +221,15 @@ export default async function CompanyDashboardPage({
         </div>
       </div>
 
-      {/* Department cards: the ones this person switched on, in their order (Settings → Personalize) */}
+      {/* Department cards: the ones this person switched on, in their order (drag them here, or Settings → Personalize) */}
       {cards.length === 0 ? (
         <div className="rp-empty">
           <p>Every dashboard card is switched off.</p>
           {canUseSettings(profile?.role) && <Link href="/settings/personalize" className="text-blue-600">Choose your cards</Link>}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cards.map(c => cardFor[c.key])}
-        </div>
+        <SortableGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          items={cards.map(c => ({ key: c.key, node: cardFor[c.key] }))} />
       )}
 
       {canUseSettings(profile?.role) && <p className="text-center">

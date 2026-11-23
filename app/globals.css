@@ -319,6 +319,11 @@
   .rp-card-link { transition: border-color 150ms, box-shadow 150ms, transform 150ms; }
   .rp-card-link:hover { border-color: color-mix(in oklab, var(--brand) 45%, var(--border)); box-shadow: var(--shadow-2); }
   .rp-card-link:active { transform: translateY(1px); box-shadow: var(--shadow-1); }
+  /* Dashboard squares you can grab and move (components/dashboard/sortable-grid.tsx). */
+  .rp-sortable { position: relative; cursor: grab; -webkit-touch-callout: none; }
+  .rp-sortable > * { height: 100%; }
+  .rp-sortable-lifted { z-index: 30; cursor: grabbing; pointer-events: none; transition: none; }
+  .rp-sortable-lifted > * { box-shadow: 0 4px 8px oklch(0.2 0.03 258 / 0.1), 0 28px 56px -12px oklch(0.2 0.03 258 / 0.45) !important; transform: none !important; }
 
   /* Navy Header card (Trae, 11/23/26): the title sits in a navy band across the top with a gold rule under it,
      and the icon is the same gold as the active icon in the side menu. Used by the Dashboard department cards. */
