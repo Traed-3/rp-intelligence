@@ -39,4 +39,12 @@ export const HELP_GUIDES: HelpGuide[] = [
   },
 ]
 
+/** The one guide that is a working page instead of a video: app/(app)/help/home-screen. Shown first on /help. */
+export const HOME_SCREEN_GUIDE = {
+  href: '/help/home-screen',
+  title: 'Add RP Intelligence to your Home Screen',
+  summary: 'Get the app icon on your phone or computer. One tap where the device allows it; on an iPhone it shows you the three taps.',
+  audience: 'Everyone',
+}
+
 export const helpGuideBySlug = (slug: string) => HELP_GUIDES.find(g => g.slug === slug)
