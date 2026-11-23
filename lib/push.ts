@@ -33,6 +33,8 @@ export async function sendPushNotification(
     await webpush.sendNotification(
       { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth_key } },
       JSON.stringify({ title: payload.title, body: payload.message, link: payload.link ?? '/' }),
+      // High urgency: a phone shows it straight away instead of holding it to save power. Dropped if undelivered after a day.
+      { urgency: 'high', TTL: 86_400 },
     )
     return 'sent'
   } catch (err: unknown) {
