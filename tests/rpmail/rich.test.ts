@@ -172,7 +172,7 @@ describe('sending with formatting', () => {
     await sendMail(me, { mailbox: box, mode: 'reply', id: m1, to: 'pat@vendor.com', confirmed: true, html: '<div><b>Confirmed.</b></div>' })
     const [plain, html] = parts(last().raw)
     expect(plain.text).toMatch(/^Confirmed\.\r\n\r\nOn .* wrote:\r\n> Can you confirm the order\?/)
-    expect(html.text).toMatch(/^<div dir="ltr"><div><b>Confirmed\.<\/b><\/div><div><br><\/div><div>On [^<]*Pat Vendor &lt;pat@vendor\.com&gt; wrote:<\/div><blockquote style="[^"]*">Can you confirm the order\?<br>&lt;b&gt;not bold&lt;\/b&gt; &amp; done<\/blockquote><\/div>$/)
+    expect(html.text).toMatch(/^<div dir="ltr"><div><b>Confirmed\.<\/b><\/div><div><br><\/div><div class="gmail_quote"><div class="gmail_attr">On [^<]*Pat Vendor &lt;pat@vendor\.com&gt; wrote:<\/div><blockquote class="gmail_quote" style="[^"]*">Can you confirm the order\?<br>&lt;b&gt;not bold&lt;\/b&gt; &amp; done<\/blockquote><\/div><\/div>$/)
     expect(last().threadId).toBeTruthy()
     // "do not include the original" leaves it out of both
     await sendMail(me, { mailbox: box, mode: 'reply', id: m1, to: 'pat@vendor.com', confirmed: true, quote: false, html: '<div><i>Thanks</i></div>' })

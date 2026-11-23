@@ -200,9 +200,12 @@ export const sameWords = (a: string, b: string) => {
 
 const lines = (t: string) => t.replace(/\r\n?/g, '\n').split('\n').map(escHtml).join('<br>')
 
-/** The message being answered, for the HTML copy: the "On ... wrote:" line, then the original set off with a bar down the side. */
+/**
+ * The message being answered, for the HTML copy: the "On ... wrote:" line, then the original set off with a bar down the side.
+ * It carries the same marks Gmail puts on quoted mail, so Gmail and RPMail both fold it away under the reply.
+ */
 export const replyQuoteHtml = (head: string, body: string) =>
-  `<div>${escHtml(head)}</div><blockquote style="margin:0 0 0 0.8ex;border-left:1px solid #ccc;padding-left:1ex">${lines(body)}</blockquote>`
+  `<div class="gmail_quote"><div class="gmail_attr">${escHtml(head)}</div><blockquote class="gmail_quote" style="margin:0 0 0 0.8ex;border-left:1px solid #ccc;padding-left:1ex">${lines(body)}</blockquote></div>`
 
 /** The message being forwarded, for the HTML copy. */
 export const forwardQuoteHtml = (head: string, body: string) => `<div>${lines(head)}</div><div><br></div><div>${lines(body)}</div>`

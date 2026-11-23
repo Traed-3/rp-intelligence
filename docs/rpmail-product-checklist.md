@@ -33,16 +33,17 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 
 Nothing here needs money. In rough order of how much a person would notice:
 
-1. A pass on real mail for stages 3 and 5 and for formatting (needs a mailbox connected; ask Trae before reconnecting the test one).
-2. Conversation view: the whole thread stacked in the reader, not one message with links to the others.
-3. Pictures inside the text (a pasted picture goes along as an attachment today).
-4. Open a draft saved to Gmail Drafts again in RPMail.
-5. Signatures and templates that keep their formatting.
-6. Rough edges: message open speed, an age limit on Needs you, on-page boxes instead of browser pop-ups, the reply showing in the thread without reopening.
-7. Schedule send: Trae's say-so first (mail would leave after the person has walked away).
-8. Out-of-office: needs one more Google permission, so each person presses Sign in again once. Empty Trash stays set aside (it needs full-mailbox permission, and Gmail empties Trash itself after 30 days).
-9. A short how-to for staff under Technical Help.
-10. Two-step sign-in for RP Intelligence (the whole site, not only RPMail).
+1. A pass on real mail for stages 3 and 5, formatting and the conversation view (needs a mailbox connected; ask Trae before reconnecting the test one). Until then the screens can be looked at with made-up mail: `node scripts/rpmail-tryout/build.mjs`.
+2. Pictures inside the text (a pasted picture goes along as an attachment today).
+3. Open a draft saved to Gmail Drafts again in RPMail.
+4. Signatures and templates that keep their formatting.
+5. Rough edges: message open speed, an age limit on Needs you, on-page boxes instead of browser pop-ups.
+6. Schedule send: Trae's say-so first (mail would leave after the person has walked away).
+7. Out-of-office: needs one more Google permission, so each person presses Sign in again once. Empty Trash stays set aside (it needs full-mailbox permission, and Gmail empties Trash itself after 30 days).
+8. A short how-to for staff under Technical Help.
+9. Two-step sign-in for RP Intelligence (the whole site, not only RPMail).
+
+Done from this list: conversation view (2026-11-23).
 
 ## Accounts and sign-in
 
@@ -66,7 +67,7 @@ Nothing here needs money. In rough order of how much a person would notice:
 
 | Item | State | Note |
 |---|---|---|
-| Conversation view | Partly | The list groups by conversation; the reader shows one message with links to the others, not the whole thread stacked. |
+| Conversation view | Done | The reader shows the whole conversation stacked, oldest first. The message that was picked is open, along with up to three others still unread; the rest are one line each (who, when, first words) and open when pressed. Long conversations show the newest eight with "Show N earlier messages"; "Open all" opens everything. Reply, Reply all, Forward and Print are on each message; Archive, Delete, Label, Snooze and the rest act on the whole conversation. Under a reply, the mail it was answering is folded away ("Show the quoted mail"). The conversation is read live from Gmail, so mail older than 90 days is in it. Tried in a browser with made-up mail; not on a real mailbox. |
 | Search across all mail | Partly | Typed search covers the last 90 days; "Search all of Gmail" goes further but returns 40 at most. |
 | Filter: unread, attachment | Done | |
 | Filter: sender, date, label / folder | Missing | Stage 3. |
@@ -203,10 +204,11 @@ Known rough edges from the pass (not fixed yet):
 - Mail goes out under the person's RP Intelligence name ("Trae Dodson - Admin"). Needs a "name on outgoing mail" setting. Stage 5.
 - Needs you has no age limit, so unanswered mail from a year ago shows in a mailbox connected for the first time.
 - Confirmations (sign out, delete a template, turn RPMail off) use browser pop-ups rather than on-page boxes.
-- After the undo countdown the open message does not show the reply under "Also in this conversation" until it is reopened.
+- (Fixed 2026-11-23) A reply now shows in the open conversation as soon as it is sent.
 
 ## Stage log
 
+- 2026-11-23: conversation view on branch `feat/rpmail-conversation`: `readMessage` returns the rest of the conversation live from Gmail (`restOfThread`: one `threads.get` with headers only, asked once, falling back to the short list; drafts, Trash and Spam left out; nothing stored), `lib/rpmail/thread-view.ts` (how the stack is laid out, quoted-mail folding, frame height worked out from the words because the locked frame cannot report its own), `Reader` + `MessageCard` in rpmail-app.tsx, a reply shows in the open conversation as soon as it is sent, replies written in RPMail mark their quoted part the way Gmail does (`gmail_quote`), on a phone the filters step aside while a conversation is open, the Settings button in the top bar is the same size as its neighbours. New developer tool `scripts/rpmail-tryout` (the real page on made-up mail, for looking at screens with no mailbox connected). No database change. 139 tests. Tried in a browser on the try-out page at desktop and phone width; NOT on a real mailbox.
 - 2026-11-23: writing with formatting on branch `feat/rpmail-formatting`: `lib/rpmail/rich.ts` (`cleanRich` rebuilds typed or pasted HTML from scratch into b / i / u / ul / ol / li / a / div / br and makes the plain copy in the same pass; `safeHref` allows only http, https and mailto), `components/rpmail/rich-editor.tsx` (the message box and its bar), `buildRaw` sends multipart/alternative when there is an HTML copy, `sendMail` takes `html` and makes the plain text from the cleaned HTML (never from the page), so the pricing and blocked-content rules read exactly what goes out, link addresses included. No database change. 124 tests. Found while trying it in a browser and fixed: the page re-drawing wiped the box as you typed, and a link landed at the top of the message instead of on the selected words. NOT sent through a real mailbox (there is none connected).
 - 2026-11-23: stage 5 part two (a person's own Settings) on branch `feat/rpmail-stage5b`: `lib/rpmail/prefs.ts` (settings moved out of extras.ts; new `sender_name`, `default_from`, `start`, `density`, `tz`, `groups`; `dayStartIn`, `inQuietHours` and `hourIn` take a time zone), `app/(app)/rpmail/settings` + `components/rpmail/rpmail-settings.tsx`, the Settings button, compact lists, address groups in the To and Cc boxes. No database change. 103 tests.
 - 2026-11-23: stage 5 part one (company admin) on branch `feat/rpmail-stage5a`: `rpmail_access.can_send` / `can_delete` (read by `mailboxFor` / `myMailboxes`, helpers `maySend` / `mayDelete`, `admin_grant` takes `level`), `lib/rpmail/activity.ts` (`logActivity`, `admin_activity`, `admin_activity_export`, clean-up in the scheduled check), `lib/rpmail/company.ts` (`rpmail_company`, `admin_content_save`, `contentGuard` after the pricing guard in `sendMail`). Migration `rpmail_admin.sql` applied. 99 tests.

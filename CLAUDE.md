@@ -711,6 +711,14 @@ is never changed from here). PER USER, NEVER PER ROLE.
   b / i / u / ul / ol / li / a (http, https, mailto only) / div / br and makes the plain-text copy in the same pass. `sendMail` takes `html`,
   cleans it again, and takes the plain text FROM THE CLEANED HTML, never from the page's `body`, so the pricing and blocked-content rules read
   exactly what goes out. No formatting in it = plain text only, as before. Signatures and templates are still plain text.
+  Conversation view (2026-11-23): opening a message (`readMessage`) also returns the rest of its conversation, live from Gmail, as `thread`
+  (who / when / first words only; `restOfThread` asks once with `tries: 1` and falls back to the index). The reader (`Reader` + `MessageCard`
+  in rpmail-app.tsx) stacks them oldest first and fetches another message's text only when it is pressed (the same `message` op, three at
+  a time). lib/rpmail/thread-view.ts holds the pure layout rules: which start open, quoted-mail folding (`QUOTE_CSS` / `splitPlainQuote`),
+  and `frameHeight`. The message frame stays locked (sandbox without allow-scripts or allow-same-origin), so it CANNOT report its height:
+  the height is worked out from the words. Do not loosen the sandbox to measure it.
+- Looking at the screens with no mailbox: `node scripts/rpmail-tryout/build.mjs` builds the real page on made-up mail (answers in
+  scripts/rpmail-tryout/entry.tsx); serve the output folder with any static server. Add made-up answers there when a new op needs showing.
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.
