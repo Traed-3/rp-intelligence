@@ -9,6 +9,8 @@ import { listMessages, searchGmail, readMessage, readAttachment, markRead, fileM
 import { setPrefs, doneList, setStar, bulk } from '@/lib/rpmail/extras'
 import { labelList, labelSave, labelDelete, labelApply, blockList, blockSender, ruleList, ruleSave, ruleDelete } from '@/lib/rpmail/organize'
 import { setSnooze } from '@/lib/rpmail/snooze'
+import { activityList, activityCsv } from '@/lib/rpmail/activity'
+import { contentSave } from '@/lib/rpmail/company'
 import { attachPrepare, attachRemove, contacts, templateList, templateSave, templateDelete } from '@/lib/rpmail/compose-ops'
 import { setEnabled, disconnect, oauthStart, adminState, adminSetUser, adminSaveShared, adminDeleteShared, adminGrant } from '@/lib/rpmail/connect'
 
@@ -37,6 +39,8 @@ const GETS: Record<string, { any?: boolean; run: (who: Me, q: Q, req: NextReques
   draft_prep: { run: (who, q) => draftPrep(who, q) },
   connect: { any: true, run: async (who, q, req) => NextResponse.redirect(await oauthStart(who, q.mailbox, req.nextUrl.origin)) },
   admin_state: { any: true, run: who => adminState(who) },
+  admin_activity: { any: true, run: (who, q) => activityList(who, q) },
+  admin_activity_export: { any: true, run: (who, q) => activityCsv(who, q) },
 }
 
 // Changes. All are POST with a JSON body, from this site only.
@@ -72,6 +76,7 @@ const POSTS: Record<string, { any?: boolean; run: (who: Me, b: B) => Promise<unk
   admin_shared: { any: true, run: (who, b) => adminSaveShared(who, b) },
   admin_shared_delete: { any: true, run: (who, b) => adminDeleteShared(who, b) },
   admin_grant: { any: true, run: (who, b) => adminGrant(who, b) },
+  admin_content_save: { any: true, run: (who, b) => contentSave(who, b) },
 }
 
 function fail(e: unknown) {

@@ -695,6 +695,11 @@ is never changed from here). PER USER, NEVER PER ROLE.
   check ONLY for messages that were not in the index before, so nothing older is touched and a rule never fires twice. Snooze / remind me
   (`rpmail_snoozes`, lib/rpmail/snooze.ts) are each person's own: `rpmail_needs` and the Inbox list leave out what that person snoozed, and
   `wakeSnoozes` in background.ts brings them back (a reminder is dropped silently if someone replied or the person lost the mailbox).
+  Stage 5 (admin): `rpmail_access.can_send` / `can_delete` say what a person may do in a SHARED mailbox beyond reading; `mailboxFor` returns them
+  (always true for an owner and for a person's own mailbox) and `sendMail` / `fileMessage` (Trash, Spam) check `maySend` / `mayDelete`.
+  lib/rpmail/activity.ts `logActivity` writes the owner's activity log (`rpmail_activity`: subject lines and addresses only, NEVER message text;
+  it must never throw). lib/rpmail/company.ts holds the company's own blocked-content rules (`rpmail_company.data.blocked`), checked by
+  `contentGuard` right after the built-in pricing guard, which stays hard-coded and cannot be switched off.
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.

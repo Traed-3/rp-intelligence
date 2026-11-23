@@ -390,7 +390,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           <button className={btn('ghost')} onClick={() => setNotifyOpen(true)} title="New-mail notifications"><Bell /><span className="hidden sm:inline">Notifications{st.prefs?.notify?.on ? ' on' : ''}</span></button>
           <button className={cn(btn('ghost'), 'hidden sm:inline-flex')} onClick={() => setHelp(true)} title="Keyboard shortcuts (press ?)"><Keyboard />Shortcuts</button>
           <button className={btn('ghost')} onClick={() => void syncAll(boxes)} disabled={busy} title="Check for new mail"><RefreshCw className={cn(busy && 'animate-spin')} />{busy ? 'Checking' : 'Check mail'}</button>
-          <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected ? cur.id : boxes.find(b => b.connected)?.id ?? '' })} disabled={!boxes.some(b => b.connected) || !!pending}><PenSquare />New message</button>
+          <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected && cur.can_send ? cur.id : boxes.find(b => b.connected && b.can_send)?.id ?? '' })} disabled={!boxes.some(b => b.connected && b.can_send) || !!pending}
+            title={boxes.some(b => b.connected) && !boxes.some(b => b.connected && b.can_send) ? 'You can read your mailboxes here but not send from them. An owner can change that.' : undefined}><PenSquare />New message</button>
         </div>
       </div>
       {err && <p className="mb-3 rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{err}</p>}
@@ -417,7 +418,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           {view.kind === 'box' && cur && !cur.connected && <Connect box={cur} st={st} />}
           {view.kind === 'box' && cur && cur.connected && (
             <BoxView box={cur} filter={filter} setFilter={setFilter} list={list} sel={sel} msg={msg} msgErr={msgErr} rowProps={rowProps} reload={loadList} bulk={(ids, action, extra) => void bulk(cur.id, ids, action, extra)}
-              labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit} openOrganize={from => setOrganize({ from })} makeLabel={name => makeLabel(cur.id, name)}
+              labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit} openOrganize={from => setOrganize({ from })} makeLabel={name => makeLabel(cur.id, name)} canSend={boxes.some(b => b.connected && b.can_send)}
               close={() => { setSel(null); setMsg(null) }} openOther={id => void openMsg(cur.id, id)}
               search={() => void act(async () => { say('Searching all of Gmail...'); const r = await api<{ messages: Item[] }>('search', { mailbox: cur.id, q: filter.q }); setList({ key: keyOf(view, filter), items: r.messages }); say(r.messages.length ? `${r.messages.length} found in Gmail.` : 'Nothing found in Gmail.') })}
               actions={{ fileTo, markRead, markDone, plateAdd, star: toggleStar, label: applyLabel, block: blockFrom, snooze, reply: (m, all, fwd) => setCompose({ mode: fwd ? 'forward' : 'reply', mailbox: m.mailbox_id, id: m.id, all }) }}
@@ -440,8 +441,10 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
             ? <MenuBtn onClick={() => void snooze(menu.item, null, menu.item.snooze!.kind)}>{menu.item.snooze.kind === 'remind' ? 'Cancel the reminder' : 'Stop snoozing'}</MenuBtn>
             : <MenuBtn onClick={() => void snooze(menu.item, atMorning(1))}>Snooze until tomorrow morning</MenuBtn>}
           {menu.item.in_inbox && <MenuBtn onClick={() => void fileTo(menu.item, 'Archive')}>Archive</MenuBtn>}
-          <MenuBtn onClick={() => void fileTo(menu.item, 'Spam')}>Spam</MenuBtn>
-          <MenuBtn onClick={() => void fileTo(menu.item, 'Trash')}>Delete</MenuBtn>
+          {boxes.find(b => b.id === menu.item.mailbox_id)?.can_delete !== false && <>
+            <MenuBtn onClick={() => void fileTo(menu.item, 'Spam')}>Spam</MenuBtn>
+            <MenuBtn onClick={() => void fileTo(menu.item, 'Trash')}>Delete</MenuBtn>
+          </>}
           {!menu.item.sent && labelSet?.box === menu.item.mailbox_id && labelSet.can_edit && <MenuBtn onClick={() => void blockFrom(menu.item)}>Block this sender</MenuBtn>}
         </div>
       )}
@@ -722,10 +725,10 @@ type Actions = {
   reply: (m: Full, all: boolean, fwd: boolean) => void
 }
 
-function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, reload, bulk, close, openOther, search, actions, editSig, disconnect, labels, canEdit, openOrganize, makeLabel }: {
+function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, reload, bulk, close, openOther, search, actions, editSig, disconnect, labels, canEdit, openOrganize, makeLabel, canSend }: {
   box: BoxInfo; filter: Filter; setFilter: (f: Filter) => void; list: Item[] | null; sel: { mailbox: string; id: string } | null; msg: Full | null; msgErr: string
   rowProps: RowProps; reload: () => void; bulk: (ids: string[], action: BulkAction, extra?: { label: string; move: boolean }) => void; close: () => void; openOther: (id: string) => void; search: () => void; actions: Actions; editSig: () => void; disconnect?: () => void
-  labels: Label[]; canEdit: boolean; openOrganize: (ruleFrom?: string) => void; makeLabel: (name: string) => Promise<Label | null> }) {
+  labels: Label[]; canEdit: boolean; openOrganize: (ruleFrom?: string) => void; makeLabel: (name: string) => Promise<Label | null>; canSend: boolean }) {
   const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['filed', 'Filed'], ['snoozed', 'Snoozed'], ['all', 'All']]
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const chosen = (list ?? []).filter(m => picked.has(m.id)).map(m => m.id)   // only what is on screen right now
@@ -740,7 +743,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
       <div className="rp-card-head">
         <div className="min-w-0">
           <h2 className="rp-card-title truncate">{box.name}</h2>
-          <p className="text-xs text-muted-foreground truncate">{box.address} · {box.loading ? `loading mail: ${box.loading.total - box.loading.left} of ${box.loading.total}` : 'checked ' + ago(box.last_sync_at)}{box.crew_reads ? ' · the crew reads this mailbox: no pricing' : ''}</p>
+          <p className="text-xs text-muted-foreground truncate">{box.address} · {box.loading ? `loading mail: ${box.loading.total - box.loading.left} of ${box.loading.total}` : 'checked ' + ago(box.last_sync_at)}{box.crew_reads ? ' · the crew reads this mailbox: no pricing' : ''}{!box.can_send ? ' · you can read here, not send or delete' : !box.can_delete ? ' · you can read and send here, not delete' : ''}</p>
         </div>
         <div className="flex items-center gap-1.5">
           <button className={btn('ghost', 'xs')} onClick={() => openOrganize()} title="Labels, rules for new mail, and blocked senders"><Tags />Labels and rules</button>
@@ -797,7 +800,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
               <label className="inline-flex items-center gap-1.5 text-muted-foreground"><input type="checkbox" className="size-4" checked={chosen.length > 0 && chosen.length === Math.min(list.length, 40)} onChange={e => setPicked(e.target.checked ? new Set(list.slice(0, 40).map(m => m.id)) : new Set())} />{chosen.length ? `${chosen.length} selected` : 'Select'}</label>
               {chosen.length > 0 && <>
                 <button className={btn('outline', 'xs')} onClick={() => run('Archive')}><Archive />Archive</button>
-                <button className={btn('outline', 'xs')} onClick={() => run('Trash')}><Trash2 />Delete</button>
+                {box.can_delete && <button className={btn('outline', 'xs')} onClick={() => run('Trash')}><Trash2 />Delete</button>}
                 <button className={btn('ghost', 'xs')} onClick={() => run('read')}>Mark read</button>
                 <button className={btn('ghost', 'xs')} onClick={() => run('unread')}>Mark unread</button>
                 <button className={btn('ghost', 'xs')} onClick={() => run('done')}><Check />Done</button>
@@ -820,14 +823,16 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
         <div className={cn('lg:max-h-[78vh] overflow-y-auto', !sel && 'hidden lg:block')}>
           {!sel && <Empty>Pick a message to read it. Opening a message does not mark it read.</Empty>}
           {sel && !msg && <Empty>{msgErr || 'Opening...'}</Empty>}
-          {sel && msg && <Reader key={msg.id} m={msg} close={close} openOther={openOther} actions={actions} labels={labels} canEdit={canEdit} makeLabel={makeLabel} makeRule={openOrganize} />}
+          {sel && msg && <Reader key={msg.id} m={msg} close={close} openOther={openOther} actions={actions} labels={labels} canEdit={canEdit} makeLabel={makeLabel} makeRule={openOrganize} canSend={canSend} canDelete={box.can_delete} />}
         </div>
       </div>
     </div>
   )
 }
 
-function Reader({ m, close, openOther, actions, labels, canEdit, makeLabel, makeRule }: { m: Full; close: () => void; openOther: (id: string) => void; actions: Actions; labels: Label[]; canEdit: boolean; makeLabel: (name: string) => Promise<Label | null>; makeRule: (from: string) => void }) {
+function Reader({ m, close, openOther, actions, labels, canEdit, makeLabel, makeRule, canSend, canDelete }: { m: Full; close: () => void; openOther: (id: string) => void; actions: Actions; labels: Label[]; canEdit: boolean; makeLabel: (name: string) => Promise<Label | null>; makeRule: (from: string) => void
+  /** May this person send from any of their mailboxes, and may they delete in this one? An owner can switch either off for a shared mailbox. */
+  canSend: boolean; canDelete: boolean }) {
   const [whenFor, setWhenFor] = useState<'snooze' | 'remind' | null>(null)
   const [imgs, setImgs] = useState(false)   // the reader is keyed by message, so pictures are hidden again for each new one
   const [picker, setPicker] = useState(false)
@@ -868,14 +873,18 @@ function Reader({ m, close, openOther, actions, labels, canEdit, makeLabel, make
         <p className="text-sm text-muted-foreground mt-0.5"><span className="text-foreground font-medium">{m.from_name}</span> &lt;{m.from_addr}&gt; · {new Date(m.date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p>
         <p className="text-xs text-muted-foreground truncate">To: {m.to_full || m.to_addrs}{m.cc_full ? ' · Cc: ' + m.cc_full : ''}</p>
         <div className="mt-2.5 flex flex-wrap gap-1.5">
-          <button className={btn('default')} onClick={() => actions.reply(m, false, false)}><Reply />Reply</button>
-          <button className={btn()} onClick={() => actions.reply(m, true, false)}><ReplyAll />Reply all</button>
-          <button className={btn()} onClick={() => actions.reply(m, false, true)}><Forward />Forward</button>
+          {canSend && <>
+            <button className={btn('default')} onClick={() => actions.reply(m, false, false)}><Reply />Reply</button>
+            <button className={btn()} onClick={() => actions.reply(m, true, false)}><ReplyAll />Reply all</button>
+            <button className={btn()} onClick={() => actions.reply(m, false, true)}><Forward />Forward</button>
+          </>}
           {m.in_inbox
             ? <button className={btn()} onClick={() => actions.fileTo(it, 'Archive')}><Archive />Archive</button>
             : <button className={btn()} onClick={() => actions.fileTo(it, 'Inbox')}><Inbox />Move to inbox</button>}
-          <button className={btn()} onClick={() => actions.fileTo(it, 'Spam')}><ShieldAlert />Spam</button>
-          <button className={btn('destructive')} onClick={() => actions.fileTo(it, 'Trash')}><Trash2 />Delete</button>
+          {canDelete && <>
+            <button className={btn()} onClick={() => actions.fileTo(it, 'Spam')}><ShieldAlert />Spam</button>
+            <button className={btn('destructive')} onClick={() => actions.fileTo(it, 'Trash')}><Trash2 />Delete</button>
+          </>}
           <button className={btn('ghost')} onClick={() => actions.markRead(it, !m.unread)}><MailOpen />{m.unread ? 'Mark read' : 'Mark unread'}</button>
           <button className={btn('ghost')} onClick={() => actions.markDone(it, !m.done)}><Check />{m.done ? 'Not done' : 'Done'}</button>
           <button className={btn('ghost')} onClick={() => actions.plateAdd(it)}><ListPlus />Add to My Plate</button>

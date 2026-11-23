@@ -39,10 +39,11 @@ export const clearDraft = (s: ComposeStart) => { try { localStorage.removeItem(d
 export function Compose({ start, boxes, undoSecs, setUndoSecs, onClose, onDone, onSend }: {
   start: ComposeStart; boxes: BoxInfo[]; undoSecs: number; setUndoSecs: (n: number) => void
   onClose: () => void; onDone: (text: string) => void; onSend: (out: Outgoing) => void }) {
-  const connected = boxes.filter(b => b.connected)
+  // Mail can only go out from a mailbox this person is allowed to send from (an owner can make a shared mailbox read only for someone).
+  const connected = boxes.filter(b => b.connected && (start.mode === 'signature' || b.can_send !== false))
   const [kept] = useState(() => start.mode === 'signature' ? null : readDraft(start))
   const startSig = boxes.find(b => b.id === start.mailbox)?.signature ?? ''
-  const [from, setFrom] = useState(kept?.from && connected.some(b => b.id === kept.from) ? kept.from : start.mailbox)
+  const [from, setFrom] = useState(kept?.from && connected.some(b => b.id === kept.from) ? kept.from : connected.some(b => b.id === start.mailbox) ? start.mailbox : connected[0]?.id ?? start.mailbox)
   const [to, setTo] = useState(kept?.to ?? ''), [cc, setCc] = useState(kept?.cc ?? ''), [subject, setSubject] = useState(kept?.subject ?? '')
   const [body, setBody] = useState(kept?.body ?? (start.mode === 'signature' ? startSig : start.mode === 'new' && startSig ? '\n\n' + startSig : ''))
   const [files, setFiles] = useState<Att[]>(kept?.files ?? [])
