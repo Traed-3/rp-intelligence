@@ -729,6 +729,7 @@ is never changed from here). PER USER, NEVER PER ROLE.
   back; give every "anything up to" a limit; and add a worst-case line to tests/rpmail/slow-input.test.ts for any new reader.
 - Looking at the screens with no mailbox: `node scripts/rpmail-tryout/build.mjs` builds the real page on made-up mail (answers in
   scripts/rpmail-tryout/entry.tsx); serve the output folder with any static server. Add made-up answers there when a new op needs showing.
+- Staff guide: Technical Help > Using RPMail, app/(app)/help/rpmail/page.tsx (`PARTS`). It quotes button names: update it when one changes.
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.
