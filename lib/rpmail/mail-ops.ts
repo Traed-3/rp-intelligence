@@ -174,33 +174,35 @@ async function liveMessage(box: Mailbox, id: string): Promise<GMessage> {
 export async function readMessage(who: Me, p: Record<string, string>) {
   const box = await mailboxFor(who, p.mailbox)
   const id = gid(p.id)
-  const m = await liveMessage(box, id)
   const admin = createAdminClient()
-  const sites = await knownSites(box.company_id)
+  // Everything that does not need the message itself is asked for at the same time as the message, not one after another.
+  const [m, sites, done, snoozes] = await Promise.all([
+    liveMessage(box, id),
+    knownSites(box.company_id),
+    admin.from('rpmail_done').select('gmail_id').eq('profile_id', who.id).eq('mailbox_id', box.id).eq('gmail_id', id).maybeSingle().then(r => r.data),
+    mySnoozes(who.id, box.id),
+  ])
   const row = toRow(box, m, sites)
   const rest = restOfThread(box, m, sites)   // asked for now, used at the end: it runs while the rest of this is worked out
-  if (!isHidden(m.labelIds)) await admin.from('rpmail_messages').upsert(row, { onConflict: 'mailbox_id,gmail_id' })
+  const saved = isHidden(m.labelIds) ? Promise.resolve() : admin.from('rpmail_messages').upsert(row, { onConflict: 'mailbox_id,gmail_id' }).then(() => undefined)
   const { plain, html, files } = walkParts(m.payload)
   let safe = html ? sanitizeHtml(html) : null
   if (safe) {
-    // Pictures that are part of the message itself (logos in a signature, pasted screenshots) are put in place.
+    // Pictures that are part of the message itself (logos in a signature, pasted screenshots) are put in place, all fetched at once.
     let budget = 6_000_000
-    for (const f of files.filter(f => f.inline && f.cid && f.attachmentId && f.type.startsWith('image/') && f.size < 2_000_000).slice(0, 12)) {
-      if (!safe.includes('cid:' + f.cid) || budget < f.size) continue
-      const a = await gmail<{ data?: string }>(box.id, `messages/${id}/attachments/${f.attachmentId}`).catch(() => null)
-      if (!a?.data) continue
-      budget -= f.size
-      safe = safe.split('cid:' + f.cid).join(`data:${f.type};base64,${b64url(a.data).toString('base64')}`)
-    }
+    const want = files.filter(f => f.inline && f.cid && f.attachmentId && f.type.startsWith('image/') && f.size < 2_000_000 && safe!.includes('cid:' + f.cid)).slice(0, 12)
+      .filter(f => (budget -= f.size) >= 0)
+    const got = await Promise.all(want.map(f => gmail<{ data?: string }>(box.id, `messages/${id}/attachments/${f.attachmentId}`).catch(() => null)))
+    want.forEach((f, i) => { const d = got[i]?.data; if (d) safe = safe!.split('cid:' + f.cid).join(`data:${f.type};base64,${b64url(d).toString('base64')}`) })
   }
   const h = headerMap(m.payload)
-  const { data: done } = await admin.from('rpmail_done').select('gmail_id').eq('profile_id', who.id).eq('mailbox_id', box.id).eq('gmail_id', id).maybeSingle()
-  const snooze = (await mySnoozes(who.id, box.id)).get(m.threadId)
+  const snooze = snoozes.get(m.threadId)
+  const [thread] = await Promise.all([rest, saved])
   return {
     ...toItem(row), cc_addrs: row.cc_addrs, to_full: decodeWords(h['to'] ?? ''), cc_full: decodeWords(h['cc'] ?? ''),
     text: bodyText(plain, html).slice(0, 400_000), html: safe && safe.length < 3_000_000 ? safe : null,
     attachments: files.map((f, i) => ({ i, name: f.name, type: f.type, size: f.size, inline: f.inline })).filter(f => !f.inline || !safe),
-    thread: await rest,
+    thread,
     done: !!done, hidden: isHidden(m.labelIds), ...(snooze ? { snooze } : {}),
   }
 }

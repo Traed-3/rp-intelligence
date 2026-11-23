@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { api } from './rpmail-app'
+import { useAsk } from './ask'
 
 type Shared = { id: string; address: string; name: string; crew_reads: boolean; connected: boolean; connected_at: string | null; last_error: string | null }
 type Person = { id: string; name: string; email: string; role: string; locked: boolean; hasLocal: boolean; enabled: boolean; mail_address: string | null
@@ -27,6 +28,7 @@ export function RpmailAdmin({ connected, connectError }: { connected?: string; c
   const [err, setErr] = useState(connectError ?? ''), [note, setNote] = useState(connected ? 'Connected. The mailbox starts loading the first time someone who has it opens RPMail.' : '')
   const [add, setAdd] = useState({ address: '', name: '', crew_reads: false })
   const [showAll, setShowAll] = useState(false)
+  const [ask, asking] = useAsk()
 
   const load = useCallback((): Promise<void> => api<AdminState>('admin_state').then(r => { setS(r); setErr('') }).catch(e => setErr((e as Error).message)), [])
   useEffect(() => {
@@ -45,6 +47,7 @@ export function RpmailAdmin({ connected, connectError }: { connected?: string; c
 
   return (
     <div className="space-y-5">
+      {asking}
       <div className="rounded-xl border border-info/30 bg-info-soft px-5 py-4 text-sm text-foreground space-y-1">
         <p className="font-semibold">How RPMail works for staff</p>
         <ul className="list-disc pl-5 space-y-0.5 text-muted-foreground">
@@ -70,8 +73,8 @@ export function RpmailAdmin({ connected, connectError }: { connected?: string; c
               </div>
               <label className="text-xs inline-flex items-center gap-1.5"><input type="checkbox" checked={b.crew_reads} onChange={e => void run(() => api('admin_shared', { id: b.id, name: b.name, crew_reads: e.target.checked }), 'Saved.')} />The crew reads this (no pricing)</label>
               {s.googleReady && <a className={buttonVariants({ variant: b.connected ? 'outline' : 'default', size: 'sm' })} href={`/api/rpmail/connect?mailbox=${b.id}`}>{b.connected ? 'Sign in again' : 'Sign in with Google'}</a>}
-              {b.connected && <button className={buttonVariants({ variant: 'ghost', size: 'sm' })} onClick={() => { if (window.confirm(`Disconnect ${b.address}? Everyone who has it loses it in RPMail until it is signed in again. Gmail itself is not touched.`)) void run(() => api('disconnect', { mailbox: b.id }), 'Disconnected.') }}>Disconnect</button>}
-              <button className={buttonVariants({ variant: 'ghost', size: 'sm' })} onClick={() => { if (window.confirm(`Take ${b.address} out of RPMail for everyone? Gmail itself is not touched.`)) void run(() => api('admin_shared_delete', { id: b.id }), 'Removed.') }}>Remove</button>
+              {b.connected && <button className={buttonVariants({ variant: 'ghost', size: 'sm' })} onClick={() => void ask({ text: `Disconnect ${b.address}? Everyone who has it loses it in RPMail until it is signed in again. Gmail itself is not touched.`, yes: 'Disconnect' }).then(ok => { if (ok) void run(() => api('disconnect', { mailbox: b.id }), 'Disconnected.') })}>Disconnect</button>}
+              <button className={buttonVariants({ variant: 'ghost', size: 'sm' })} onClick={() => void ask({ text: `Take ${b.address} out of RPMail for everyone? Gmail itself is not touched.`, yes: 'Remove', danger: true }).then(ok => { if (ok) void run(() => api('admin_shared_delete', { id: b.id }), 'Removed.') })}>Remove</button>
             </div>
           ))}
         </div>
