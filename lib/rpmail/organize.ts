@@ -3,6 +3,7 @@ import { gmail, UserError } from './gmail'
 import { mailboxFor, isMailAdmin, Forbidden, type Me, type Mailbox } from './access'
 import { fileMessage, indexRow, gid } from './mail-ops'
 import type { Rule, RuleAction, RuleMatch } from './arrival'
+import { logActivity } from './activity'
 
 // RPMail: keeping a mailbox tidy. Labels (Gmail's own, so they show in Gmail too) and blocked senders.
 // Like everything else in RPMail, each function starts from `mailboxFor(me, …)`.
@@ -66,6 +67,7 @@ export async function labelDelete(who: Me, p: { mailbox?: unknown; label?: unkno
   const id = labelId(p.label)
   await gmail(box.id, 'labels/' + id, { method: 'DELETE' })   // "not found" means it was already gone
   await createAdminClient().rpc('rpmail_label_drop', { p_mailbox: box.id, p_label: id })
+  await logActivity(who, 'label_delete', { box })
   return { ok: true }
 }
 
@@ -123,6 +125,7 @@ export async function blockSender(who: Me, p: { mailbox?: unknown; addr?: unknow
   if (p.on === false) {
     const addr = cleanAddr(p.addr)
     await admin.from('rpmail_blocks').delete().eq('mailbox_id', box.id).eq('addr', addr)
+    await logActivity(who, 'unblock', { box, detail: addr })
     return { ok: true, blocked: false, addr, move_id: null }
   }
   let addr: string
@@ -138,6 +141,7 @@ export async function blockSender(who: Me, p: { mailbox?: unknown; addr?: unknow
   if ((count ?? 0) >= 500) throw new UserError('This mailbox already blocks 500 senders. Unblock one first.')
   const { error } = await admin.from('rpmail_blocks').upsert({ mailbox_id: box.id, addr, profile_id: who.id }, { onConflict: 'mailbox_id,addr', ignoreDuplicates: true })
   if (error) throw new Error('Could not save that.')
+  await logActivity(who, 'block', { box, detail: addr })
   let move_id: number | null = null
   if (fromMessage) move_id = ((await fileMessage(who, { mailbox: box.id, id: p.id, dest: 'Trash' })).move_id as number | null) ?? null
   return { ok: true, blocked: true, addr, move_id }
@@ -183,12 +187,14 @@ export async function ruleSave(who: Me, p: { mailbox?: unknown; id?: unknown; na
     if (typeof p.id !== 'string' || !UUID.test(p.id)) throw new UserError('No such rule.')
     const { data } = await admin.from('rpmail_rules').update(fields).eq('id', p.id).eq('mailbox_id', box.id).select('id')
     if (!data?.length) throw new UserError('That rule is no longer there.')
+    await logActivity(who, 'rule_save', { box, detail: name + (fields.enabled ? '' : ' (switched off)') })
     return { ok: true, id: p.id }
   }
   const { count } = await admin.from('rpmail_rules').select('id', { count: 'exact', head: true }).eq('mailbox_id', box.id)
   if ((count ?? 0) >= 50) throw new UserError('This mailbox already has 50 rules. Delete one you no longer need first.')
   const { data: made, error } = await admin.from('rpmail_rules').insert({ mailbox_id: box.id, profile_id: who.id, position: count ?? 0, ...fields }).select('id').single()
   if (error) throw new Error('Could not save that rule.')
+  await logActivity(who, 'rule_save', { box, detail: name })
   return { ok: true, id: made.id as string }
 }
 
@@ -197,5 +203,6 @@ export async function ruleDelete(who: Me, p: { mailbox?: unknown; id?: unknown }
   if (!mayReshape(who, box)) throw new Forbidden('On a shared mailbox only an owner can change the rules.')
   if (typeof p.id !== 'string' || !UUID.test(p.id)) throw new UserError('No such rule.')
   await createAdminClient().from('rpmail_rules').delete().eq('id', p.id).eq('mailbox_id', box.id)
+  await logActivity(who, 'rule_delete', { box })
   return { ok: true }
 }

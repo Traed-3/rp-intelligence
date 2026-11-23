@@ -15,6 +15,16 @@ export type Mailbox = {
   crew_reads: boolean; token_secret_id: string | null; scope: string | null; connected_at: string | null
   history_id: string | null; sync: SyncState; last_sync_at: string | null; last_error: string | null
   failing_since: string | null; notify_mark: string | null
+  /** What THIS person may do here beyond reading. Only set when the mailbox was fetched for a person (mailboxFor / myMailboxes). */
+  can_send?: boolean; can_delete?: boolean
+}
+/** May this person send from the mailbox / move its mail to Trash or Spam? (Anything not marked "no" is allowed.) */
+export const maySend = (box: Pick<Mailbox, 'can_send'>) => box.can_send !== false
+export const mayDelete = (box: Pick<Mailbox, 'can_delete'>) => box.can_delete !== false
+// A person's own mailbox, and an owner on any mailbox, can always do everything: the switches are for staff on shared mailboxes.
+const withPerms = (who: Pick<Me, 'role'>, box: Mailbox, a: { can_send?: unknown; can_delete?: unknown } | undefined): Mailbox => {
+  const full = box.kind === 'personal' || isMailAdmin(who.role)
+  return { ...box, can_send: full || a?.can_send !== false, can_delete: full || a?.can_delete !== false }
 }
 export type SyncState = { todo?: string[]; total?: number; started?: string; full_done?: string }
 
@@ -48,22 +58,23 @@ export const BOX_COLS = 'id, company_id, address, name, kind, owner_id, crew_rea
 /** The mailboxes this person may open: their own first, then shared ones by name. */
 export async function myMailboxes(who: Pick<Me, 'id' | 'company_id' | 'role'>): Promise<Mailbox[]> {
   const admin = createAdminClient()
-  const { data: acc } = await admin.from('rpmail_access').select('mailbox_id').eq('profile_id', who.id)
+  const { data: acc } = await admin.from('rpmail_access').select('mailbox_id, can_send, can_delete').eq('profile_id', who.id)
   const ids = (acc ?? []).map(a => a.mailbox_id as string)
   if (!ids.length) return []
+  const mine = new Map((acc ?? []).map(a => [a.mailbox_id as string, a]))
   const { data } = await admin.from('rpmail_mailboxes').select(BOX_COLS).in('id', ids).eq('company_id', who.company_id)
-  return ((data ?? []) as Mailbox[]).filter(b => roleStillAllows(who.role, b)).sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'personal' ? -1 : 1))
+  return ((data ?? []) as Mailbox[]).filter(b => roleStillAllows(who.role, b)).map(b => withPerms(who, b, mine.get(b.id))).sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'personal' ? -1 : 1))
 }
 
 /** One mailbox, only if this person has been given it. This is the check every mail request passes through. */
 export async function mailboxFor(who: Pick<Me, 'id' | 'company_id' | 'role'>, mailboxId: unknown): Promise<Mailbox> {
   if (typeof mailboxId !== 'string' || !/^[0-9a-f-]{36}$/.test(mailboxId)) throw new Forbidden('No such mailbox.')
   const admin = createAdminClient()
-  const { data: a } = await admin.from('rpmail_access').select('mailbox_id').eq('profile_id', who.id).eq('mailbox_id', mailboxId).maybeSingle()
+  const { data: a } = await admin.from('rpmail_access').select('mailbox_id, can_send, can_delete').eq('profile_id', who.id).eq('mailbox_id', mailboxId).maybeSingle()
   if (!a) throw new Forbidden('That mailbox is not on your login.')
   const { data } = await admin.from('rpmail_mailboxes').select(BOX_COLS).eq('id', mailboxId).eq('company_id', who.company_id).maybeSingle()
   if (!data || !roleStillAllows(who.role, data as Mailbox)) throw new Forbidden('No such mailbox.')
-  return data as Mailbox
+  return withPerms(who, data as Mailbox, a)
 }
 
 /** Checked on every read as well as when access is given: someone moved to a tech or shop role loses the pricing mailboxes at once. */

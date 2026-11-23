@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { gmail, b64url, headerMap, isHidden, UserError, type GMessage } from './gmail'
-import { mailboxFor, noPricingAddresses, type Me, type Mailbox } from './access'
+import { mailboxFor, noPricingAddresses, maySend, mayDelete, Forbidden, type Me, type Mailbox } from './access'
+import { logActivity } from './activity'
+import { contentRules, contentGuard } from './company'
 import { knownSites, loadMessages, toRow, walkParts, bodyText, type IndexRow } from './sync'
 import { buildRaw, cleanRecipients, pricingGuard, type OutFile } from './mime'
 import { parseAddrs, decodeWords, splitAddrList } from './parse'
@@ -230,6 +232,7 @@ export async function fileMessage(who: Me, p: { mailbox?: unknown; id?: unknown;
   const id = gid(p.id)
   const dest = p.dest as Place
   if (!PLACES.includes(dest)) throw new UserError('Mail can go to Archive, Inbox, Spam or Trash.')
+  if ((dest === 'Trash' || dest === 'Spam') && !mayDelete(box)) throw new Forbidden(`You can read ${box.name} but not delete from it. An owner can change that in Settings, RPMail.`)
   const row = await indexRow(box, id)
   const admin = createAdminClient()
   const t = `threads/${row.thread_id}`
@@ -242,6 +245,7 @@ export async function fileMessage(who: Me, p: { mailbox?: unknown; id?: unknown;
   else await admin.from('rpmail_messages').delete().eq('mailbox_id', box.id).eq('thread_id', row.thread_id)
   const { data: mv } = await admin.from('rpmail_moves').insert({ profile_id: who.id, mailbox_id: box.id, gmail_id: id, thread_id: row.thread_id,
     subject: (row.subject ?? '').slice(0, 300), from_place: row.in_inbox ? 'Inbox' : 'All Mail', to_place: dest }).select('id').single()
+  if (dest === 'Trash' || dest === 'Spam') await logActivity(who, dest === 'Trash' ? 'trash' : 'spam', { box, detail: (row.subject ?? '').slice(0, 160) })
   return { ok: true, move_id: mv?.id ?? null, to: dest }
 }
 
@@ -342,6 +346,7 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
   // `src` is the mailbox the original message is in; `box` is the mailbox this goes out from (the From picker).
   const src = await mailboxFor(who, p.mailbox)
   const box = p.from && p.from !== src.id ? await mailboxFor(who, p.from) : src
+  if (!maySend(box)) throw new Forbidden(`You can read ${box.name} but not send from it. An owner can change that in Settings, RPMail.`)
   const mode = p.mode === 'reply' || p.mode === 'forward' ? p.mode : 'new'
   const draft = p.draft === true
   if (!draft && p.confirmed !== true) throw new UserError('Press Send, then confirm.')
@@ -375,7 +380,15 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
   files.push(...own.files)
   if (files.reduce((n, f) => n + f.data.length, 0) > MAX_ATTACH) throw new UserError('The attachments add up to more than 20 MB, which is more than email can carry. Take one off.')
 
-  pricingGuard(box.address, [...to, ...cc], [subject, full, ...files.map(f => f.name)].join('\n'), await noPricingAddresses(box.company_id))
+  // The built-in pricing rule, then any rules the company wrote for itself. A refused send is written to the activity log.
+  try {
+    const crewReads = await noPricingAddresses(box.company_id), text = [subject, full, ...files.map(f => f.name)].join('\n')
+    pricingGuard(box.address, [...to, ...cc], text, crewReads)
+    contentGuard(await contentRules(box.company_id), box.address, [...to, ...cc], text, crewReads)
+  } catch (e) {
+    if (e instanceof UserError) await logActivity(who, 'blocked_send', { box, detail: e.message.slice(0, 220) })
+    throw e
+  }
 
   const raw = buildRaw({ fromName: who.name, fromAddr: box.address, to, cc, subject, body: full, inReplyTo, references, files })
   const message = { raw, ...(threadId ? { threadId } : {}) }
@@ -384,11 +397,13 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
     const r = await gmail<{ id?: string }>(box.id, 'drafts', { method: 'POST', body: { message } })
     await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'draft', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
     await dropAttachments(own.paths)
+    await logActivity(who, 'draft', { box, detail: `To ${[...to, ...cc].join(', ').slice(0, 120) || '(nobody yet)'}: ${subject.slice(0, 120)}` })
     return { ok: true, draft: true, from: box.address }
   }
   const r = await gmail<{ id?: string; threadId?: string }>(box.id, 'messages/send', { method: 'POST', body: message })
   await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'send', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
   await dropAttachments(own.paths)
+  await logActivity(who, 'send', { box, detail: `To ${[...to, ...cc].join(', ').slice(0, 120)}: ${subject.slice(0, 120)}` })
   if (r?.id) await loadMessages(box, [r.id], await knownSites(box.company_id)).catch(() => null)
   return { ok: true, sent: true, to: [...to, ...cc].join(', '), from: box.address }
 }

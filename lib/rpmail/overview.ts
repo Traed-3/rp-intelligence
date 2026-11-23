@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { googleClient, UserError } from './gmail'
-import { myMailboxes, mailboxFor, personalAddress, ensurePersonalMailbox, isMailAdmin, type Me, type Mailbox } from './access'
+import { myMailboxes, mailboxFor, personalAddress, ensurePersonalMailbox, isMailAdmin, type Me, type Mailbox, maySend, mayDelete } from './access'
 import { LIST_COLS, toItem, getSignature, type Item } from './mail-ops'
 import { subjectKey, AUTO_RE } from './parse'
 import { getPrefs } from './extras'
@@ -21,6 +21,8 @@ export type BoxInfo = {
   id: string; name: string; address: string; kind: 'personal' | 'shared'; crew_reads: boolean; connected: boolean
   inbox: number; unread: number; newest: number | null; needs: number; last_sync_at: string | null; last_error: string | null
   loading: { total: number; left: number } | null; signature: string
+  /** What this person may do here beyond reading. */
+  can_send: boolean; can_delete: boolean
 }
 
 export async function boxInfos(who: Me, boxes: Mailbox[]): Promise<BoxInfo[]> {
@@ -37,7 +39,7 @@ export async function boxInfos(who: Me, boxes: Mailbox[]): Promise<BoxInfo[]> {
       inbox: Number(c?.inbox ?? 0), unread: Number(c?.unread ?? 0), newest: c?.newest ? Date.parse(c.newest) : null, needs: needBy.get(b.id) ?? 0,
       last_sync_at: b.last_sync_at, last_error: b.last_error,
       loading: b.sync?.todo?.length ? { total: b.sync.total ?? 0, left: b.sync.todo.length } : null,
-      signature: await getSignature(who, b.id),
+      signature: await getSignature(who, b.id), can_send: maySend(b), can_delete: mayDelete(b),
     }
   }))
 }

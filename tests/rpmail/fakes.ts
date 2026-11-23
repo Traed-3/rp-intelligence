@@ -11,7 +11,7 @@ type Filter = (r: Row) => boolean
 const like = (v: unknown, pat: string) => new RegExp('^' + pat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.') + '$', 'i').test(String(v ?? ''))
 const cmp = (a: unknown, b: unknown) => (a == null && b == null ? 0 : a == null ? -1 : b == null ? 1 : a < b ? -1 : a > b ? 1 : 0)
 
-const SERIAL = new Set(['rpmail_moves', 'rpmail_sent', 'rpmail_snoozes'])
+const SERIAL = new Set(['rpmail_moves', 'rpmail_sent', 'rpmail_snoozes', 'rpmail_activity'])
 const UUID_PK = new Set(['rpmail_mailboxes', 'rpmail_templates', 'con_tasks', 'rpmail_rules'])
 const DEFAULTS: Record<string, Row> = {
   rpmail_mailboxes: { crew_reads: false, token_secret_id: null, scope: null, connected_at: null, history_id: null, sync: {}, last_sync_at: null, last_error: null, owner_id: null, failing_since: null, fail_alerted_at: null, notify_mark: null },
@@ -76,6 +76,7 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string } |
         if (SERIAL.has(this.table)) row.id = ++this.db.serial
         else if (UUID_PK.has(this.table) && !row.id) row.id = randomUUID()
         row.created_at ??= new Date().toISOString()
+        if (this.table === 'rpmail_activity') row.at ??= new Date().toISOString()
         all.push(row); out.push(row)
       }
     } else if (this.op === 'update') {
