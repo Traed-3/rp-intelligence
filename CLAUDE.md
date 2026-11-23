@@ -691,6 +691,10 @@ is never changed from here). PER USER, NEVER PER ROLE.
   (per mailbox); `applyBlocks` in sync.ts trashes NEW inbox mail from them during the incremental check, never anything older. Renaming or
   deleting a label and blocking are `mayReshape`: the person on their own mailbox, an owner on a shared one. "Download all" zips in the
   browser (lib/rpmail/zip.ts). Empty Trash and out-of-office are PARKED: both need a wider Google permission (see the checklist).
+  Rules (`rpmail_rules`, per mailbox, `mayReshape`) and blocks are applied by lib/rpmail/arrival.ts `onArrival`, called from the incremental
+  check ONLY for messages that were not in the index before, so nothing older is touched and a rule never fires twice. Snooze / remind me
+  (`rpmail_snoozes`, lib/rpmail/snooze.ts) are each person's own: `rpmail_needs` and the Inbox list leave out what that person snoozed, and
+  `wakeSnoozes` in background.ts brings them back (a reminder is dropped silently if someone replied or the person lost the mailbox).
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.

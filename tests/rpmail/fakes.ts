@@ -11,12 +11,14 @@ type Filter = (r: Row) => boolean
 const like = (v: unknown, pat: string) => new RegExp('^' + pat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.') + '$', 'i').test(String(v ?? ''))
 const cmp = (a: unknown, b: unknown) => (a == null && b == null ? 0 : a == null ? -1 : b == null ? 1 : a < b ? -1 : a > b ? 1 : 0)
 
-const SERIAL = new Set(['rpmail_moves', 'rpmail_sent'])
+const SERIAL = new Set(['rpmail_moves', 'rpmail_sent', 'rpmail_snoozes'])
 const UUID_PK = new Set(['rpmail_mailboxes', 'rpmail_templates', 'con_tasks', 'rpmail_rules'])
 const DEFAULTS: Record<string, Row> = {
   rpmail_mailboxes: { crew_reads: false, token_secret_id: null, scope: null, connected_at: null, history_id: null, sync: {}, last_sync_at: null, last_error: null, owner_id: null, failing_since: null, fail_alerted_at: null, notify_mark: null },
   rpmail_moves: { undone: false },
-  rpmail_messages: { unread: false, in_inbox: false, sent: false, starred: false, has_att: false, bulk: false, asks: false, labels: [] },
+  rpmail_messages: { unread: false, in_inbox: false, sent: false, starred: false, has_att: false, bulk: false, asks: false, labels: [], quiet: false },
+  rpmail_rules: { enabled: true, position: 0, match: {}, action: {} },
+  rpmail_snoozes: { woke_at: null },
 }
 
 class Query implements PromiseLike<{ data: unknown; error: { message: string } | null; count?: number }> {
@@ -46,6 +48,8 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string } |
   in(c: string, v: unknown[]) { this.filters.push(r => v.includes(r[c])); return this }
   gte(c: string, v: unknown) { this.filters.push(r => r[c] != null && cmp(r[c], v) >= 0); return this }   // like SQL: nothing compares to an empty value
   lt(c: string, v: unknown) { this.filters.push(r => r[c] != null && cmp(r[c], v) < 0); return this }
+  lte(c: string, v: unknown) { this.filters.push(r => r[c] != null && cmp(r[c], v) <= 0); return this }
+  is(c: string, v: null) { this.filters.push(r => (r[c] ?? null) === v); return this }
   ilike(c: string, pat: string) { this.filters.push(r => like(r[c], pat)); return this }
   contains(c: string, v: unknown[]) { this.filters.push(r => Array.isArray(r[c]) && v.every(x => (r[c] as unknown[]).includes(x))); return this }
   or(expr: string) {
@@ -151,7 +155,8 @@ export class FakeDb {
       const addr = (id: unknown) => String(this.t('rpmail_mailboxes').find(b => b.id === id)?.address ?? '')
       const rows = mine.filter(m => (!a.p_mailbox || m.mailbox_id === a.p_mailbox) && m.in_inbox && !m.sent && !m.bulk && String(m.from_addr ?? '').toLowerCase() !== addr(m.mailbox_id)
         && !mine.some(s => s.mailbox_id === m.mailbox_id && s.thread_id === m.thread_id && String(s.date) > String(m.date) && (s.sent || String(s.from_addr ?? '').toLowerCase() === addr(m.mailbox_id)))
-        && !this.t('rpmail_done').some(d => d.profile_id === a.p_profile && d.mailbox_id === m.mailbox_id && d.gmail_id === m.gmail_id))
+        && !this.t('rpmail_done').some(d => d.profile_id === a.p_profile && d.mailbox_id === m.mailbox_id && d.gmail_id === m.gmail_id)
+        && !this.t('rpmail_snoozes').some(z => z.profile_id === a.p_profile && z.mailbox_id === m.mailbox_id && z.thread_id === m.thread_id && z.kind === 'snooze' && !z.woke_at))
       return { data: rows.sort((x, y) => cmp(y.date, x.date)).slice(0, Number(a.p_limit ?? 80)).map(r => structuredClone(r)), error: null }
     }
     throw new Error('FakeDb: no such function ' + name)

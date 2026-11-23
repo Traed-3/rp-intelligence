@@ -220,3 +220,100 @@ describe('download all as a zip', () => {
     expect(zipNames(['', '.hidden', 'a', 'A'])).toEqual(['attachment', '_hidden', 'a', 'A (2)'])
   })
 })
+
+describe('rules', () => {
+  it('acts on mail as it arrives: label it, skip the inbox, mark it read, star it', async () => {
+    const { ruleSave, ruleList } = await import('@/lib/rpmail/organize')
+    const { label } = await labelSave(me, { mailbox: box, name: 'Statements' })
+    await ruleSave(me, { mailbox: box, match: { from: 'VENDOR.com', subject: 'statement' }, action: { label: label.id, archive: true, read: true, star: true } })
+    expect((await ruleList(me, { mailbox: box })).rules[0]).toMatchObject({ name: 'From VENDOR.com, Subject has statement', enabled: true })
+
+    const hit = world.gmail.add('ann@gmail.com', { from: 'Pat Vendor <pat@vendor.com>', subject: 'November Statement' }).id
+    const fromOnly = world.gmail.add('ann@gmail.com', { from: 'Pat Vendor <pat@vendor.com>', subject: 'Quote for the pumps' }).id   // right sender, wrong subject
+    await sync(me, box)
+    expect(G(hit).labelIds).toEqual(expect.arrayContaining([label.id, 'STARRED']))
+    expect(G(hit).labelIds).not.toContain('INBOX')
+    expect(G(hit).labelIds).not.toContain('UNREAD')
+    expect(G(fromOnly).labelIds).toEqual(['INBOX', 'UNREAD'])
+    expect(await subjects({ view: 'inbox' })).toEqual(['Buy our stuff', 'Parts for 34006', 'Quote for the pumps'])
+    const filed = (await listMessages(me, { mailbox: box, view: 'filed' })).messages
+    expect(filed.map(m => [m.subject, m.unread, m.starred, m.labels])).toEqual([['November Statement', false, true, [label.id]]])
+  })
+
+  it('never touches mail that was already here, and never fires twice on the same message', async () => {
+    const { ruleSave } = await import('@/lib/rpmail/organize')
+    await ruleSave(me, { mailbox: box, match: { from: 'pat@vendor.com' }, action: { archive: true } })
+    await sync(me, box)
+    expect(G(m1).labelIds).toContain('INBOX')                          // m1 is from Pat but arrived before the rule
+    const later = world.gmail.add('ann@gmail.com', { from: 'pat@vendor.com', subject: 'New one' }).id
+    await sync(me, box)
+    expect(G(later).labelIds).not.toContain('INBOX')
+    G(later).labelIds.push('INBOX')                                    // the person drags it back into the inbox in Gmail...
+    world.gmail.fresh.set('ann@gmail.com', [later])                    // ...which Gmail reports as a change
+    await sync(me, box)
+    expect(G(later).labelIds).toContain('INBOX')                       // ...and the rule leaves it alone
+  })
+
+  it('a rule can send mail straight to Trash, and "never notify" keeps a notification from going out', async () => {
+    const { ruleSave } = await import('@/lib/rpmail/organize')
+    await ruleSave(me, { mailbox: box, match: { subject: 'webinar' }, action: { trash: true, star: true } })
+    await ruleSave(me, { mailbox: box, match: { from: 'alerts@bank.com' }, action: { quiet: true } })
+    const junk = world.gmail.add('ann@gmail.com', { from: 'x@events.com', subject: 'Join our WEBINAR' }).id
+    const bank = world.gmail.add('ann@gmail.com', { from: 'alerts@bank.com', subject: 'Deposit received' }).id
+    await sync(me, box)
+    expect(G(junk).labelIds).toContain('TRASH')
+    expect(G(junk).labelIds).not.toContain('STARRED')                  // Trash on its own: nothing else is done to it
+    expect(G(bank).labelIds).toEqual(['INBOX', 'UNREAD'])              // still in the inbox, untouched in Gmail
+    expect(world.db.t('rpmail_messages').find(m => m.gmail_id === bank)!.quiet).toBe(true)
+    expect(world.db.t('rpmail_messages').find(m => m.gmail_id === m1)!.quiet).toBe(false)
+  })
+
+  it('refuses a rule that would catch everything or do nothing, and a rule change by someone who is not the owner', async () => {
+    const { ruleSave, ruleDelete, ruleList } = await import('@/lib/rpmail/organize')
+    await expect(ruleSave(me, { mailbox: box, match: {}, action: { archive: true } })).rejects.toThrow(/has to match/)
+    await expect(ruleSave(me, { mailbox: box, match: { from: 'a' }, action: { archive: true } })).rejects.toThrow(/at least two characters/)
+    await expect(ruleSave(me, { mailbox: box, match: { from: 'pat' }, action: {} })).rejects.toThrow(/what should happen/)
+    await expect(ruleSave(me, { mailbox: box, match: { from: 'pat' }, action: { label: 'Label_99' } })).rejects.toThrow(/no longer in Gmail/)
+    const asBob = await asMe(bob)
+    await expect(ruleSave(asBob, { mailbox: office, match: { from: 'pat' }, action: { trash: true } })).rejects.toBeInstanceOf(Forbidden)
+    expect((await ruleList(asBob, { mailbox: office })).can_edit).toBe(false)
+    const asAnn = await asMe(ann)
+    const { id } = await ruleSave(asAnn, { mailbox: office, match: { from: 'pat' }, action: { read: true } })
+    await expect(ruleDelete(asBob, { mailbox: office, id })).rejects.toBeInstanceOf(Forbidden)
+    await ruleSave(asAnn, { mailbox: office, id, match: { from: 'pat' }, action: { read: true }, enabled: false })
+    const off = world.gmail.add('office@gmail.com', { from: 'pat@vendor.com', subject: 'Switched off' }).id
+    await sync(asAnn, office)
+    expect(G(off, 'office@gmail.com').labelIds).toContain('UNREAD')    // a rule that is switched off does nothing
+    await ruleDelete(asAnn, { mailbox: office, id })
+    expect((await ruleList(asAnn, { mailbox: office })).rules).toEqual([])
+  })
+})
+
+describe('snooze and remind me', () => {
+  const HOUR = 3_600_000
+  it('a snoozed conversation leaves my Inbox and Needs you, but nobody else\'s, and nothing changes in Gmail', async () => {
+    const { setSnooze } = await import('@/lib/rpmail/snooze')
+    const om = world.db.t('rpmail_messages').find(m => m.mailbox_id === office)!.gmail_id as string
+    const asBob = await asMe(bob)
+    await setSnooze(asBob, { mailbox: office, id: om, until: Date.now() + 2 * HOUR })
+    expect((await listMessages(asBob, { mailbox: office, view: 'inbox' })).messages).toEqual([])
+    expect((await listMessages(asBob, { mailbox: office, view: 'needs' })).messages).toEqual([])
+    const z = (await listMessages(asBob, { mailbox: office, view: 'snoozed' })).messages
+    expect(z.map(m => m.subject)).toEqual(['Statement'])
+    expect(z[0].snooze).toMatchObject({ kind: 'snooze', woke: false })
+    expect((await listMessages(asBob, { mailbox: office, view: 'all' })).messages.length).toBe(1)      // still findable
+    const asAnn = await asMe(ann)
+    expect((await listMessages(asAnn, { mailbox: office, view: 'inbox' })).messages.map(m => m.subject)).toEqual(['Statement'])   // Ann sees no difference
+    expect((await listMessages(asAnn, { mailbox: office, view: 'needs' })).messages.length).toBe(1)
+    expect(G(om, 'office@gmail.com').labelIds).toEqual(['INBOX', 'UNREAD'])
+    await setSnooze(await asMe(bob), { mailbox: office, id: om, on: false })
+    expect((await listMessages(await asMe(bob), { mailbox: office, view: 'inbox' })).messages.length).toBe(1)
+  })
+
+  it('refuses a time that has passed or is more than a year off', async () => {
+    const { setSnooze } = await import('@/lib/rpmail/snooze')
+    await expect(setSnooze(me, { mailbox: box, id: m1, until: Date.now() - HOUR })).rejects.toThrow(/still to come/)
+    await expect(setSnooze(me, { mailbox: box, id: m1, until: 'whenever' })).rejects.toThrow(/still to come/)
+    await expect(setSnooze(me, { mailbox: box, id: m1, until: Date.now() + 400 * 24 * HOUR })).rejects.toThrow(/within the next year/)
+  })
+})

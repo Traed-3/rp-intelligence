@@ -159,3 +159,51 @@ describe('the test notification button', () => {
     } finally { vi.useRealTimers() }
   })
 })
+
+describe('snoozes and reminders coming due', () => {
+  const HOUR = 3_600_000
+  const due = (thread: string) => { const z = world.db.t('rpmail_snoozes').find(x => x.thread_id === thread)!; z.until = new Date(Date.now() - 1000).toISOString(); return z }
+  it('brings a snoozed conversation back and tells the person who snoozed it, nobody else', async () => {
+    const { setSnooze } = await import('@/lib/rpmail/snooze')
+    const { wakeSnoozes, runBackground } = await import('@/lib/rpmail/background')
+    const { listMessages } = await import('@/lib/rpmail/mail-ops')
+    expect(await runBackground()).toMatchObject({ checked: 1 })      // loads the mailbox
+    const m = world.db.t('rpmail_messages')[0]
+    await setSnooze(asMe(bob), { mailbox: box, id: m.gmail_id as string, until: Date.now() + HOUR })
+    expect(await wakeSnoozes()).toBe(0)                                // not time yet
+    expect(pushes).toEqual([])
+    due(m.thread_id as string)
+    expect(await wakeSnoozes()).toBe(1)
+    expect(pushes).toEqual([{ to: 'device:Bob Manager', title: 'Back in your inbox (office)', message: 'Old mail', link: '/rpmail' }])
+    const back = (await listMessages(asMe(bob), { mailbox: box, view: 'inbox' })).messages
+    expect(back.length).toBe(1)
+    expect(back[0].snooze).toMatchObject({ kind: 'snooze', woke: true })
+    expect(await wakeSnoozes()).toBe(0)                                // told once
+    expect(pushes.length).toBe(1)
+  })
+
+  it('a reminder is only given if nobody has written back, and never to someone who has lost the mailbox', async () => {
+    const { setSnooze } = await import('@/lib/rpmail/snooze')
+    const { wakeSnoozes, runBackground } = await import('@/lib/rpmail/background')
+    await runBackground()
+    const m = world.db.t('rpmail_messages')[0]
+    await setSnooze(asMe(ann), { mailbox: box, id: m.gmail_id as string, until: Date.now() + HOUR, kind: 'remind' })
+    await setSnooze(asMe(bob), { mailbox: box, id: m.gmail_id as string, until: Date.now() + HOUR, kind: 'remind' })
+    world.db.tables.rpmail_access = world.db.t('rpmail_access').filter(a => a.profile_id !== bob.id)     // Bob is taken off the mailbox
+    for (const z of world.db.t('rpmail_snoozes')) z.until = new Date(Date.now() - 1000).toISOString()
+    expect(await wakeSnoozes()).toBe(1)
+    expect(pushes).toEqual([{ to: 'device:Ann Owner', title: 'No reply yet (office)', message: 'Old mail', link: '/rpmail' }])
+    expect(world.db.t('rpmail_snoozes').map(z => z.profile_id)).toEqual([ann.id])                         // Bob's is gone without a word
+
+    // Ann sets another; this time the other side writes back before it is due.
+    pushes.length = 0
+    world.db.tables.rpmail_snoozes = []
+    await setSnooze(asMe(ann), { mailbox: box, id: m.gmail_id as string, until: Date.now() + HOUR, kind: 'remind' })
+    world.gmail.add('office@gmail.com', { from: 'Pat <pat@vendor.com>', subject: 'Re: Old mail', threadId: m.thread_id as string, date: Date.now() + 5000 })
+    await runBackground()
+    due(m.thread_id as string)
+    expect(await wakeSnoozes()).toBe(0)
+    expect(pushes.filter(p => p.title.startsWith('No reply'))).toEqual([])
+    expect(world.db.t('rpmail_snoozes')).toEqual([])
+  })
+})

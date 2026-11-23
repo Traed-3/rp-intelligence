@@ -18,6 +18,15 @@ export type Item = {
   site: string | null; po: string | null; count?: number; why?: string; waiting?: boolean
   /** Gmail label ids the person made themselves (Label_…). Gmail's own tabs and system labels are left out. */
   labels: string[]
+  /** This person's own snooze or reminder on the conversation, if they set one. */
+  snooze?: SnoozeInfo
+}
+export type SnoozeInfo = { kind: 'snooze' | 'remind'; until: number; woke: boolean }
+
+/** This person's snoozes and reminders in one mailbox, by conversation. */
+export async function mySnoozes(profileId: string, mailboxId: string): Promise<Map<string, SnoozeInfo>> {
+  const { data } = await createAdminClient().from('rpmail_snoozes').select('thread_id, kind, until, woke_at').eq('profile_id', profileId).eq('mailbox_id', mailboxId)
+  return new Map((data ?? []).map(z => [z.thread_id as string, { kind: z.kind as 'snooze' | 'remind', until: Date.parse(z.until as string), woke: !!z.woke_at }]))
 }
 export const LIST_COLS = 'mailbox_id, gmail_id, thread_id, date, from_name, from_addr, to_addrs, subject, snippet, unread, starred, has_att, in_inbox, sent, site, po, labels'
 type Row = Pick<IndexRow, 'mailbox_id' | 'gmail_id' | 'thread_id' | 'date' | 'from_name' | 'from_addr' | 'to_addrs' | 'subject' | 'snippet' | 'unread' | 'starred' | 'has_att' | 'in_inbox' | 'sent' | 'site' | 'po'> & { labels?: string[] | null }
@@ -60,11 +69,18 @@ export async function listMessages(who: Me, p: Record<string, string>) {
   const box = await mailboxFor(who, p.mailbox)
   const admin = createAdminClient()
   const view = p.view || 'inbox'
+  const snoozes = await mySnoozes(who.id, box.id)
+  const asleep = new Set([...snoozes].filter(([, z]) => z.kind === 'snooze' && !z.woke).map(([t]) => t))   // off this person's lists until the time comes
+  const tag = (items: Item[]) => items.map(i => { const z = snoozes.get(i.thread_id); return z ? { ...i, snooze: z } : i })
   if (view === 'needs') {
     const { data } = await admin.rpc('rpmail_needs', { p_profile: who.id, p_mailbox: box.id, p_limit: 200 })
-    return { messages: ((data ?? []) as Row[]).map(toItem), total: (data ?? []).length }
+    return { messages: tag(((data ?? []) as Row[]).map(toItem)), total: (data ?? []).length }
   }
   let q = admin.from('rpmail_messages').select(LIST_COLS).eq('mailbox_id', box.id)
+  if (view === 'snoozed') {
+    if (!asleep.size) return { messages: [], total: 0 }
+    q = q.in('thread_id', [...asleep])
+  }
   if (view === 'inbox') q = q.eq('in_inbox', true)
   else if (view === 'sent') q = q.eq('sent', true)
   else if (view === 'filed') q = q.eq('in_inbox', false).eq('sent', false)
@@ -81,7 +97,8 @@ export async function listMessages(who: Me, p: Record<string, string>) {
   }
   const { data, error } = await q.order('date', { ascending: false }).limit(800)
   if (error) throw new Error('Could not load the list.')
-  const groups = groupThreads((data ?? []) as Row[])
+  const rows = ((data ?? []) as Row[]).filter(r => view !== 'inbox' || !asleep.has(r.thread_id))
+  const groups = tag(groupThreads(rows))
   return { messages: groups, total: groups.length }
 }
 
@@ -139,12 +156,13 @@ export async function readMessage(who: Me, p: Record<string, string>) {
   const { data: thread } = await admin.from('rpmail_messages').select('gmail_id, date, from_name, from_addr, snippet, unread, sent')
     .eq('mailbox_id', box.id).eq('thread_id', m.threadId).neq('gmail_id', id).order('date', { ascending: false }).limit(30)
   const { data: done } = await admin.from('rpmail_done').select('gmail_id').eq('profile_id', who.id).eq('mailbox_id', box.id).eq('gmail_id', id).maybeSingle()
+  const snooze = (await mySnoozes(who.id, box.id)).get(m.threadId)
   return {
     ...toItem(row), cc_addrs: row.cc_addrs, to_full: decodeWords(h['to'] ?? ''), cc_full: decodeWords(h['cc'] ?? ''),
     text: bodyText(plain, html).slice(0, 400_000), html: safe && safe.length < 3_000_000 ? safe : null,
     attachments: files.map((f, i) => ({ i, name: f.name, type: f.type, size: f.size, inline: f.inline })).filter(f => !f.inline || !safe),
     thread: (thread ?? []).map(t => ({ id: t.gmail_id as string, date: Date.parse(t.date as string), from_name: t.from_name as string, snippet: t.snippet as string, unread: !!t.unread, sent: !!t.sent })),
-    done: !!done, hidden: isHidden(m.labelIds),
+    done: !!done, hidden: isHidden(m.labelIds), ...(snooze ? { snooze } : {}),
   }
 }
 

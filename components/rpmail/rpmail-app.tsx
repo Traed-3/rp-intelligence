@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   Mail, LayoutDashboard, PenSquare, RefreshCw, Paperclip, Check, Archive, Trash2, ShieldAlert, Reply, ReplyAll, Forward, Inbox,
-  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal,
+  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal, AlarmClock, BellRing, Wand2,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Item } from '@/lib/rpmail/mail-ops'
 import type { BoxInfo } from '@/lib/rpmail/overview'
 import type { Label } from '@/lib/rpmail/organize'
+import type { Rule } from '@/lib/rpmail/arrival'
 import { makeZip } from '@/lib/rpmail/zip'
 import { PushToggle } from '@/app/(app)/settings/alerts/push-toggle'
 import { Compose, clearDraft, type ComposeStart, type Outgoing } from './compose'
@@ -30,7 +31,7 @@ type Full = Item & { cc_addrs: string; to_full: string; cc_full: string; text: s
   attachments: { i: number; name: string; type: string; size: number; inline: boolean }[]
   thread: { id: string; date: number; from_name: string; snippet: string; unread: boolean; sent: boolean }[] }
 type Toast = { text: string; undo?: () => void } | null
-type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all'; q: string; unread: boolean; att: boolean; starred?: boolean; label?: string; from?: string; after?: string; before?: string }
+type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all' | 'snoozed'; q: string; unread: boolean; att: boolean; starred?: boolean; label?: string; from?: string; after?: string; before?: string }
 type LabelSet = { box: string; labels: Label[]; can_edit: boolean }
 type BulkAction = 'Archive' | 'Trash' | 'read' | 'unread' | 'done' | 'label'
 type View = { kind: 'dash' } | { kind: 'box'; id: string }
@@ -78,7 +79,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const [help, setHelp] = useState(false)
   const [notifyOpen, setNotifyOpen] = useState(false)
   const [labelSet, setLabelSet] = useState<LabelSet | null>(null)
-  const [organize, setOrganize] = useState(false)
+  const [organize, setOrganize] = useState<{ from?: string } | null>(null)
   const [pending, setPending] = useState<{ out: Outgoing; until: number } | null>(null)
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -215,6 +216,18 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
     say(move ? `Moved to ${r.name || 'the label'}.` : on ? `Labelled ${r.name || ''}.` : 'Label taken off.', back)
   }), [act, refresh, say, sel, undoMoveNow])
 
+  // Snooze (off my lists until a time) or remind me (tell me at a time if nobody has replied). `until: null` cancels.
+  const snooze = useCallback((it: { mailbox_id: string; id: string }, until: number | null, kind: 'snooze' | 'remind' = 'snooze') => act(async () => {
+    const cancel = async () => { await api('snooze', { mailbox: it.mailbox_id, id: it.id, on: false }); setMsg(m => m && m.id === it.id ? { ...m, snooze: undefined } : m); await refresh() }
+    if (until === null) { await cancel(); say(kind === 'remind' ? 'Reminder cancelled.' : 'Back on your lists.'); return }
+    await api('snooze', { mailbox: it.mailbox_id, id: it.id, until, kind })
+    if (kind === 'snooze' && sel?.id === it.id) { setSel(null); setMsg(null) }
+    else setMsg(m => m && m.id === it.id ? { ...m, snooze: { kind, until, woke: false } } : m)
+    await refresh()
+    const at = new Date(until).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    say(kind === 'remind' ? `You will be reminded ${at} if nobody has replied.` : `Snoozed until ${at}. It is off your lists until then.`, () => void act(async () => { await cancel(); say('Cancelled.') }))
+  }), [act, refresh, say, sel])
+
   const makeLabel = useCallback(async (mailbox: string, name: string): Promise<Label | null> => {
     try {
       const r = await api<{ label: Label }>('label_save', { mailbox, name })
@@ -315,7 +328,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      if (e.key === 'Escape') { setMenu(null); setBoxMenu(null); setHelp(false); setNotifyOpen(false); setOrganize(false); return }
+      if (e.key === 'Escape') { setMenu(null); setBoxMenu(null); setHelp(false); setNotifyOpen(false); setOrganize(null); return }
       if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return
       const k = keyState.current
       if (k.compose) return
@@ -347,11 +360,12 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
         case 'd': void markDone(cur, !k.msg.done); return done()
         case 'm': void markRead(cur, !k.msg.unread); return done()
         case 'p': printMessage(k.msg); return done()
+        case 'z': void snooze(cur, k.msg.snooze && !k.msg.snooze.woke ? null : atMorning(1), k.msg.snooze?.kind ?? 'snooze'); return done()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [fileTo, markDone, markRead, openMsg, toggleStar])
+  }, [fileTo, markDone, markRead, openMsg, toggleStar, snooze])
   const boxName = useCallback((id: string) => boxes.find(b => b.id === id)?.name ?? '', [boxes])
   const cur = view.kind === 'box' ? boxes.find(b => b.id === view.id) ?? null : null
 
@@ -403,10 +417,10 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           {view.kind === 'box' && cur && !cur.connected && <Connect box={cur} st={st} />}
           {view.kind === 'box' && cur && cur.connected && (
             <BoxView box={cur} filter={filter} setFilter={setFilter} list={list} sel={sel} msg={msg} msgErr={msgErr} rowProps={rowProps} reload={loadList} bulk={(ids, action, extra) => void bulk(cur.id, ids, action, extra)}
-              labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit} openOrganize={() => setOrganize(true)} makeLabel={name => makeLabel(cur.id, name)}
+              labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit} openOrganize={from => setOrganize({ from })} makeLabel={name => makeLabel(cur.id, name)}
               close={() => { setSel(null); setMsg(null) }} openOther={id => void openMsg(cur.id, id)}
               search={() => void act(async () => { say('Searching all of Gmail...'); const r = await api<{ messages: Item[] }>('search', { mailbox: cur.id, q: filter.q }); setList({ key: keyOf(view, filter), items: r.messages }); say(r.messages.length ? `${r.messages.length} found in Gmail.` : 'Nothing found in Gmail.') })}
-              actions={{ fileTo, markRead, markDone, plateAdd, star: toggleStar, label: applyLabel, block: blockFrom, reply: (m, all, fwd) => setCompose({ mode: fwd ? 'forward' : 'reply', mailbox: m.mailbox_id, id: m.id, all }) }}
+              actions={{ fileTo, markRead, markDone, plateAdd, star: toggleStar, label: applyLabel, block: blockFrom, snooze, reply: (m, all, fwd) => setCompose({ mode: fwd ? 'forward' : 'reply', mailbox: m.mailbox_id, id: m.id, all }) }}
               editSig={() => setCompose({ mode: 'signature', mailbox: cur.id })}
               disconnect={canSignOut(cur) ? () => signOut(cur) : undefined} />
           )}
@@ -414,7 +428,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
       </div>
 
       {menu && (
-        <div className="fixed z-50 rp-card py-1 text-sm shadow-lg" style={{ left: Math.min(menu.x, window.innerWidth - 190), top: Math.min(menu.y, window.innerHeight - 365) }}>
+        <div className="fixed z-50 rp-card py-1 text-sm shadow-lg" style={{ left: Math.min(menu.x, window.innerWidth - 190), top: Math.min(menu.y, window.innerHeight - 400) }}>
           <MenuBtn onClick={() => rowProps.onOpen(menu.item)}>Open</MenuBtn>
           <MenuBtn onClick={() => setCompose({ mode: 'reply', mailbox: menu.item.mailbox_id, id: menu.item.id })}>Reply</MenuBtn>
           <MenuBtn onClick={() => setCompose({ mode: 'forward', mailbox: menu.item.mailbox_id, id: menu.item.id })}>Forward</MenuBtn>
@@ -422,6 +436,9 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           <MenuBtn onClick={() => void plateAdd(menu.item)}>Add to My Plate</MenuBtn>
           <MenuBtn onClick={() => void markRead(menu.item, !menu.item.unread)}>{menu.item.unread ? 'Mark read' : 'Mark unread'}</MenuBtn>
           <MenuBtn onClick={() => void toggleStar(menu.item, !menu.item.starred)}>{menu.item.starred ? 'Remove star' : 'Star'}</MenuBtn>
+          {menu.item.snooze && !menu.item.snooze.woke
+            ? <MenuBtn onClick={() => void snooze(menu.item, null, menu.item.snooze!.kind)}>{menu.item.snooze.kind === 'remind' ? 'Cancel the reminder' : 'Stop snoozing'}</MenuBtn>
+            : <MenuBtn onClick={() => void snooze(menu.item, atMorning(1))}>Snooze until tomorrow morning</MenuBtn>}
           {menu.item.in_inbox && <MenuBtn onClick={() => void fileTo(menu.item, 'Archive')}>Archive</MenuBtn>}
           <MenuBtn onClick={() => void fileTo(menu.item, 'Spam')}>Spam</MenuBtn>
           <MenuBtn onClick={() => void fileTo(menu.item, 'Trash')}>Delete</MenuBtn>
@@ -442,8 +459,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
         </div>
       ) })()}
       {help && <HelpSheet close={() => setHelp(false)} />}
-      {organize && cur && <OrganizeSheet box={cur} labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit}
-        reload={async () => { await loadLabels(cur.id); await refresh() }} close={() => setOrganize(false)} say={say} />}
+      {organize && cur && <OrganizeSheet box={cur} labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit} ruleFrom={organize.from}
+        reload={async () => { await loadLabels(cur.id); await refresh() }} close={() => setOrganize(null)} say={say} />}
       {notifyOpen && <NotifySheet start={st.prefs?.notify} boxes={boxes} close={() => setNotifyOpen(false)} save={async n => { await savePrefs({ notify: n }); setNotifyOpen(false); say(n.on ? 'Notifications are on.' : 'Notifications are off.') }} />}
       {toast && (
         <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg bg-foreground text-background px-4 py-2.5 text-sm shadow-lg max-w-[92vw]">
@@ -512,6 +529,13 @@ function Connect({ box, st }: { box: BoxInfo; st: State }) {
   )
 }
 
+type Snooze = NonNullable<Item['snooze']>
+const snoozeText = (z: Snooze) => z.kind === 'remind' ? (z.woke ? 'No reply yet' : 'Reminder ' + when(z.until)) : (z.woke ? 'Back from snooze' : 'Snoozed until ' + when(z.until))
+// Times for the Snooze and Remind me choices. Worked out when the button is pressed, in the person's own time zone.
+const inHours = (h: number) => Date.now() + h * 3_600_000
+const atMorning = (days: number) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(8, 0, 0, 0); return d.getTime() }
+const nextMonday = () => atMorning(((8 - new Date().getDay()) % 7) || 7)
+
 /** What a dragged conversation carries, so a label can tell it is mail being dropped on it. */
 const DRAG = 'text/x-rpmail-id'
 
@@ -533,6 +557,7 @@ function Row({ m, selected, boxLabel, onDone, onOpen, onMenu, onStar, pick, labe
         <div className="truncate text-xs text-muted-foreground">{m.snippet}</div>
         <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
           {m.waiting && <span className="rp-pill" data-tone="warning">Waiting on a reply</span>}
+          {m.snooze && <span className="rp-pill" data-tone={m.snooze.woke ? (m.snooze.kind === 'remind' ? 'warning' : 'info') : undefined}>{snoozeText(m.snooze)}</span>}
           {m.why && <span className="rp-pill" data-tone="info">{m.why}</span>}
           {m.site && <span className="rp-site-tag">{m.site}</span>}
           {m.po && <span className="rp-pill">PO {m.po}</span>}
@@ -693,14 +718,15 @@ type Actions = {
   star: (it: { mailbox_id: string; id: string }, on: boolean) => void
   label: (it: { mailbox_id: string; id: string }, label: string, on: boolean, move?: boolean) => void
   block: (it: { mailbox_id: string; id: string }) => void
+  snooze: (it: { mailbox_id: string; id: string }, until: number | null, kind?: 'snooze' | 'remind') => void
   reply: (m: Full, all: boolean, fwd: boolean) => void
 }
 
 function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, reload, bulk, close, openOther, search, actions, editSig, disconnect, labels, canEdit, openOrganize, makeLabel }: {
   box: BoxInfo; filter: Filter; setFilter: (f: Filter) => void; list: Item[] | null; sel: { mailbox: string; id: string } | null; msg: Full | null; msgErr: string
   rowProps: RowProps; reload: () => void; bulk: (ids: string[], action: BulkAction, extra?: { label: string; move: boolean }) => void; close: () => void; openOther: (id: string) => void; search: () => void; actions: Actions; editSig: () => void; disconnect?: () => void
-  labels: Label[]; canEdit: boolean; openOrganize: () => void; makeLabel: (name: string) => Promise<Label | null> }) {
-  const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['filed', 'Filed'], ['all', 'All']]
+  labels: Label[]; canEdit: boolean; openOrganize: (ruleFrom?: string) => void; makeLabel: (name: string) => Promise<Label | null> }) {
+  const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['filed', 'Filed'], ['snoozed', 'Snoozed'], ['all', 'All']]
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const chosen = (list ?? []).filter(m => picked.has(m.id)).map(m => m.id)   // only what is on screen right now
   const toggle = (id: string) => setPicked(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
@@ -717,7 +743,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
           <p className="text-xs text-muted-foreground truncate">{box.address} · {box.loading ? `loading mail: ${box.loading.total - box.loading.left} of ${box.loading.total}` : 'checked ' + ago(box.last_sync_at)}{box.crew_reads ? ' · the crew reads this mailbox: no pricing' : ''}</p>
         </div>
         <div className="flex items-center gap-1.5">
-          <button className={btn('ghost', 'xs')} onClick={openOrganize} title="Make, rename and delete labels, and see who is blocked"><Tags />Labels and blocked</button>
+          <button className={btn('ghost', 'xs')} onClick={() => openOrganize()} title="Labels, rules for new mail, and blocked senders"><Tags />Labels and rules</button>
           <button className={btn('ghost', 'xs')} onClick={editSig}><Signature />Signature</button>
           <a className={cn(btn('ghost', 'xs'), '!text-xs !font-medium')} href={`/api/rpmail/connect?mailbox=${box.id}`} title="Use this if mail has stopped arriving or Google asks for permission again">Sign in again</a>
           {disconnect && <button className={btn('ghost', 'xs')} onClick={disconnect}><Unplug />Sign out</button>}
@@ -788,20 +814,21 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
             </div>
           )}
           {list === null && <Empty>Loading...</Empty>}
-          {list && !list.length && <Empty>{box.loading ? 'Your mail is still loading. This fills in as it arrives.' : 'Nothing here.'}</Empty>}
+          {list && !list.length && <Empty>{box.loading ? 'Your mail is still loading. This fills in as it arrives.' : filter.view === 'snoozed' ? 'Nothing is snoozed. Snooze a message to take it off your lists until a time you pick.' : 'Nothing here.'}</Empty>}
           {list?.map(m => <Row key={m.id} m={m} selected={sel?.id === m.id} pick={filter.view !== 'needs' ? { on: picked.has(m.id), toggle: () => toggle(m.id) } : undefined} labelNames={labelNames} drag={labels.length > 0} {...rowProps} />)}
         </div>
         <div className={cn('lg:max-h-[78vh] overflow-y-auto', !sel && 'hidden lg:block')}>
           {!sel && <Empty>Pick a message to read it. Opening a message does not mark it read.</Empty>}
           {sel && !msg && <Empty>{msgErr || 'Opening...'}</Empty>}
-          {sel && msg && <Reader key={msg.id} m={msg} close={close} openOther={openOther} actions={actions} labels={labels} canEdit={canEdit} makeLabel={makeLabel} />}
+          {sel && msg && <Reader key={msg.id} m={msg} close={close} openOther={openOther} actions={actions} labels={labels} canEdit={canEdit} makeLabel={makeLabel} makeRule={openOrganize} />}
         </div>
       </div>
     </div>
   )
 }
 
-function Reader({ m, close, openOther, actions, labels, canEdit, makeLabel }: { m: Full; close: () => void; openOther: (id: string) => void; actions: Actions; labels: Label[]; canEdit: boolean; makeLabel: (name: string) => Promise<Label | null> }) {
+function Reader({ m, close, openOther, actions, labels, canEdit, makeLabel, makeRule }: { m: Full; close: () => void; openOther: (id: string) => void; actions: Actions; labels: Label[]; canEdit: boolean; makeLabel: (name: string) => Promise<Label | null>; makeRule: (from: string) => void }) {
+  const [whenFor, setWhenFor] = useState<'snooze' | 'remind' | null>(null)
   const [imgs, setImgs] = useState(false)   // the reader is keyed by message, so pictures are hidden again for each new one
   const [picker, setPicker] = useState(false)
   const [zip, setZip] = useState('')
@@ -860,8 +887,20 @@ function Reader({ m, close, openOther, actions, labels, canEdit, makeLabel }: { 
               apply={(id, on, move) => actions.label(it, id, on, move)}
               create={async name => { const l = await makeLabel(name); if (l) actions.label(it, l.id, true) }} />}
           </span>
+          <span className="relative">
+            <button className={btn('ghost')} onClick={() => setWhenFor(whenFor === 'snooze' ? null : 'snooze')} aria-expanded={whenFor === 'snooze'} title="Take it off my lists until a time I pick"><AlarmClock />Snooze</button>
+            <button className={btn('ghost')} onClick={() => setWhenFor(whenFor === 'remind' ? null : 'remind')} aria-expanded={whenFor === 'remind'} title="Tell me at a time I pick, if nobody has replied by then"><BellRing />Remind me</button>
+            {whenFor && <WhenPicker kind={whenFor} close={() => setWhenFor(null)} pick={ms => { setWhenFor(null); actions.snooze(it, ms, whenFor) }} />}
+          </span>
           {canEdit && !m.sent && <button className={btn('ghost')} onClick={() => actions.block(it)} title="This conversation goes to Trash, and so does anything new from this sender"><Ban />Block sender</button>}
+          {canEdit && !m.sent && <button className={btn('ghost')} onClick={() => makeRule(m.from_addr)} title="Decide what happens to new mail from this sender"><Wand2 />Make a rule</button>}
         </div>
+        {m.snooze && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            <span className="rp-pill" data-tone={m.snooze.woke ? (m.snooze.kind === 'remind' ? 'warning' : 'info') : undefined}>{snoozeText(m.snooze)}</span>{' '}
+            <button className="underline" onClick={() => actions.snooze(it, null, m.snooze!.kind)}>{m.snooze.woke ? 'Clear' : m.snooze.kind === 'remind' ? 'Cancel the reminder' : 'Stop snoozing'}</button>
+          </p>
+        )}
         {(m.labels ?? []).some(l => labels.some(x => x.id === l)) && (
           <div className="mt-2 flex flex-wrap gap-1">
             {labels.filter(l => (m.labels ?? []).includes(l.id)).map(l => (
@@ -923,8 +962,45 @@ function LabelPicker({ labels, on, apply, create, close }: { labels: Label[]; on
   )
 }
 
-/** Labels and blocked senders for one mailbox. Renaming, deleting and blocking change the mailbox for everyone who uses it. */
-function OrganizeSheet({ box, labels, canEdit, reload, close, say }: { box: BoxInfo; labels: Label[]; canEdit: boolean; reload: () => Promise<void>; close: () => void; say: (text: string) => void }) {
+/** The choices under Snooze and Remind me. The time is worked out at the moment a choice is pressed. */
+function WhenPicker({ kind, pick, close }: { kind: 'snooze' | 'remind'; pick: (ms: number) => void; close: () => void }) {
+  const [custom, setCustom] = useState('')
+  const [bad, setBad] = useState('')
+  const choices: [string, () => number][] = [['In 3 hours', () => inHours(3)], ['Tomorrow morning (8:00)', () => atMorning(1)], ['Monday morning (8:00)', nextMonday], ['In a week', () => atMorning(7)]]
+  return (
+    <div className="absolute left-0 z-20 mt-1 w-72 max-w-[86vw] rp-card p-2 text-sm shadow-lg" role="dialog" aria-label={kind === 'remind' ? 'Remind me' : 'Snooze'} onClick={e => e.stopPropagation()}>
+      <p className="px-2 pb-1 text-xs text-muted-foreground">{kind === 'remind' ? 'You are told at this time if nobody has replied. Nothing is hidden.' : 'It leaves your Inbox and Needs you lists until this time. Only your lists change.'}</p>
+      {choices.map(([label, at]) => <button key={label} className="block w-full rounded px-2 py-1.5 text-left hover:bg-raised" onClick={() => pick(at())}>{label}</button>)}
+      <form className="mt-1 flex flex-wrap items-center gap-1.5 border-t border-hairline pt-2" onSubmit={e => {
+        e.preventDefault()
+        const at = Date.parse(custom)
+        if (!custom || Number.isNaN(at) || at < Date.now() + 60_000) { setBad('Pick a time that is still to come.'); return }
+        pick(at)
+      }}>
+        <input type="datetime-local" className="rp-input !w-auto flex-1" aria-label="Pick a date and time" value={custom} onChange={e => { setCustom(e.target.value); setBad('') }} />
+        <button className={btn('outline', 'sm')} type="submit" disabled={!custom}>Set</button>
+        <button className={btn('ghost', 'sm')} type="button" onClick={close}>Cancel</button>
+        {bad && <span className="w-full text-xs text-danger" role="alert">{bad}</span>}
+      </form>
+    </div>
+  )
+}
+
+const ruleText = (r: Rule, names: Map<string, string>) => {
+  const whenParts = [r.match.from && `from ${r.match.from}`, r.match.to && `to ${r.match.to}`, r.match.subject && `with "${r.match.subject}" in the subject`].filter(Boolean)
+  const a = r.action
+  const then = a.trash ? ['send it to Trash'] : [a.label && `label it ${names.get(a.label) ?? '(a label that was deleted)'}`, a.archive && 'skip the inbox', a.read && 'mark it read', a.star && 'star it', a.quiet && 'never notify'].filter(Boolean)
+  return `New mail ${whenParts.join(' and ')}: ${then.join(', ')}.`
+}
+const NO_RULE = { from: '', to: '', subject: '', label: '', archive: false, read: false, star: false, quiet: false, trash: false }
+
+/** Labels, rules and blocked senders for one mailbox. Renaming, deleting, rules and blocking change the mailbox for everyone who uses it. */
+function OrganizeSheet({ box, labels, canEdit, reload, close, say, ruleFrom }: { box: BoxInfo; labels: Label[]; canEdit: boolean; reload: () => Promise<void>; close: () => void; say: (text: string) => void; ruleFrom?: string }) {
+  const [rules, setRules] = useState<Rule[] | null>(null)
+  const [rule, setRule] = useState({ ...NO_RULE, from: ruleFrom ?? '' })
+  const loadRules = useCallback(() => api<{ rules: Rule[] }>('rules', undefined, { mailbox: box.id }).then(r => setRules(r.rules)).catch(() => setRules([])), [box.id])
+  useEffect(() => { void loadRules() }, [loadRules])
+  const labelNames = useMemo(() => new Map(labels.map(l => [l.id, l.name])), [labels])
   const [blocked, setBlocked] = useState<{ addr: string; since: number }[] | null>(null)
   const [name, setName] = useState('')
   const [addr, setAddr] = useState('')
@@ -937,8 +1013,9 @@ function OrganizeSheet({ box, labels, canEdit, reload, close, say }: { box: BoxI
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" onClick={close}>
       <div className="rp-card w-full sm:max-w-lg max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="rp-card-head"><h2 className="rp-card-title truncate">Labels and blocked senders: {box.name}</h2><button onClick={close} aria-label="Close"><X className="size-5" /></button></div>
+        <div className="rp-card-head"><h2 className="rp-card-title truncate">Labels, rules and blocked senders: {box.name}</h2><button onClick={close} aria-label="Close"><X className="size-5" /></button></div>
         <div className="p-4 space-y-5 text-sm">
+          {ruleFrom && canEdit && <p className="rounded-md border border-border bg-raised px-3 py-2 text-xs text-muted-foreground">A new rule for mail from <strong className="text-foreground">{ruleFrom}</strong> is started under Rules below. Choose what should happen and press Add rule.</p>}
           <section className="space-y-2">
             <p className="rp-label">Labels</p>
             <p className="text-xs text-muted-foreground">These are Gmail&apos;s own labels, so they show in Gmail too. Deleting a label never deletes mail.{!canEdit && ' On a shared mailbox only an owner can rename or delete one; anyone can add one.'}</p>
@@ -972,6 +1049,59 @@ function OrganizeSheet({ box, labels, canEdit, reload, close, say }: { box: BoxI
               <input className="rp-input" placeholder="New label" aria-label="New label name" maxLength={60} value={name} onChange={e => setName(e.target.value)} />
               <button className={btn('outline', 'sm')} type="submit" disabled={busy || !name.trim()}>Add label</button>
             </form>
+          </section>
+          <section className="space-y-2">
+            <p className="rp-label">Rules for new mail</p>
+            <p className="text-xs text-muted-foreground">A rule acts on mail as it arrives, within about 5 minutes. Mail that is already here is never touched.{!canEdit && ' On a shared mailbox only an owner can change the rules.'}</p>
+            {rules === null && <p className="text-muted-foreground">Loading...</p>}
+            {rules && !rules.length && <p className="text-muted-foreground">No rules yet.</p>}
+            {rules && rules.length > 0 && (
+              <ul className="divide-y divide-hairline rounded-md border border-border">
+                {rules.map(r => (
+                  <li key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
+                    {drop === 'rule:' + r.id ? (
+                      <>
+                        <span className="min-w-0 flex-1">Delete this rule?</span>
+                        <button className={btn('destructive', 'xs')} disabled={busy} onClick={() => void run(async () => { await api('rule_delete', { mailbox: box.id, id: r.id }); setDrop(''); await loadRules(); say('Rule deleted.') })}>Delete the rule</button>
+                        <button className={btn('ghost', 'xs')} onClick={() => setDrop('')}>Keep it</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className={cn('min-w-0 flex-1', !r.enabled && 'text-muted-foreground line-through')}>{ruleText(r, labelNames)}</span>
+                        {canEdit && <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" className="size-4" checked={r.enabled} disabled={busy}
+                          onChange={e => void run(async () => { await api('rule_save', { mailbox: box.id, id: r.id, name: r.name, match: r.match, action: r.action, enabled: e.target.checked }); await loadRules() })} />On</label>}
+                        {canEdit && <button className={btn('ghost', 'xs')} onClick={() => { setEdit(null); setDrop('rule:' + r.id) }}>Delete</button>}
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canEdit && (
+              <form className="space-y-2 rounded-md border border-border p-3" onSubmit={e => { e.preventDefault(); void run(async () => {
+                await api('rule_save', { mailbox: box.id, match: { from: rule.from, to: rule.to, subject: rule.subject }, action: { label: rule.label, archive: rule.archive, read: rule.read, star: rule.star, quiet: rule.quiet, trash: rule.trash } })
+                setRule(NO_RULE); await loadRules(); say('Rule added. It starts with the next mail that arrives.')
+              }) }}>
+                <p className="text-xs font-semibold text-foreground">When new mail arrives that is…</p>
+                <div className="grid gap-1.5 sm:grid-cols-3">
+                  <input className="rp-input" placeholder="From (name or address)" aria-label="From contains" maxLength={100} value={rule.from} onChange={e => setRule({ ...rule, from: e.target.value })} />
+                  <input className="rp-input" placeholder="To (address)" aria-label="To contains" maxLength={100} value={rule.to} onChange={e => setRule({ ...rule, to: e.target.value })} />
+                  <input className="rp-input" placeholder="Subject has" aria-label="Subject contains" maxLength={100} value={rule.subject} onChange={e => setRule({ ...rule, subject: e.target.value })} />
+                </div>
+                <p className="text-xs font-semibold text-foreground">…then</p>
+                <fieldset disabled={rule.trash} className={cn('flex flex-wrap items-center gap-x-4 gap-y-1.5', rule.trash && 'opacity-50')}>
+                  <label className="inline-flex items-center gap-1.5">Label it
+                    <select className="rp-input !w-auto" aria-label="Label to add" value={rule.label} onChange={e => setRule({ ...rule, label: e.target.value })}>
+                      <option value="">no label</option>{labels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select></label>
+                  {([['archive', 'Skip the inbox'], ['read', 'Mark it read'], ['star', 'Star it'], ['quiet', 'Never notify']] as const).map(([k, l]) => (
+                    <label key={k} className="inline-flex items-center gap-1.5"><input type="checkbox" className="size-4" checked={rule[k]} onChange={e => setRule({ ...rule, [k]: e.target.checked })} />{l}</label>
+                  ))}
+                </fieldset>
+                <label className="flex items-center gap-1.5"><input type="checkbox" className="size-4" checked={rule.trash} onChange={e => setRule({ ...rule, trash: e.target.checked })} />Send it straight to Trash instead (Gmail keeps it 30 days)</label>
+                <button className={btn('outline', 'sm')} type="submit" disabled={busy}>Add rule</button>
+              </form>
+            )}
           </section>
           <section className="space-y-2">
             <p className="rp-label">Blocked senders</p>
@@ -1056,7 +1186,7 @@ function DoneSection({ boxName, rowProps, putBack, stamp }: { boxName?: (id: str
 const KEYS: [string, string][] = [
   ['?', 'Show or hide this list'], ['c', 'Write a new message'], ['/', 'Jump to the search box'], ['j', 'Next message in the list'], ['k', 'Previous message'],
   ['u', 'Back to the list'], ['r', 'Reply'], ['a', 'Reply all'], ['f', 'Forward'], ['e', 'Archive (or move back to the inbox)'], ['#', 'Delete (to Trash)'],
-  ['s', 'Star or unstar'], ['d', 'Done (off my lists) or not done'], ['m', 'Mark read or unread'], ['p', 'Print'], ['Esc', 'Close a menu or this list'],
+  ['s', 'Star or unstar'], ['d', 'Done (off my lists) or not done'], ['m', 'Mark read or unread'], ['p', 'Print'], ['z', 'Snooze until tomorrow morning (or stop snoozing)'], ['Esc', 'Close a menu or this list'],
 ]
 function HelpSheet({ close }: { close: () => void }) {
   return (
