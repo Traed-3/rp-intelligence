@@ -1221,6 +1221,7 @@ function HelpSheet({ close }: { close: () => void }) {
         <div className="p-4 space-y-1.5 text-sm">
           {KEYS.map(([k, what]) => <div key={k} className="flex items-center gap-3"><kbd className="min-w-9 rounded border border-border bg-raised px-1.5 py-0.5 text-center text-xs font-semibold text-foreground">{k}</kbd><span className="text-muted-foreground">{what}</span></div>)}
           <p className="pt-2 text-xs text-muted-foreground">Shortcuts are off while you are typing. The letters from r down work on the message you have open. You can also right-click a message or a mailbox for a menu.</p>
+          <p className="text-xs text-muted-foreground">While writing a message: Ctrl or Cmd with B for bold, I for italic, U for underline, K for a link.</p>
         </div>
       </div>
     </div>

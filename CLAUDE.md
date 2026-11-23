@@ -703,6 +703,12 @@ is never changed from here). PER USER, NEVER PER ROLE.
   A person's own settings are lib/rpmail/prefs.ts (`rpmail_prefs.data`, validated on read AND write; extras.ts re-exports getPrefs/setPrefs):
   sender name, default send mailbox, start page, density, time zone (`ZONES`), address groups. Times on the server go through `dayStartIn` /
   `inQuietHours` / `hourIn` with the person's `tz`. The page is /rpmail/settings (components/rpmail/rpmail-settings.tsx).
+  Formatting (2026-11-23): the message box is components/rpmail/rich-editor.tsx (a contenteditable div driven by the browser's own editing
+  commands; React is given NOTHING to draw inside it, the starting HTML is put in by hand once, or a re-draw wipes what is being typed).
+  lib/rpmail/rich.ts `cleanRich` is the only thing that may fill the box or build outgoing HTML: it re-writes the HTML tag by tag into
+  b / i / u / ul / ol / li / a (http, https, mailto only) / div / br and makes the plain-text copy in the same pass. `sendMail` takes `html`,
+  cleans it again, and takes the plain text FROM THE CLEANED HTML, never from the page's `body`, so the pricing and blocked-content rules read
+  exactly what goes out. No formatting in it = plain text only, as before. Signatures and templates are still plain text.
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.

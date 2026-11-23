@@ -8,6 +8,7 @@ import { knownSites, loadMessages, toRow, walkParts, bodyText, type IndexRow } f
 import { buildRaw, cleanRecipients, pricingGuard, type OutFile } from './mime'
 import { parseAddrs, decodeWords, splitAddrList } from './parse'
 import { takeAttachments, dropAttachments, MAX_ATTACH } from './compose-ops'
+import { cleanRich, hasFormatting, replyQuoteHtml, forwardQuoteHtml } from './rich'
 
 // RPMail: reading, filing and sending for one mailbox. Every function starts from `mailboxFor(me, …)`, so a person
 // can only ever touch a mailbox that is on their own login.
@@ -289,7 +290,7 @@ export async function setSignature(who: Me, p: { mailbox?: unknown; text?: unkno
 
 const whenText = (ms: number, tz = DEFAULT_TZ) => new Date(ms).toLocaleString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 
-type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; forward: boolean; attachments: string[]; signature: string
+type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; quotedHtml: string; forward: boolean; attachments: string[]; signature: string
   msgid: string; refs: string; threadId: string; files: ReturnType<typeof walkParts>['files'] }
 
 async function prep(who: Me, box: Mailbox, id: string, all: boolean, forward: boolean): Promise<Prep> {
@@ -309,9 +310,9 @@ async function prep(who: Me, box: Mailbox, id: string, all: boolean, forward: bo
   const base = { from: box.address, signature, msgid, refs, threadId: m.threadId, files }
   if (forward) {
     if (!/^fwd?\s*:/i.test(subj)) subj = 'Fwd: ' + subj
-    const quoted = `---------- Forwarded message ----------\nFrom: ${from.name} <${from.addr}>\nDate: ${when}\nSubject: ${decodeWords(h['subject'] ?? '')}\nTo: ${toList.join(', ')}\n`
-      + (ccList.length ? `Cc: ${ccList.join(', ')}\n` : '') + '\n' + body
-    return { ...base, to: '', cc: '', subject: subj, quoted, forward: true, attachments: files.filter(f => !f.inline && f.attachmentId).map(f => f.name) }
+    const head = `---------- Forwarded message ----------\nFrom: ${from.name} <${from.addr}>\nDate: ${when}\nSubject: ${decodeWords(h['subject'] ?? '')}\nTo: ${toList.join(', ')}`
+      + (ccList.length ? `\nCc: ${ccList.join(', ')}` : '')
+    return { ...base, to: '', cc: '', subject: subj, quoted: head + '\n\n' + body, quotedHtml: forwardQuoteHtml(head, body), forward: true, attachments: files.filter(f => !f.inline && f.attachmentId).map(f => f.name) }
   }
   let to = parseAddrs(decodeWords(h['reply-to'] ?? '')).map(a => a.addr)
   if (!to.length) to = from.addr ? [from.addr] : []
@@ -323,8 +324,10 @@ async function prep(who: Me, box: Mailbox, id: string, all: boolean, forward: bo
   const cc: string[] = []
   if (all) for (const a of [...toList, ...ccList]) if (!mine.has(a) && !to.includes(a) && !cc.includes(a)) cc.push(a)
   if (!/^re\s*:/i.test(subj)) subj = 'Re: ' + subj
-  const quoted = `On ${when}, ${from.name} <${from.addr}> wrote:\n` + body.split('\n').slice(0, 200).map(l => '> ' + l).join('\n')
-  return { ...base, to: to.join(', '), cc: cc.join(', '), subject: subj, quoted, forward: false, attachments: [] }
+  // The plain copy and the HTML copy quote the same lines of the original (never its own HTML, only its words).
+  const head = `On ${when}, ${from.name} <${from.addr}> wrote:`, kept = body.split('\n').slice(0, 200)
+  const quoted = head + '\n' + kept.map(l => '> ' + l).join('\n')
+  return { ...base, to: to.join(', '), cc: cc.join(', '), subject: subj, quoted, quotedHtml: replyQuoteHtml(head, kept.join('\n')), forward: false, attachments: [] }
 }
 
 /** What the reply / forward box starts with. */
@@ -334,12 +337,14 @@ export async function draftPrep(who: Me, p: Record<string, string>) {
   return { from: d.from, to: d.to, cc: d.cc, subject: d.subject, quoted: d.quoted, forward: d.forward, attachments: d.attachments, signature: d.signature }
 }
 
+const tooLong = (): never => { throw new UserError('That message is too long to send from here. Shorten it, or put the long part in an attached file.') }
+
 /**
  * Send, or save to Gmail Drafts. Called only from the person's own Send / Save draft click.
  * mode 'new' | 'reply' | 'forward'. A forward carries the original's attachments along.
  */
 export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; id?: unknown; to?: unknown; cc?: unknown; subject?: unknown; body?: unknown
-  quote?: unknown; draft?: unknown; confirmed?: unknown; from?: unknown; files?: unknown }) {
+  quote?: unknown; draft?: unknown; confirmed?: unknown; from?: unknown; files?: unknown; html?: unknown }) {
   // `src` is the mailbox the original message is in; `box` is the mailbox this goes out from (the From picker).
   const src = await mailboxFor(who, p.mailbox)
   const box = p.from && p.from !== src.id ? await mailboxFor(who, p.from) : src
@@ -348,14 +353,23 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
   const draft = p.draft === true
   if (!draft && p.confirmed !== true) throw new UserError('Press Send, then confirm.')
   const { to, cc } = cleanRecipients(String(p.to ?? ''), String(p.cc ?? ''), !draft)
-  const typed = String(p.body ?? '').replace(/\s+$/, '').slice(0, 200_000)
+  // A message written with formatting arrives as HTML. It is rebuilt from scratch here (cleanRich), and the plain text is
+  // made from that same rebuilt copy, never taken from the page. So the rules below read exactly what will go out.
+  const rich = typeof p.html === 'string' && p.html.trim() ? cleanRich(p.html.length > 600_000 ? tooLong() : p.html) : null
+  if (rich && rich.text.length > 200_000) tooLong()
+  const typed = (rich ? rich.text : String(p.body ?? '')).replace(/\s+$/, '').slice(0, 200_000)
+  // With no bold, list or link in it, the message goes as plain text, exactly as before.
+  let html = rich && hasFormatting(rich.html) ? rich.html : null
   let subject = String(p.subject ?? '').trim().slice(0, 400)
   let full = typed, inReplyTo: string | undefined, references: string | undefined, threadId: string | undefined
   const files: OutFile[] = []
   if (mode !== 'new') {
     const d = await prep(who, src, gid(p.id), false, mode === 'forward')
     if (!subject) subject = d.subject
-    if (mode === 'forward' || p.quote !== false) full = typed + '\n\n' + d.quoted
+    if (mode === 'forward' || p.quote !== false) {
+      full = typed + '\n\n' + d.quoted
+      if (html !== null) html += '<div><br></div>' + d.quotedHtml
+    }
     if (mode === 'reply') {
       if (!typed) throw new UserError('The reply is empty.')
       if (d.msgid) { inReplyTo = d.msgid; references = d.refs }
@@ -387,7 +401,8 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
     throw e
   }
 
-  const raw = buildRaw({ fromName: (await getPrefs(who)).sender_name || who.name, fromAddr: box.address, to, cc, subject, body: full, inReplyTo, references, files })
+  const raw = buildRaw({ fromName: (await getPrefs(who)).sender_name || who.name, fromAddr: box.address, to, cc, subject, body: full, inReplyTo, references, files,
+    ...(html !== null ? { html: `<div dir="ltr">${html}</div>` } : {}) })
   const message = { raw, ...(threadId ? { threadId } : {}) }
   const admin = createAdminClient()
   if (draft) {

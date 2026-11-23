@@ -2,12 +2,14 @@ import { randomBytes } from 'crypto'
 import { ADDR_RE, CTRL_RE, PRICE_RE, splitAddrList } from './parse'
 import { UserError } from './gmail'
 
-// RPMail: builds the outgoing message (plain text, optional attachments) and holds the pricing guard.
+// RPMail: builds the outgoing message (plain text, an HTML copy when it has formatting, optional attachments) and holds the pricing guard.
 
 export type OutFile = { name: string; type: string; data: Buffer }
 export type OutMail = {
   fromName: string; fromAddr: string; to: string[]; cc: string[]; subject: string; body: string
   inReplyTo?: string; references?: string; files?: OutFile[]
+  /** The same message with its formatting. Already cleaned (lib/rpmail/rich.ts); `body` must say the same thing in plain text. */
+  html?: string
 }
 
 const encWord = (s: string) => /^[\x20-\x7e]*$/.test(s) ? s : s.match(/[\s\S]{1,40}/gu)!.map(c => `=?UTF-8?B?${Buffer.from(c, 'utf8').toString('base64')}?=`).join('\r\n ')
@@ -51,13 +53,20 @@ export function buildRaw(m: OutMail): string {
     ...(m.references ? [`References: ${m.references}`] : []),
     'MIME-Version: 1.0',
   ]
-  const text = wrap76(Buffer.from((m.body || '\n').replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64'))
-  const textPart = ['Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', text]
+  const part = (type: string, content: string) => [`Content-Type: ${type}; charset=UTF-8`, 'Content-Transfer-Encoding: base64', '',
+    wrap76(Buffer.from(content.replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64'))]
+  const textPart = part('text/plain', m.body || '\n')
+  // With formatting, both copies go: mail programs show the HTML one and fall back to the plain one.
+  let body = textPart
+  if (m.html) {
+    const a = 'rpmail_alt_' + randomBytes(12).toString('hex')
+    body = [`Content-Type: multipart/alternative; boundary="${a}"`, '', `--${a}`, ...textPart, `--${a}`, ...part('text/html', m.html), `--${a}--`]
+  }
   let lines: string[]
-  if (!m.files?.length) lines = [...head, ...textPart]
+  if (!m.files?.length) lines = [...head, ...body]
   else {
     const b = 'rpmail_' + randomBytes(12).toString('hex')
-    lines = [...head, `Content-Type: multipart/mixed; boundary="${b}"`, '', `--${b}`, ...textPart]
+    lines = [...head, `Content-Type: multipart/mixed; boundary="${b}"`, '', `--${b}`, ...body]
     for (const f of m.files) {
       const name = f.name.replace(/[\r\n"\\]/g, '_').slice(0, 180)
       const type = /^[\w.+-]+\/[\w.+-]+$/.test(f.type) ? f.type : 'application/octet-stream'

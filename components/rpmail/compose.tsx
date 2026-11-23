@@ -1,16 +1,19 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Paperclip, Send, X, FileText, Trash2 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import type { BoxInfo } from '@/lib/rpmail/overview'
 import { api } from './rpmail-app'
+import { RichEditor, type RichHandle } from './rich-editor'
+import { cleanRich, sameWords, textToHtml } from '@/lib/rpmail/rich'
 
 // New message, reply, reply all, forward, and the signature editor.
 // Send always asks first ("Send this to ... from ...?"), and then waits a few seconds so it can be undone.
 // Nothing goes out any other way. What is typed is kept in this browser until it is sent, saved or discarded.
+// The message is written in a box with formatting (rich-editor.tsx): `html` is what is in the box, `body` the same words as plain text.
 
 export type ComposeStart =
   | { mode: 'new'; mailbox: string }
@@ -23,7 +26,7 @@ export type Outgoing = { payload: Record<string, unknown>; to: string; from: str
 type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; forward: boolean; attachments: string[]; signature: string }
 type Att = { path: string; name: string; size: number }
 type Tpl = { id: string; name: string; body: string }
-type Saved = { to: string; cc: string; subject: string; body: string; from: string; files: Att[]; at: number }
+type Saved = { to: string; cc: string; subject: string; body: string; html?: string; from: string; files: Att[]; at: number }
 const lab = 'rp-label block mb-1'
 const OUTBOX = 'rpmail-outbox'
 const MAX = 20_000_000
@@ -46,6 +49,9 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   const [from, setFrom] = useState(kept?.from && connected.some(b => b.id === kept.from) ? kept.from : connected.some(b => b.id === start.mailbox) ? start.mailbox : connected[0]?.id ?? start.mailbox)
   const [to, setTo] = useState(kept?.to ?? ''), [cc, setCc] = useState(kept?.cc ?? ''), [subject, setSubject] = useState(kept?.subject ?? '')
   const [body, setBody] = useState(kept?.body ?? (start.mode === 'signature' ? startSig : start.mode === 'new' && startSig ? '\n\n' + startSig : ''))
+  // What the message box starts with: the kept draft with its formatting, else the plain starting text (the signature).
+  const [html, setHtml] = useState(() => start.mode === 'signature' ? '' : kept?.html ? cleanRich(kept.html).html : textToHtml(body))
+  const editor = useRef<RichHandle>(null)
   const [files, setFiles] = useState<Att[]>(kept?.files ?? [])
   const [prep, setPrep] = useState<Prep | null>(null)
   const [quote, setQuote] = useState(true)
@@ -58,7 +64,6 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   const [tplName, setTplName] = useState<string | null>(null)   // null = not naming a template right now
   const [loading, setLoading] = useState(start.mode === 'reply' || start.mode === 'forward')
   const box = boxes.find(b => b.id === from)
-  const bodyRef = useRef<HTMLTextAreaElement>(null)
   const isMail = start.mode !== 'signature'
 
   useEffect(() => {
@@ -68,7 +73,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
       .then(p => {
         if (!live) return
         setPrep(p)
-        if (!kept) { setTo(p.to); setCc(p.cc); setSubject(p.subject); setBody(p.signature ? '\n\n' + p.signature : '') }
+        if (!kept) { const t = p.signature ? '\n\n' + p.signature : ''; setTo(p.to); setCc(p.cc); setSubject(p.subject); setBody(t); setHtml(textToHtml(t)) }
         setLoading(false)
       })
       .catch(e => { if (live) { setErr((e as Error).message); setLoading(false) } })
@@ -82,16 +87,19 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   useEffect(() => {
     if (!isMail || loading) return
     const t = setTimeout(() => {
-      const empty = !to && !cc && !files.length && (!body.trim() || body.trim() === (box?.signature ?? '').trim()) && (start.mode !== 'new' || !subject)
-      try { if (empty) localStorage.removeItem(draftKey(start)); else localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, from, files, at: Date.now() } satisfies Saved)) } catch { /* storage is off: carry on without it */ }
+      const empty = !to && !cc && !files.length && (!body.trim() || sameWords(body, box?.signature ?? '')) && (start.mode !== 'new' || !subject)
+      try { if (empty) localStorage.removeItem(draftKey(start)); else localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, html, from, files, at: Date.now() } satisfies Saved)) } catch { /* storage is off: carry on without it */ }
     }, 1200)
     return () => clearTimeout(t)
-  }, [to, cc, subject, body, from, files, isMail, loading, start, box])
+  }, [to, cc, subject, body, html, from, files, isMail, loading, start, box])
+
+  // Every change in the message box comes through here. The plain-text copy is made the same way the server makes it.
+  const onEdit = useCallback((raw: string) => { const c = cleanRich(raw); setHtml(c.html); setBody(c.text) }, [])
 
   // The signature follows the From mailbox as long as nothing else has been typed.
   const pickFrom = (id: string) => {
     const old = boxes.find(b => b.id === from)?.signature ?? '', next = boxes.find(b => b.id === id)?.signature ?? ''
-    if (body.trim() === old.trim()) setBody(next ? '\n\n' + next : '')
+    if (!body.trim() || sameWords(body, old)) editor.current?.set(textToHtml(next ? '\n\n' + next : ''))
     setFrom(id); setConfirm(false)
   }
 
@@ -122,7 +130,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   }
 
   const payload = (draft: boolean) => ({
-    mailbox: start.mailbox, from, mode: start.mode, id: 'id' in start ? start.id : undefined, to, cc, subject, body, quote, draft, confirmed: !draft, files: files.map(f => f.path),
+    mailbox: start.mailbox, from, mode: start.mode, id: 'id' in start ? start.id : undefined, to, cc, subject, body, html, quote, draft, confirmed: !draft, files: files.map(f => f.path),
   })
 
   const go = async (draft: boolean) => {
@@ -135,7 +143,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     }
     if (!draft) {
       // Written down right now (not a moment later), so Undo or a failed send can open it again exactly as it was.
-      try { localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, from, files, at: Date.now() } satisfies Saved)) } catch { /* storage is off */ }
+      try { localStorage.setItem(draftKey(start), JSON.stringify({ to, cc, subject, body, html, from, files, at: Date.now() } satisfies Saved)) } catch { /* storage is off */ }
       onSend({ payload: payload(false), to: [to, cc].filter(Boolean).join(', '), from: box?.address ?? '', start }); return
     }
     setBusy(true)
@@ -147,13 +155,12 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     setBusy(false)
   }
 
-  const insertTpl = (t: Tpl) => {
-    const el = bodyRef.current, at = el ? el.selectionStart : 0
-    setBody(b => b.slice(0, at) + t.body + (b.slice(at).startsWith('\n') || !b.slice(at) ? '' : '\n') + b.slice(at))
-  }
+  const insertTpl = (t: Tpl) => editor.current?.insert(textToHtml(t.body))
   const saveTpl = async () => {
-    const sig = (box?.signature ?? '').trim()
-    const text = sig && body.trim().endsWith(sig) ? body.trim().slice(0, -sig.length).trim() : body.trim()
+    // A template keeps the wording (not the bold or the lists), without the signature that sits under it.
+    const tidy = (x: string) => x.replace(/[ \t]+\n/g, '\n').trim()
+    const sig = tidy(box?.signature ?? ''), all = tidy(body)
+    const text = sig && all.endsWith(sig) ? all.slice(0, -sig.length).trim() : all
     if (!text) { setErr('Type the wording first, then save it as a template.'); setTplName(null); return }
     const name = (tplName ?? '').trim()
     if (!name) { setErr('Give the template a name.'); return }
@@ -203,7 +210,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
                     </select>
                   )}
                   {tplName === null
-                    ? <button className="underline" type="button" onClick={() => setTplName('')}><FileText className="inline size-3" /> Save as template</button>
+                    ? <button className="underline" type="button" title="Keeps the wording so you can drop it into any message. Bold, lists and links are not kept." onClick={() => setTplName('')}><FileText className="inline size-3" /> Save as template</button>
                     : <span className="inline-flex items-center gap-1.5">
                         <input className="rp-input !w-44 !py-1 text-xs" autoFocus placeholder="Name, e.g. Permit received" value={tplName} onChange={e => setTplName(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveTpl() } else if (e.key === 'Escape') { e.stopPropagation(); setTplName(null) } }} />
@@ -212,8 +219,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
                       </span>}
                 </span>
               </div>
-              <textarea ref={bodyRef} className="rp-input min-h-[200px] font-sans" value={body} onChange={e => setBody(e.target.value)} autoFocus={start.mode === 'reply'}
-                onPaste={e => { const imgs = [...e.clipboardData.files]; if (imgs.length) { e.preventDefault(); void addFiles(imgs) } }} />
+              <RichEditor ref={editor} initial={html} onChange={onEdit} onFiles={f => void addFiles(f)} autoFocus={start.mode === 'reply'} />
             </div>
             {tpls && tpls.length > 0 && (
               <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Manage templates ({tpls.length})</summary>
