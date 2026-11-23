@@ -78,6 +78,20 @@ async function loadPicture(who: Pick<Me, 'id'>, path: unknown): Promise<OutFile>
   return { name, type, data: bytes }
 }
 
+/**
+ * Puts a picture into the person's own waiting folder, as if they had pasted it, and gives back where it is.
+ * Used when a draft from Gmail is opened again: its pictures come back into the text this way. Null if it is not a real picture.
+ */
+export async function keepPicture(who: Pick<Me, 'id'>, name: string, data: Buffer): Promise<string | null> {
+  const type = pictureKind(data)
+  if (!type || data.length > MAX_ATTACH) return null
+  const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }[type]!
+  const base = safeName(name).replace(/\.[a-z0-9]{1,5}$/i, '').replace(/[^\w .()-]/g, '_').slice(0, 80) || 'picture'
+  const path = `${who.id}/${randomUUID()}/${base}.${ext}`
+  const { error } = await createAdminClient().storage.from(OUTBOX).upload(path, data, { contentType: type })
+  return error ? null : path
+}
+
 /** The pictures a person placed in the text of a message, read back for sending. Only their own, and only real pictures. */
 export async function takePictures(who: Me, paths: string[]): Promise<{ files: OutFile[]; paths: string[] }> {
   const list = [...new Set(paths)]

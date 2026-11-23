@@ -113,6 +113,7 @@ export class FakeDb {
     storage: { from: () => ({
       createSignedUploadUrl: async (path: string) => ({ data: { token: 'tok', path }, error: null }),
       download: async (path: string) => { const f = this.files.get(path); return f ? { data: new Blob([new Uint8Array(f.data)], { type: f.type }), error: null } : { data: null, error: { message: 'not found' } } },
+      upload: async (path: string, data: Buffer, o?: { contentType?: string }) => { this.files.set(path, { data: Buffer.from(data), type: o?.contentType ?? 'application/octet-stream' }); return { data: { path }, error: null } },
       remove: async (paths: string[]) => { for (const p of paths) this.files.delete(p); return { data: null, error: null } },
     }) },
   }
@@ -168,7 +169,7 @@ export class FakeDb {
 
 // ── Gmail ─────────────────────────────────────────────────────────────────────────────────────────────────────
 export type FakeMsg = { id: string; threadId: string; labelIds: string[]; from: string; to: string; cc?: string; subject: string; body: string; date: number; html?: string
-  files?: { name: string; type: string; data: Buffer }[]; headers?: Record<string, string> }
+  files?: { name: string; type: string; data: Buffer; cid?: string }[]; headers?: Record<string, string> }
 export type GCall = { account: string; method: string; path: string }
 export type SentMail = { account: string; raw: string; threadId?: string; draft: boolean }
 
@@ -211,7 +212,7 @@ export class FakeGmail {
     const headers = [['From', m.from], ['To', m.to], ['Subject', m.subject], ['Message-ID', `<${m.id}@fake>`], ...(m.cc ? [['Cc', m.cc]] : []), ...Object.entries(m.headers ?? {})].map(([name, value]) => ({ name, value }))
     const text = { partId: '0', mimeType: 'text/plain', headers: [{ name: 'Content-Type', value: 'text/plain; charset=utf-8' }], body: { size: m.body.length, data: b64(m.body) } }
     const html = m.html ? [{ partId: '0.1', mimeType: 'text/html', headers: [{ name: 'Content-Type', value: 'text/html; charset=utf-8' }], body: { size: m.html.length, data: b64(m.html) } }] : []
-    const files = (m.files ?? []).map((f, i) => ({ partId: String(i + 1), mimeType: f.type, filename: f.name, headers: [{ name: 'Content-Disposition', value: 'attachment' }], body: { size: f.data.length, attachmentId: `att${i}` } }))
+    const files = (m.files ?? []).map((f, i) => ({ partId: String(i + 1), mimeType: f.type, filename: f.name, headers: f.cid ? [{ name: 'Content-ID', value: `<${f.cid}>` }, { name: 'Content-Disposition', value: 'inline' }] : [{ name: 'Content-Disposition', value: 'attachment' }], body: { size: f.data.length, attachmentId: `att${i}` } }))
     return { id: m.id, threadId: m.threadId, labelIds: m.labelIds, snippet: m.body.slice(0, 100), internalDate: String(m.date), historyId: '100',
       payload: { mimeType: 'multipart/mixed', headers, parts: [text, ...html, ...files] } }
   }

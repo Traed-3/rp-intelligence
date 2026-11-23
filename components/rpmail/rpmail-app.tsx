@@ -141,7 +141,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           try { r = await api('sync', { mailbox: b.id }); misses = 0 } catch { if (++misses > 3) break; await new Promise(res => setTimeout(res, 5000 * misses)); continue }
           if (r.done) break
           await refresh()
-          if (r.busy) await new Promise(res => setTimeout(res, 4000))
+          // Google asked to slow down: give it a breather, so a message opened meanwhile is not kept waiting.
+          if (r.busy) await new Promise(res => setTimeout(res, 15_000))
         }
       }
       await refresh()

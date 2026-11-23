@@ -2,7 +2,8 @@ import { gmail, pooled, headerMap, b64url, UserError, type GMessage } from './gm
 import { mailboxFor, type Me, type Mailbox } from './access'
 import { walkParts, bodyText } from './sync'
 import { decodeWords, parseAddrs } from './parse'
-import { cleanRich, hasFormatting, textToHtml } from './rich'
+import { cleanRich, hasFormatting, textToHtml, pictureSrc } from './rich'
+import { keepPicture } from './compose-ops'
 import type { OutFile } from './mime'
 
 // RPMail: drafts saved to Gmail Drafts (from RPMail or from Gmail itself), listed and opened again to finish.
@@ -40,7 +41,17 @@ export async function draftOpen(who: Me, p: Record<string, string>) {
   const box = await mailboxFor(who, p.mailbox)
   const m = await getDraft(box, draftId(p.draft))
   const h = headerMap(m.payload)
-  const { plain, html, files } = walkParts(m.payload)
+  const { plain, files } = walkParts(m.payload)
+  let { html } = walkParts(m.payload)
+  // Pictures in the text (sent along with the draft, pointed at by "cid:") come back as the person's own waiting pictures,
+  // so they show in the box and go out again with the message. At most 20, each a real picture under 20 MB.
+  if (html) {
+    for (const f of files.filter(f => f.inline && f.cid && f.attachmentId && f.type.startsWith('image/') && html!.includes('cid:' + f.cid)).slice(0, 20)) {
+      const a = await gmail<{ data?: string }>(box.id, `messages/${m.id}/attachments/${f.attachmentId}`).catch(() => null)
+      const path = a?.data ? await keepPicture(who, f.name, b64url(a.data)) : null
+      if (path) html = html.split('cid:' + f.cid).join(pictureSrc(path))
+    }
+  }
   // Formatting written in Gmail is kept as far as RPMail's own allows (bold, italic, underline, lists, links); the rest is plain words.
   const rich = html ? cleanRich(html) : null
   const startHtml = rich && hasFormatting(rich.html) ? rich.html : textToHtml(bodyText(plain, html).replace(/\s+$/, ''))
