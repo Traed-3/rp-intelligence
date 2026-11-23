@@ -85,16 +85,25 @@ async function push(profileId: string, payload: { title: string; message: string
   return (subs ?? []).length
 }
 
-/** The person pressed "Send a test notification": one goes to each of their own devices, and we say plainly what happened. */
-export async function notifyTest(who: Pick<Me, 'id'>) {
-  const { data: subs } = await createAdminClient().from('push_subscriptions').select('endpoint, p256dh, auth_key').eq('profile_id', who.id)
-  let sent = 0, failed = 0
-  for (const s of subs ?? []) {
-    const r = await sendPushNotification(s as { endpoint: string; p256dh: string; auth_key: string },
-      { title: 'RPMail test', message: 'Notifications are working on this device.', link: '/rpmail' }).catch(() => 'failed' as const)
-    if (r === 'sent') sent++; else failed++
+/**
+ * The person pressed "Send a test notification": one goes to each of their own devices, and we say plainly what
+ * happened. `here` says whether the device they are holding (its address is sent along) is one of them.
+ */
+export async function notifyTest(who: Pick<Me, 'id'>, p: { endpoint?: unknown } = {}) {
+  const admin = createAdminClient()
+  const { data: subs } = await admin.from('push_subscriptions').select('endpoint, p256dh, auth_key').eq('profile_id', who.id)
+  const mine = typeof p.endpoint === 'string' && p.endpoint ? p.endpoint : null
+  let sent = 0, failed = 0, here: boolean | null = mine ? false : null
+  for (const s of (subs ?? []) as { endpoint: string; p256dh: string; auth_key: string }[]) {
+    const r = await sendPushNotification(s, { title: 'RPMail test', message: 'Notifications are working on this device.', link: '/rpmail' }).catch(() => 'failed' as const)
+    if (r === 'sent') { sent++; if (s.endpoint === mine) here = true }
+    else {
+      failed++
+      // The push service says this device is no longer registered: forget it, so it is not counted as a device again.
+      if (r === 'gone') await admin.from('push_subscriptions').delete().eq('profile_id', who.id).eq('endpoint', s.endpoint)
+    }
   }
-  return { ok: true, devices: (subs ?? []).length, sent, failed }
+  return { ok: true, devices: (subs ?? []).length, sent, failed, here }
 }
 
 type NewRow = { gmail_id: string; date: string; from_name: string | null; from_addr: string | null; subject: string | null; bulk: boolean; asks: boolean }

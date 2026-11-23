@@ -135,7 +135,11 @@ describe('the test notification button', () => {
     const sue = addPerson(A, 'manager', 'Sue NoPhone', 'sue@gmail.com')
     expect(await notifyTest(asMe(sue))).toMatchObject({ devices: 0, sent: 0 })
     expect(pushes).toEqual([])
-    expect(await notifyTest(asMe(ann))).toMatchObject({ devices: 1, sent: 1, failed: 0 })
+    expect(await notifyTest(asMe(ann))).toMatchObject({ devices: 1, sent: 1, failed: 0, here: null })
     expect(pushes.map(p => p.to)).toEqual(['device:Ann Owner'])
+    // Says whether the device in the person's hand is one of theirs; someone else's device address is never "here".
+    expect(await notifyTest(asMe(ann), { endpoint: 'device:Ann Owner' })).toMatchObject({ sent: 1, here: true })
+    expect(await notifyTest(asMe(ann), { endpoint: 'device:Bob Manager' })).toMatchObject({ sent: 1, here: false })
+    expect(pushes.every(p => p.to === 'device:Ann Owner')).toBe(true)
   })
 })

@@ -857,14 +857,43 @@ function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: Box
   const [n, setN] = useState<Notify>(start ?? NO_NOTIFY)
   const [busy, setBusy] = useState(false)
   const [test, setTest] = useState('')
-  const runTest = async () => {
-    setTest('Sending…')
+  const [local, setLocal] = useState('')
+  // This device's own registration, if it has one. Never waits long: a browser without notifications has none.
+  const mySub = async (): Promise<PushSubscription | null> => {
     try {
-      const r = await api<{ devices: number; sent: number; failed: number }>('notify_test', {})
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null
+      const reg = await Promise.race([navigator.serviceWorker.ready, new Promise<null>(r => setTimeout(() => r(null), 3000))])
+      return reg ? await reg.pushManager.getSubscription() : null
+    } catch { return null }
+  }
+  const runTest = async () => {
+    setTest('Sending…'); setLocal('')
+    type R = { devices: number; sent: number; failed: number; here: boolean | null }
+    try {
+      const sub = await mySub()
+      let r = await api<R>('notify_test', { endpoint: sub?.endpoint ?? '' })
+      if (sub && r.here === false && !r.failed) {
+        // This device is switched on but the site had lost track of it: register it again, then test once more.
+        await fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub.toJSON()) })
+        r = await api<R>('notify_test', { endpoint: sub.endpoint })
+      }
+      const others = r.sent - (r.here ? 1 : 0)
+      const n = (k: number) => `${k} other device${k === 1 ? '' : 's'}`
       setTest(!r.devices ? 'No phone or computer has notifications switched on yet. Press the Enable button above first.'
-        : r.sent ? `Sent to ${r.sent} device${r.sent === 1 ? '' : 's'}. It should appear within a few seconds.${r.failed ? ` ${r.failed} other device${r.failed === 1 ? '' : 's'} did not take it; switch notifications on again there.` : ''}`
-        : 'The notification service refused it. Switch notifications off and on again on this device, then try once more.')
+        : !r.sent ? 'The notification service refused it. Press Disable above, then Enable again, and try once more.'
+        : r.here ? `Sent to this device${others ? ` and ${n(others)}` : ''}. It should appear within a few seconds.`
+        : `Sent to ${n(others)}, but not this one: notifications are not switched on here. Press Enable above to get them on this device too.`)
     } catch { setTest('Could not send the test. Try again in a minute.') }
+  }
+  // Shows one without going through the internet at all, to tell "the phone is hiding them" from "it never arrived".
+  const runLocal = async () => {
+    try {
+      if (!('Notification' in window) || !('serviceWorker' in navigator)) return setLocal('This browser cannot show notifications. On an iPhone, open RP Intelligence from its Home Screen icon.')
+      if (Notification.permission !== 'granted') return setLocal('This device has not allowed notifications yet. Press Enable above.')
+      const reg = await navigator.serviceWorker.ready
+      await reg.showNotification('RPMail test', { body: 'Shown straight from this device.', icon: '/icon-192-v2.png', data: { link: '/rpmail' } })
+      setLocal('Shown. If you saw this one but not the test above, this device is fine and the delivery is at fault. If you saw neither, this device is hiding them: go through the list.')
+    } catch { setLocal('This device would not show it. Go through the list above, then press Disable and Enable again.') }
   }
   const what: [Notify['what'], string, string][] = [
     ['needs', 'Only mail that asks me for something', 'From a person, with a question or a request in it.'],
@@ -907,6 +936,22 @@ function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: Box
               <button type="button" className={btn('outline', 'sm')} onClick={runTest}>Send a test notification</button>
               {test && <span className="text-xs text-muted-foreground" role="status">{test}</span>}
             </div>
+            {test && test !== 'Sending…' && (
+              <details className="text-xs text-muted-foreground">
+                <summary className="cursor-pointer font-semibold text-foreground">Nothing appeared?</summary>
+                <ol className="mt-1.5 list-decimal pl-4 space-y-1">
+                  <li>Swipe down from the top of the screen. It may be sitting in Notification Center without having made a sound.</li>
+                  <li>iPhone: Settings, Notifications, then RP Intel (the name under the Home Screen icon). Allow Notifications must be on, with Lock Screen, Notification Center and Banners all ticked. If it is not in that list, this phone was never switched on: press Enable above.</li>
+                  <li>Turn off Focus (Do Not Disturb, Sleep, Work, Driving), or allow RP Intel in it. In Settings, Notifications, Scheduled Summary, make sure RP Intel is not held for the summary.</li>
+                  <li>On an iPhone it only works when opened from the Home Screen icon (not Safari), on iOS 16.4 or later.</li>
+                  <li>Mac or PC: allow notifications for your browser in the computer&apos;s own notification settings, and switch off Do Not Disturb.</li>
+                </ol>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button type="button" className={btn('outline', 'xs')} onClick={runLocal}>Show one straight from this device</button>
+                  {local && <span role="status">{local}</span>}
+                </div>
+              </details>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">Text messages are not available yet.</p>
           <div className="flex gap-2">
