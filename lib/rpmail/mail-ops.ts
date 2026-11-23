@@ -125,6 +125,28 @@ export function sanitizeHtml(h: string): string {
     .replace(/javascript:/gi, 'blocked:')
 }
 
+export type ThreadItem = { id: string; date: number; from_name: string; from_addr: string; to_addrs: string; snippet: string; unread: boolean; sent: boolean }
+
+/**
+ * The other messages in the conversation, oldest first, read live from Gmail: who, when and Gmail's short preview only.
+ * Nothing is stored, and no message text is fetched until the person opens that message. Drafts, Trash and Spam are left out.
+ * If Gmail does not answer, the short list RPMail already holds is used instead (it may miss mail older than 90 days).
+ */
+async function restOfThread(box: Mailbox, m: GMessage, sites: Set<string>): Promise<ThreadItem[]> {
+  try {
+    const t = await gmail<{ messages?: GMessage[] }>(box.id, 'threads/' + m.threadId, { params: { format: 'metadata', metadataHeaders: ['From', 'To', 'Cc', 'Subject'] }, tries: 1 })   // asked once: a slow Gmail must not hold up opening the message
+    return (t?.messages ?? []).filter(x => x.id !== m.id && !isHidden(x.labelIds)).slice(-100).map(x => {
+      const r = toRow(box, x, sites)
+      return { id: x.id, date: Date.parse(r.date), from_name: r.from_name, from_addr: r.from_addr, to_addrs: r.to_addrs, snippet: r.snippet, unread: r.unread, sent: r.sent }
+    }).sort((a, b) => a.date - b.date)
+  } catch {
+    const { data } = await createAdminClient().from('rpmail_messages').select('gmail_id, date, from_name, from_addr, to_addrs, snippet, unread, sent')
+      .eq('mailbox_id', box.id).eq('thread_id', m.threadId).neq('gmail_id', m.id).order('date', { ascending: true }).limit(100)
+    return (data ?? []).map(t => ({ id: t.gmail_id as string, date: Date.parse(t.date as string), from_name: (t.from_name as string) ?? '', from_addr: (t.from_addr as string) ?? '',
+      to_addrs: (t.to_addrs as string) ?? '', snippet: (t.snippet as string) ?? '', unread: !!t.unread, sent: !!t.sent }))
+  }
+}
+
 async function liveMessage(box: Mailbox, id: string): Promise<GMessage> {
   const m = await gmail<GMessage>(box.id, 'messages/' + id, { params: { format: 'full' } })
   if (!m) throw new UserError('That message is no longer in Gmail.')
@@ -137,7 +159,9 @@ export async function readMessage(who: Me, p: Record<string, string>) {
   const id = gid(p.id)
   const m = await liveMessage(box, id)
   const admin = createAdminClient()
-  const row = toRow(box, m, await knownSites(box.company_id))
+  const sites = await knownSites(box.company_id)
+  const row = toRow(box, m, sites)
+  const rest = restOfThread(box, m, sites)   // asked for now, used at the end: it runs while the rest of this is worked out
   if (!isHidden(m.labelIds)) await admin.from('rpmail_messages').upsert(row, { onConflict: 'mailbox_id,gmail_id' })
   const { plain, html, files } = walkParts(m.payload)
   let safe = html ? sanitizeHtml(html) : null
@@ -153,15 +177,13 @@ export async function readMessage(who: Me, p: Record<string, string>) {
     }
   }
   const h = headerMap(m.payload)
-  const { data: thread } = await admin.from('rpmail_messages').select('gmail_id, date, from_name, from_addr, snippet, unread, sent')
-    .eq('mailbox_id', box.id).eq('thread_id', m.threadId).neq('gmail_id', id).order('date', { ascending: false }).limit(30)
   const { data: done } = await admin.from('rpmail_done').select('gmail_id').eq('profile_id', who.id).eq('mailbox_id', box.id).eq('gmail_id', id).maybeSingle()
   const snooze = (await mySnoozes(who.id, box.id)).get(m.threadId)
   return {
     ...toItem(row), cc_addrs: row.cc_addrs, to_full: decodeWords(h['to'] ?? ''), cc_full: decodeWords(h['cc'] ?? ''),
     text: bodyText(plain, html).slice(0, 400_000), html: safe && safe.length < 3_000_000 ? safe : null,
     attachments: files.map((f, i) => ({ i, name: f.name, type: f.type, size: f.size, inline: f.inline })).filter(f => !f.inline || !safe),
-    thread: (thread ?? []).map(t => ({ id: t.gmail_id as string, date: Date.parse(t.date as string), from_name: t.from_name as string, snippet: t.snippet as string, unread: !!t.unread, sent: !!t.sent })),
+    thread: await rest,
     done: !!done, hidden: isHidden(m.labelIds), ...(snooze ? { snooze } : {}),
   }
 }

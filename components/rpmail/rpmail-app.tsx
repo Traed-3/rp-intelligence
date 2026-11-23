@@ -8,11 +8,12 @@ import {
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { Item } from '@/lib/rpmail/mail-ops'
+import type { Item, ThreadItem } from '@/lib/rpmail/mail-ops'
 import type { BoxInfo } from '@/lib/rpmail/overview'
 import type { Label } from '@/lib/rpmail/organize'
 import type { Rule } from '@/lib/rpmail/arrival'
 import { makeZip } from '@/lib/rpmail/zip'
+import { buildStack, startOpen, shownOf, isForward, htmlHasQuote, splitPlainQuote, shownText, ownPictures, frameHeight, messageDoc } from '@/lib/rpmail/thread-view'
 import { PushToggle } from '@/app/(app)/settings/alerts/push-toggle'
 import { Compose, clearDraft, type ComposeStart, type Outgoing } from './compose'
 
@@ -32,7 +33,7 @@ type Move = { id: number; mailbox_id: string; subject: string; from_place: strin
 type Overview = { prefs?: Prefs; boxes: BoxInfo[]; needs: Item[]; foryou: Item[]; plate: { items: PlateItem[]; error: string | null }; summary: Summary | null; moves: Move[]; now: number }
 type Full = Item & { cc_addrs: string; to_full: string; cc_full: string; text: string; html: string | null; done: boolean; hidden: boolean
   attachments: { i: number; name: string; type: string; size: number; inline: boolean }[]
-  thread: { id: string; date: number; from_name: string; snippet: string; unread: boolean; sent: boolean }[] }
+  thread: ThreadItem[] }
 type Toast = { text: string; undo?: () => void } | null
 type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all' | 'snoozed'; q: string; unread: boolean; att: boolean; starred?: boolean; label?: string; from?: string; after?: string; before?: string }
 type LabelSet = { box: string; labels: Label[]; can_edit: boolean }
@@ -75,6 +76,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const [sel, setSel] = useState<{ mailbox: string; id: string } | null>(null)
   const [msg, setMsg] = useState<Full | null>(null)
   const [msgErr, setMsgErr] = useState('')
+  const selNow = useRef(sel)                       // what is open right now, for work that finishes later (a send)
+  useEffect(() => { selNow.current = sel })
   const [toast, setToast] = useState<Toast>(connected ? { text: 'Connected. Your mail is loading.' } : null)
   const [busy, setBusy] = useState(false)
   const [compose, setCompose] = useState<ComposeStart | null>(null)
@@ -192,7 +195,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
 
   const markRead = useCallback((it: { mailbox_id: string; id: string }, unread: boolean) => act(async () => {
     await api('mark', { mailbox: it.mailbox_id, id: it.id, unread })
-    setMsg(m => m && m.id === it.id ? { ...m, unread } : m)
+    // Marking read covers the whole conversation; marking unread only the message that was picked.
+    setMsg(m => m && m.id === it.id ? { ...m, unread, thread: unread ? m.thread : m.thread.map(t => ({ ...t, unread: false })) } : m)
     await refresh()
   }), [act, refresh])
 
@@ -280,6 +284,9 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
       clearDraft(out.start)
       say(`Sent to ${r.to} from ${r.from}.`)
       void refresh()
+      // A reply shows in the open conversation straight away, without opening it again.
+      const s = selNow.current
+      if (s && out.start.mode === 'reply' && out.start.mailbox === s.mailbox) api<Full>('message', undefined, { mailbox: s.mailbox, id: s.id }).then(f => setMsg(cur => cur && cur.id === f.id ? f : cur)).catch(() => null)
     } catch (e) {
       setToast(null)
       setErr('Not sent: ' + (e as Error).message + ' Your message is open again so you can fix it.')
@@ -401,7 +408,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
         </div>
         <div className="flex items-center gap-2">
           <button className={btn('ghost')} onClick={() => setNotifyOpen(true)} title="New-mail notifications"><Bell /><span className="hidden sm:inline">Notifications{st.prefs?.notify?.on ? ' on' : ''}</span></button>
-          <Link className={btn('ghost')} href="/rpmail/settings" title="Your name on mail, signatures, defaults, time zone and more"><Settings /><span className="hidden sm:inline">Settings</span></Link>
+          <Link className={cn(btn('ghost'), '!text-[0.8rem] !font-semibold')} href="/rpmail/settings" title="Your name on mail, signatures, defaults, time zone and more"><Settings /><span className="hidden sm:inline">Settings</span></Link>
           <button className={cn(btn('ghost'), 'hidden sm:inline-flex')} onClick={() => setHelp(true)} title="Keyboard shortcuts (press ?)"><Keyboard />Shortcuts</button>
           <button className={btn('ghost')} onClick={() => void syncAll(boxes)} disabled={busy} title="Check for new mail"><RefreshCw className={cn(busy && 'animate-spin')} />{busy ? 'Checking' : 'Check mail'}</button>
           <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected && cur.can_send ? cur.id : boxes.find(b => b.id === st.prefs?.default_from && b.connected && b.can_send)?.id ?? boxes.find(b => b.connected && b.can_send)?.id ?? '' })} disabled={!boxes.some(b => b.connected && b.can_send) || !!pending}
@@ -433,7 +440,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           {view.kind === 'box' && cur && cur.connected && (
             <BoxView box={cur} filter={filter} setFilter={setFilter} list={list} sel={sel} msg={msg} msgErr={msgErr} rowProps={rowProps} reload={loadList} bulk={(ids, action, extra) => void bulk(cur.id, ids, action, extra)}
               labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit} openOrganize={from => setOrganize({ from })} makeLabel={name => makeLabel(cur.id, name)} canSend={boxes.some(b => b.connected && b.can_send)}
-              close={() => { setSel(null); setMsg(null) }} openOther={id => void openMsg(cur.id, id)}
+              close={() => { setSel(null); setMsg(null) }}
               search={() => void act(async () => { say('Searching all of Gmail...'); const r = await api<{ messages: Item[] }>('search', { mailbox: cur.id, q: filter.q }); setList({ key: keyOf(view, filter), items: r.messages }); say(r.messages.length ? `${r.messages.length} found in Gmail.` : 'Nothing found in Gmail.') })}
               actions={{ fileTo, markRead, markDone, plateAdd, star: toggleStar, label: applyLabel, block: blockFrom, snooze, reply: (m, all, fwd) => setCompose({ mode: fwd ? 'forward' : 'reply', mailbox: m.mailbox_id, id: m.id, all }) }}
               editSig={() => setCompose({ mode: 'signature', mailbox: cur.id })}
@@ -741,9 +748,9 @@ type Actions = {
   reply: (m: Full, all: boolean, fwd: boolean) => void
 }
 
-function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, reload, bulk, close, openOther, search, actions, editSig, disconnect, labels, canEdit, openOrganize, makeLabel, canSend }: {
+function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, reload, bulk, close, search, actions, editSig, disconnect, labels, canEdit, openOrganize, makeLabel, canSend }: {
   box: BoxInfo; filter: Filter; setFilter: (f: Filter) => void; list: Item[] | null; sel: { mailbox: string; id: string } | null; msg: Full | null; msgErr: string
-  rowProps: RowProps; reload: () => void; bulk: (ids: string[], action: BulkAction, extra?: { label: string; move: boolean }) => void; close: () => void; openOther: (id: string) => void; search: () => void; actions: Actions; editSig: () => void; disconnect?: () => void
+  rowProps: RowProps; reload: () => void; bulk: (ids: string[], action: BulkAction, extra?: { label: string; move: boolean }) => void; close: () => void; search: () => void; actions: Actions; editSig: () => void; disconnect?: () => void
   labels: Label[]; canEdit: boolean; openOrganize: (ruleFrom?: string) => void; makeLabel: (name: string) => Promise<Label | null>; canSend: boolean }) {
   const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['filed', 'Filed'], ['snoozed', 'Snoozed'], ['all', 'All']]
   const [picked, setPicked] = useState<Set<string>>(new Set())
@@ -774,7 +781,8 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
           <a className={btn('default', 'xs')} href={`/api/rpmail/connect?mailbox=${box.id}`}>Sign in again</a>
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-hairline">
+      {/* On a phone the filters step aside while a conversation is open, so reading starts at the top of the screen. */}
+      <div className={cn('flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-hairline', sel && 'hidden lg:flex')}>
         {views.map(([v, l]) => <button key={v} className="rp-chip" data-on={filter.view === v} onClick={() => setFilter({ ...filter, view: v })}>{l}{v === 'inbox' && box.unread ? ` (${box.unread})` : v === 'needs' && box.needs ? ` (${box.needs})` : ''}</button>)}
         <button className="rp-chip" data-on={filter.unread} onClick={() => setFilter({ ...filter, unread: !filter.unread })}>Unread only</button>
         <button className="rp-chip" data-on={filter.att} onClick={() => setFilter({ ...filter, att: !filter.att })}><Paperclip className="size-3" />Attachments</button>
@@ -787,7 +795,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
         </form>
       </div>
       {(more || narrowed) && (
-        <form className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-hairline text-xs text-muted-foreground" onSubmit={e => { e.preventDefault(); reload() }}>
+        <form className={cn('flex flex-wrap items-center gap-2 px-3 py-2 border-b border-hairline text-xs text-muted-foreground', sel && 'hidden lg:flex')} onSubmit={e => { e.preventDefault(); reload() }}>
           <label className="inline-flex items-center gap-1.5">From <input className="rp-input !w-44" placeholder="name or address" value={filter.from ?? ''} onChange={e => setFilter({ ...filter, from: e.target.value })} /></label>
           <label className="inline-flex items-center gap-1.5">On or after <input type="date" className="rp-input !w-auto" value={filter.after ?? ''} onChange={e => setFilter({ ...filter, after: e.target.value })} /></label>
           <label className="inline-flex items-center gap-1.5">On or before <input type="date" className="rp-input !w-auto" value={filter.before ?? ''} onChange={e => setFilter({ ...filter, before: e.target.value })} /></label>
@@ -797,7 +805,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
         </form>
       )}
       {labels.length > 0 && (
-        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-hairline overflow-x-auto">
+        <div className={cn('flex items-center gap-1.5 px-3 py-2 border-b border-hairline overflow-x-auto', sel && 'hidden lg:flex')}>
           <span className="shrink-0 text-xs text-muted-foreground">Labels</span>
           {labels.map(l => (
             <button key={l.id} className={cn('rp-chip shrink-0', over === l.id && 'ring-2 ring-primary')} data-on={filter.label === l.id} title="Click to see what carries this label. Drag a conversation onto it to move it there."
@@ -839,61 +847,56 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
         <div className={cn('lg:max-h-[78vh] overflow-y-auto', !sel && 'hidden lg:block')}>
           {!sel && <Empty>Pick a message to read it. Opening a message does not mark it read.</Empty>}
           {sel && !msg && <Empty>{msgErr || 'Opening...'}</Empty>}
-          {sel && msg && <Reader key={msg.id} m={msg} close={close} openOther={openOther} actions={actions} labels={labels} canEdit={canEdit} makeLabel={makeLabel} makeRule={openOrganize} canSend={canSend} canDelete={box.can_delete} />}
+          {sel && msg && <Reader key={msg.id} m={msg} close={close} actions={actions} labels={labels} canEdit={canEdit} makeLabel={makeLabel} makeRule={openOrganize} canSend={canSend} canDelete={box.can_delete} />}
         </div>
       </div>
     </div>
   )
 }
 
-function Reader({ m, close, openOther, actions, labels, canEdit, makeLabel, makeRule, canSend, canDelete }: { m: Full; close: () => void; openOther: (id: string) => void; actions: Actions; labels: Label[]; canEdit: boolean; makeLabel: (name: string) => Promise<Label | null>; makeRule: (from: string) => void
+/**
+ * One conversation: every message in it stacked, oldest first. The message that was picked is open; the others are one
+ * line each until pressed, and their text is only fetched from Gmail then. The buttons at the top act on the whole
+ * conversation; Reply, Reply all, Forward and Print sit on each message.
+ */
+function Reader({ m, close, actions, labels, canEdit, makeLabel, makeRule, canSend, canDelete }: { m: Full; close: () => void; actions: Actions; labels: Label[]; canEdit: boolean; makeLabel: (name: string) => Promise<Label | null>; makeRule: (from: string) => void
   /** May this person send from any of their mailboxes, and may they delete in this one? An owner can switch either off for a shared mailbox. */
   canSend: boolean; canDelete: boolean }) {
   const [whenFor, setWhenFor] = useState<'snooze' | 'remind' | null>(null)
-  const [imgs, setImgs] = useState(false)   // the reader is keyed by message, so pictures are hidden again for each new one
   const [picker, setPicker] = useState(false)
-  const [zip, setZip] = useState('')
-  const files = m.attachments.filter(a => !a.inline)
-  // Every attachment in one zip file. The files are fetched the same way as opening them one at a time, then packed here in the browser.
-  const zipAll = async () => {
-    setZip('Getting the files…')
-    try {
-      const got: { name: string; data: Uint8Array }[] = []
-      for (const a of files) {
-        const r = await fetch(`/api/rpmail/attachment?mailbox=${m.mailbox_id}&id=${m.id}&i=${a.i}&download=1`)
-        if (!r.ok) throw new Error(a.name)
-        got.push({ name: a.name, data: new Uint8Array(await r.arrayBuffer()) })
-      }
-      const url = URL.createObjectURL(new Blob([makeZip(got).buffer as ArrayBuffer], { type: 'application/zip' }))
-      const link = document.createElement('a')
-      link.href = url; link.download = (m.subject || 'attachments').replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 80) + '.zip'
-      document.body.appendChild(link); link.click(); link.remove()
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
-      setZip('')
-    } catch (e) { setZip(`Could not get ${(e as Error).message}. Download the files one at a time.`) }
-  }
-  const hasRemote = !!m.html && /<img[^>]+src\s*=\s*["']?https?:/i.test(m.html)
-  const doc = useMemo(() => {
-    if (!m.html) return ''
-    // The message is shown in a locked frame: no scripts, no forms, and nothing loads from the internet unless you ask for pictures.
-    const csp = `default-src 'none'; style-src 'unsafe-inline'; img-src data:${imgs ? ' https: http:' : ''}; font-src data:`
-    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><base target="_blank"><style>body{font:14px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#1b2330;margin:12px;word-break:break-word}img{max-width:100%;height:auto}table{max-width:100%}blockquote{margin:0 0 0 8px;padding-left:10px;border-left:3px solid #cfd6e0;color:#555}</style></head><body>${m.html}</body></html>`
-  }, [m.html, imgs])
+  const stack = useMemo(() => buildStack(m, m.thread), [m])
+  // The reader is keyed by the message that was picked, so all of this starts again for each conversation.
+  const [open, setOpen] = useState(() => new Set(startOpen(m.id, m.thread)))
+  const [got, setGot] = useState<Record<string, Full | { error: string }>>({})
+  const [all, setAll] = useState(false)
+  const asked = useRef(new Set<string>())
+  // Three at a time at most, so "Open all" on a long conversation does not hit Gmail with everything at once.
+  const lanes = useRef<Promise<void>[]>([Promise.resolve(), Promise.resolve(), Promise.resolve()])
+  const turn = useRef(0)
+  const load = useCallback((id: string) => {
+    const lane = turn.current++ % 3
+    lanes.current[lane] = lanes.current[lane].then(() => api<Full>('message', undefined, { mailbox: m.mailbox_id, id })
+      .then(f => setGot(g => ({ ...g, [id]: f })), e => setGot(g => ({ ...g, [id]: { error: (e as Error).message } }))))
+  }, [m.mailbox_id])
+  useEffect(() => { for (const id of open) if (id !== m.id && !asked.current.has(id)) { asked.current.add(id); load(id) } }, [open, m.id, load])
+  const toggle = (id: string) => setOpen(o => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const retry = (id: string) => { setGot(g => { const n = { ...g }; delete n[id]; return n }); load(id) }
+  const { shown, hidden } = shownOf(stack, open, all)
+  const many = stack.length > 1
+  const anyUnread = m.unread || m.thread.some(t => t.unread)
+  const allOpen = stack.every(t => open.has(t.id))
   const it = { mailbox_id: m.mailbox_id, id: m.id }
-  const att = (i: number, dl = false) => `/api/rpmail/attachment?mailbox=${m.mailbox_id}&id=${m.id}&i=${i}${dl ? '&download=1' : ''}`
   return (
     <div>
       <div className="px-4 py-3 border-b border-hairline">
         <button className={cn(btn('ghost', 'xs'), 'lg:hidden mb-2')} onClick={close}><ArrowLeft />Back to the list</button>
-        <h3 className={cn('text-base text-foreground', m.unread ? 'font-bold' : 'font-semibold')}>{m.subject || '(no subject)'}</h3>
-        <p className="text-sm text-muted-foreground mt-0.5"><span className="text-foreground font-medium">{m.from_name}</span> &lt;{m.from_addr}&gt; · {new Date(m.date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p>
-        <p className="text-xs text-muted-foreground truncate">To: {m.to_full || m.to_addrs}{m.cc_full ? ' · Cc: ' + m.cc_full : ''}</p>
+        <h3 className={cn('text-base text-foreground', anyUnread ? 'font-bold' : 'font-semibold')}>{m.subject || '(no subject)'}</h3>
+        {many && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{stack.length} messages in this conversation, oldest first ·{' '}
+            <button className="underline" onClick={() => { if (allOpen) setOpen(new Set([m.id])); else { setAll(true); setOpen(new Set(stack.map(t => t.id))) } }}>{allOpen ? 'Fold all but one' : 'Open all'}</button>
+          </p>
+        )}
         <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {canSend && <>
-            <button className={btn('default')} onClick={() => actions.reply(m, false, false)}><Reply />Reply</button>
-            <button className={btn()} onClick={() => actions.reply(m, true, false)}><ReplyAll />Reply all</button>
-            <button className={btn()} onClick={() => actions.reply(m, false, true)}><Forward />Forward</button>
-          </>}
           {m.in_inbox
             ? <button className={btn()} onClick={() => actions.fileTo(it, 'Archive')}><Archive />Archive</button>
             : <button className={btn()} onClick={() => actions.fileTo(it, 'Inbox')}><Inbox />Move to inbox</button>}
@@ -901,11 +904,10 @@ function Reader({ m, close, openOther, actions, labels, canEdit, makeLabel, make
             <button className={btn()} onClick={() => actions.fileTo(it, 'Spam')}><ShieldAlert />Spam</button>
             <button className={btn('destructive')} onClick={() => actions.fileTo(it, 'Trash')}><Trash2 />Delete</button>
           </>}
-          <button className={btn('ghost')} onClick={() => actions.markRead(it, !m.unread)}><MailOpen />{m.unread ? 'Mark read' : 'Mark unread'}</button>
+          <button className={btn('ghost')} onClick={() => actions.markRead(it, !anyUnread)}><MailOpen />{anyUnread ? 'Mark read' : 'Mark unread'}</button>
           <button className={btn('ghost')} onClick={() => actions.markDone(it, !m.done)}><Check />{m.done ? 'Not done' : 'Done'}</button>
           <button className={btn('ghost')} onClick={() => actions.plateAdd(it)}><ListPlus />Add to My Plate</button>
           <button className={btn('ghost')} onClick={() => actions.star(it, !m.starred)}><Star className={cn(m.starred && 'fill-warning text-warning')} />{m.starred ? 'Starred' : 'Star'}</button>
-          <button className={btn('ghost')} onClick={() => printMessage(m)}><Printer />Print</button>
           <span className="relative">
             <button className={btn('ghost')} onClick={() => setPicker(!picker)} aria-expanded={picker}><Tag />Label</button>
             {picker && <LabelPicker labels={labels} on={m.labels ?? []} close={() => setPicker(false)}
@@ -934,9 +936,83 @@ function Reader({ m, close, openOther, actions, labels, canEdit, makeLabel, make
           </div>
         )}
       </div>
-      {m.attachments.length > 0 && (
-        <div className="px-4 py-2 border-b border-hairline flex flex-wrap gap-1.5">
-          {m.attachments.map(a => (
+      {hidden > 0 && <button className="block w-full border-b border-hairline px-4 py-2 text-left text-xs text-muted-foreground hover:bg-raised" onClick={() => setAll(true)}>Show {hidden} earlier message{hidden === 1 ? '' : 's'}</button>}
+      {shown.map(t => {
+        const f = t.id === m.id ? m : got[t.id]
+        if (open.has(t.id) && f && !('error' in f)) return <MessageCard key={t.id} f={f} many={many} fold={() => toggle(t.id)} canSend={canSend} actions={actions} />
+        return (
+          <div key={t.id} className="border-b border-hairline">
+            <button className="flex w-full items-baseline gap-2 px-4 py-2 text-left text-sm hover:bg-raised" onClick={() => toggle(t.id)} aria-expanded={open.has(t.id)}>
+              <span className={cn('max-w-[45%] shrink-0 truncate text-foreground', t.unread ? 'font-bold' : 'font-medium')}>{t.from_name || t.from_addr}</span>
+              {t.sent && <span className="rp-pill shrink-0 !py-0 text-[11px]">Sent</span>}
+              <span className={cn('min-w-0 flex-1 truncate', t.unread ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{t.snippet}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">{when(t.date)}</span>
+            </button>
+            {open.has(t.id) && !f && <p className="px-4 pb-2 text-xs text-muted-foreground" role="status">Opening...</p>}
+            {open.has(t.id) && f && 'error' in f && <p className="px-4 pb-2 text-xs text-danger">Could not open this one: {f.error} <button className="underline" onClick={() => retry(t.id)}>Try again</button></p>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** One message, open: who and when, its own Reply / Forward / Print, attachments, and the text in its locked frame. */
+function MessageCard({ f, many, fold, canSend, actions }: { f: Full; many: boolean; fold: () => void; canSend: boolean; actions: Actions }) {
+  const [imgs, setImgs] = useState(false)       // pictures from the internet stay hidden until asked for, per message
+  const [quoted, setQuoted] = useState(false)   // the mail a reply was answering stays folded: it is already in the stack above
+  const [tall, setTall] = useState(false)
+  const [zip, setZip] = useState('')
+  const [screen] = useState(() => typeof window === 'undefined' ? { narrow: false, h: 800 } : { narrow: window.innerWidth < 640, h: window.innerHeight })
+  const files = f.attachments.filter(a => !a.inline)
+  // Every attachment in one zip file. The files are fetched the same way as opening them one at a time, then packed here in the browser.
+  const zipAll = async () => {
+    setZip('Getting the files…')
+    try {
+      const packed: { name: string; data: Uint8Array }[] = []
+      for (const a of files) {
+        const r = await fetch(`/api/rpmail/attachment?mailbox=${f.mailbox_id}&id=${f.id}&i=${a.i}&download=1`)
+        if (!r.ok) throw new Error(a.name)
+        packed.push({ name: a.name, data: new Uint8Array(await r.arrayBuffer()) })
+      }
+      const url = URL.createObjectURL(new Blob([makeZip(packed).buffer as ArrayBuffer], { type: 'application/zip' }))
+      const link = document.createElement('a')
+      link.href = url; link.download = (f.subject || 'attachments').replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 80) + '.zip'
+      document.body.appendChild(link); link.click(); link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      setZip('')
+    } catch (e) { setZip(`Could not get ${(e as Error).message}. Download the files one at a time.`) }
+  }
+  const canHide = many && !isForward(f.subject, f.text)
+  const split = canHide ? splitPlainQuote(f.text) : null
+  const htmlQuote = !!f.html && canHide && htmlHasQuote(f.html)
+  const hiding = !quoted && (f.html ? htmlQuote : !!split)
+  const hasRemote = !!f.html && /<img[^>]+src\s*=\s*["']?https?:/i.test(f.html)
+  const doc = useMemo(() => f.html ? messageDoc(f.html, { pictures: imgs, hideQuoted: htmlQuote && !quoted }) : '', [f.html, imgs, htmlQuote, quoted])
+  // The frame cannot report its own height (nothing in it may run), so the height is worked out from the words that will show.
+  const sizing = useMemo(() => f.html ? { text: shownText(f.html, htmlQuote && !quoted), pics: ownPictures(f.html) } : { text: '', pics: 0 }, [f.html, htmlQuote, quoted])
+  const frame = frameHeight(sizing.text, { narrow: screen.narrow, pictures: imgs && hasRemote, ownPictures: sizing.pics, max: Math.round(screen.h * (tall ? 0.85 : 0.6)) })
+  const att = (i: number, dl = false) => `/api/rpmail/attachment?mailbox=${f.mailbox_id}&id=${f.id}&i=${i}${dl ? '&download=1' : ''}`
+  const head = <>
+    <p className="text-sm text-muted-foreground"><span className={cn('text-foreground', f.unread ? 'font-bold' : 'font-medium')}>{f.from_name}</span> &lt;{f.from_addr}&gt; · {new Date(f.date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p>
+    <p className="text-xs text-muted-foreground truncate">To: {f.to_full || f.to_addrs}{f.cc_full ? ' · Cc: ' + f.cc_full : ''}</p>
+  </>
+  return (
+    <div className="border-b border-hairline">
+      {many
+        ? <button className="block w-full px-4 pt-3 text-left hover:bg-raised" onClick={fold} aria-expanded title="Fold this message away">{head}</button>
+        : <div className="px-4 pt-3">{head}</div>}
+      <div className="px-4 pt-2 pb-2.5 flex flex-wrap gap-1.5">
+        {canSend && <>
+          <button className={btn('default')} onClick={() => actions.reply(f, false, false)}><Reply />Reply</button>
+          <button className={btn()} onClick={() => actions.reply(f, true, false)}><ReplyAll />Reply all</button>
+          <button className={btn()} onClick={() => actions.reply(f, false, true)}><Forward />Forward</button>
+        </>}
+        <button className={btn('ghost')} onClick={() => printMessage(f)}><Printer />Print</button>
+      </div>
+      {f.attachments.length > 0 && (
+        <div className="px-4 py-2 border-t border-hairline flex flex-wrap gap-1.5">
+          {f.attachments.map(a => (
             <span key={a.i} className="rp-pill !py-1.5">
               <Paperclip className="size-3" /><a className="hover:underline" href={att(a.i)} target="_blank" rel="noopener noreferrer">{a.name}</a>
               <span className="text-muted-foreground">{size(a.size)}</span><a href={att(a.i, true)} title="Download"><Download className="size-3" /></a>
@@ -946,19 +1022,15 @@ function Reader({ m, close, openOther, actions, labels, canEdit, makeLabel, make
           {zip && <span className="self-center text-xs text-muted-foreground" role="status">{zip}</span>}
         </div>
       )}
-      {hasRemote && !imgs && <div className="px-4 py-1.5 border-b border-hairline text-xs text-muted-foreground flex items-center gap-2"><ImageIcon className="size-3.5" />Pictures from the internet are hidden. <button className="underline" onClick={() => setImgs(true)}>Show pictures</button></div>}
-      {m.html
-        ? <iframe title="Message" sandbox="allow-popups allow-popups-to-escape-sandbox" srcDoc={doc} className="w-full h-[60vh] bg-white" />
-        : <pre className="px-4 py-3 whitespace-pre-wrap break-words text-sm text-foreground font-sans">{m.text || '(no text)'}</pre>}
-      {m.thread.length > 0 && (
-        <div className="border-t border-hairline">
-          <p className="rp-label px-4 pt-3 pb-1">Also in this conversation</p>
-          {m.thread.map(t => (
-            <button key={t.id} onClick={() => openOther(t.id)} className={cn('block w-full text-left px-4 py-1.5 text-sm hover:bg-raised', t.unread ? 'font-bold text-foreground' : 'text-muted-foreground')}>
-              {t.sent ? 'Sent' : t.from_name} · {when(t.date)} · <span className="font-normal">{t.snippet}</span>
-            </button>
-          ))}
-        </div>
+      {hasRemote && !imgs && <div className="px-4 py-1.5 border-t border-hairline text-xs text-muted-foreground flex items-center gap-2"><ImageIcon className="size-3.5" />Pictures from the internet are hidden. <button className="underline" onClick={() => setImgs(true)}>Show pictures</button></div>}
+      {f.html
+        ? <iframe title={'Message from ' + f.from_name} sandbox="allow-popups allow-popups-to-escape-sandbox" srcDoc={doc} style={{ height: frame.px }} className="w-full resize-y border-t border-hairline bg-white" />
+        : <pre className="px-4 py-3 border-t border-hairline whitespace-pre-wrap break-words text-sm text-foreground font-sans">{(hiding && split ? split.top : f.text) || '(no text)'}</pre>}
+      {(htmlQuote || split || (f.html && frame.capped) || tall) && (
+        <p className="flex flex-wrap gap-x-4 px-4 py-1.5 text-xs text-muted-foreground">
+          {(htmlQuote || split) && <button className="underline" onClick={() => setQuoted(!quoted)} title="The mail this one was answering. It is already in the conversation above.">{quoted ? 'Hide the quoted mail' : 'Show the quoted mail'}</button>}
+          {f.html && (frame.capped || tall) && <button className="underline" onClick={() => setTall(!tall)}>{tall ? 'Shorter' : 'Taller'}</button>}
+        </p>
       )}
     </div>
   )

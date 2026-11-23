@@ -178,6 +178,9 @@ export class FakeGmail {
   sent: SentMail[] = []
   revoked = new Set<string>()              // addresses whose sign-in Google has ended
   metadataReads = 0
+  threadReads = 0
+  /** Set to make Gmail refuse to list a conversation, to check the fall-back. */
+  threadFails = false
   private n = 0
   add(address: string, m: Partial<FakeMsg> & { from: string; subject: string }): FakeMsg {
     const id = (++this.n).toString(16).padStart(16, '0')
@@ -253,6 +256,8 @@ export class FakeGmail {
     if ((m = path.match(/^threads\/([0-9a-f]+)(\/(modify|trash|untrash))?$/))) {
       const th = list.filter(y => y.threadId === m![1])
       if (!th.length) return { status: 404, json: {} }
+      // format=metadata gives every message in the conversation (Trash and drafts included, as Gmail does) with headers only.
+      if (!m[3] && query.get('format') === 'metadata') { this.threadReads++; if (this.threadFails) return { status: 500, json: { error: { message: 'backend error' } } }; return ok({ messages: th.map(y => { const f = this.full(y); return { ...f, payload: { headers: f.payload.headers } } }) }) }
       if (!m[3]) return ok({ messages: th.filter(y => !y.labelIds.includes('TRASH')).map(y => ({ id: y.id })) })
       if (m[3] === 'modify') labels(th)
       if (m[3] === 'trash') for (const y of th) y.labelIds = [...y.labelIds.filter(l => l !== 'INBOX'), 'TRASH']

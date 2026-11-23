@@ -79,13 +79,15 @@ export async function pace(mailboxId: string, perSecond = 18): Promise<void> {
 /** Google saying "slow down" rather than "no". */
 export class Busy extends Error {}
 
-type Opts = { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; params?: Record<string, string | string[]>; body?: unknown; token?: string }
+type Opts = { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; params?: Record<string, string | string[]>; body?: unknown; token?: string
+  /** How many times to ask before giving up (6 unless said). 1 = ask once, for a call that has a fall-back. */
+  tries?: number }
 
 /** One Gmail call. Returns null for "not found". Waits and retries when Google says slow down. */
 export async function gmail<T = Record<string, unknown>>(mailboxId: string, path: string, opts: Opts = {}): Promise<T | null> {
   const url = new URL(GMAIL_BASE + path)
   for (const [k, v] of Object.entries(opts.params ?? {})) for (const x of Array.isArray(v) ? v : [v]) url.searchParams.append(k, x)
-  const tries = 6
+  const tries = opts.tries ?? 6
   for (let attempt = 0; attempt < tries; attempt++) {
     const token = opts.token ?? await accessToken(mailboxId)
     const res = await fetch(url, {
