@@ -686,6 +686,11 @@ is never changed from here). PER USER, NEVER PER ROLE.
   deleted on send; address book from the person's own index; `rpmail_templates`), `sendMail` takes `from` (send from another of
   the person's mailboxes) and `files`; the send itself is fired by rpmail-app.tsx after the undo countdown (`queueSend` / `doSend`),
   still only ever from the person's own Send + confirm. Unsent text is kept in localStorage (`rpmail:draft:*`).
+  Stage 3: lib/rpmail/organize.ts. Labels are Gmail's own (`labels`, `label_save`, `label_delete`, `label_apply`; ids `Label_…` only, never a
+  system label); "move to a label" writes an `rpmail_moves` row with `label_id` so Undo works. Blocked senders live in `rpmail_blocks`
+  (per mailbox); `applyBlocks` in sync.ts trashes NEW inbox mail from them during the incremental check, never anything older. Renaming or
+  deleting a label and blocking are `mayReshape`: the person on their own mailbox, an owner on a shared one. "Download all" zips in the
+  browser (lib/rpmail/zip.ts). Empty Trash and out-of-office are PARKED: both need a wider Google permission (see the checklist).
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.

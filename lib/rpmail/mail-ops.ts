@@ -10,19 +10,22 @@ import { takeAttachments, dropAttachments, MAX_ATTACH } from './compose-ops'
 // can only ever touch a mailbox that is on their own login.
 
 const GID = /^[0-9a-f]{6,32}$/i
-const gid = (v: unknown): string => { if (typeof v !== 'string' || !GID.test(v)) throw new UserError('No such message.'); return v }
+export const gid = (v: unknown): string => { if (typeof v !== 'string' || !GID.test(v)) throw new UserError('No such message.'); return v }
 
 export type Item = {
   mailbox_id: string; id: string; thread_id: string; date: number; from_name: string; from_addr: string; to_addrs: string
   subject: string; snippet: string; unread: boolean; starred: boolean; has_att: boolean; in_inbox: boolean; sent: boolean
   site: string | null; po: string | null; count?: number; why?: string; waiting?: boolean
+  /** Gmail label ids the person made themselves (Label_…). Gmail's own tabs and system labels are left out. */
+  labels: string[]
 }
-export const LIST_COLS = 'mailbox_id, gmail_id, thread_id, date, from_name, from_addr, to_addrs, subject, snippet, unread, starred, has_att, in_inbox, sent, site, po'
-type Row = Pick<IndexRow, 'mailbox_id' | 'gmail_id' | 'thread_id' | 'date' | 'from_name' | 'from_addr' | 'to_addrs' | 'subject' | 'snippet' | 'unread' | 'starred' | 'has_att' | 'in_inbox' | 'sent' | 'site' | 'po'>
+export const LIST_COLS = 'mailbox_id, gmail_id, thread_id, date, from_name, from_addr, to_addrs, subject, snippet, unread, starred, has_att, in_inbox, sent, site, po, labels'
+type Row = Pick<IndexRow, 'mailbox_id' | 'gmail_id' | 'thread_id' | 'date' | 'from_name' | 'from_addr' | 'to_addrs' | 'subject' | 'snippet' | 'unread' | 'starred' | 'has_att' | 'in_inbox' | 'sent' | 'site' | 'po'> & { labels?: string[] | null }
 export const toItem = (r: Row): Item => ({
   mailbox_id: r.mailbox_id, id: r.gmail_id, thread_id: r.thread_id, date: Date.parse(r.date), from_name: r.from_name ?? '', from_addr: r.from_addr ?? '',
   to_addrs: r.to_addrs ?? '', subject: r.subject ?? '', snippet: r.snippet ?? '', unread: !!r.unread, starred: !!r.starred, has_att: !!r.has_att,
   in_inbox: !!r.in_inbox, sent: !!r.sent, site: r.site ?? null, po: r.po ?? null,
+  labels: (r.labels ?? []).filter(l => l.startsWith('Label_')),
 })
 
 /** One conversation per line, newest message first; bold when anything in it is unread. */
@@ -32,12 +35,26 @@ export function groupThreads(rows: Row[], max = 200): Item[] {
     const k = r.mailbox_id + ':' + r.thread_id
     const g = by.get(k)
     if (!g) by.set(k, { ...toItem(r), count: 1 })
-    else { g.count = (g.count ?? 1) + 1; g.unread = g.unread || !!r.unread; g.has_att = g.has_att || !!r.has_att; g.starred = g.starred || !!r.starred }
+    else {
+      g.count = (g.count ?? 1) + 1; g.unread = g.unread || !!r.unread; g.has_att = g.has_att || !!r.has_att; g.starred = g.starred || !!r.starred
+      for (const l of r.labels ?? []) if (l.startsWith('Label_') && !g.labels.includes(l)) g.labels.push(l)
+    }
   }
   return [...by.values()].slice(0, max)
 }
 
 const likeSafe = (w: string) => w.replace(/[,()%_*\\"']/g, ' ').trim()
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/
+/** The moment a calendar day starts in Eastern time, as the database stores it. `plus` moves on that many days. */
+export function easternDayStart(day: string, plus = 0): string {
+  const [y, m, d] = day.split('-').map(Number)
+  for (const offset of [5, 4]) {   // standard time, then daylight time
+    const at = new Date(Date.UTC(y, m - 1, d + plus, offset))
+    if (at.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).startsWith('00')) return at.toISOString()
+  }
+  return new Date(Date.UTC(y, m - 1, d + plus, 5)).toISOString()
+}
 
 export async function listMessages(who: Me, p: Record<string, string>) {
   const box = await mailboxFor(who, p.mailbox)
@@ -54,6 +71,10 @@ export async function listMessages(who: Me, p: Record<string, string>) {
   if (p.unread === '1') q = q.eq('unread', true)
   if (p.att === '1') q = q.eq('has_att', true)
   if (p.starred === '1') q = q.eq('starred', true)
+  if (p.label) { if (!/^Label_[A-Za-z0-9_-]{1,40}$/.test(p.label)) throw new UserError('No such label.'); q = q.contains('labels', [p.label]) }
+  if (p.from) { const s = likeSafe(p.from); if (s) q = q.or(`from_addr.ilike.%${s}%,from_name.ilike.%${s}%`) }
+  if (DAY.test(p.after ?? '')) q = q.gte('date', easternDayStart(p.after))            // from the start of that day
+  if (DAY.test(p.before ?? '')) q = q.lt('date', easternDayStart(p.before, 1))        // through the end of that day
   if (p.site) { const s = likeSafe(p.site); if (s) q = q.or(`site.ilike.%${s}%,po.ilike.%${s}%,subject.ilike.%${s}%`) }
   for (const word of (p.q || '').split(/\s+/).map(likeSafe).filter(Boolean).slice(0, 6)) {
     q = q.or(`subject.ilike.%${word}%,from_name.ilike.%${word}%,from_addr.ilike.%${word}%,snippet.ilike.%${word}%,to_addrs.ilike.%${word}%`)
@@ -159,7 +180,7 @@ async function reindexThread(box: Mailbox, threadId: string) {
   if (!ids.length) { await admin.from('rpmail_messages').delete().eq('mailbox_id', box.id).eq('thread_id', threadId); return }
   await loadMessages(box, ids, await knownSites(box.company_id))
 }
-async function indexRow(box: Mailbox, id: string) {
+export async function indexRow(box: Mailbox, id: string) {
   const { data } = await createAdminClient().from('rpmail_messages').select('gmail_id, thread_id, subject, in_inbox').eq('mailbox_id', box.id).eq('gmail_id', id).maybeSingle()
   if (data) return data as { gmail_id: string; thread_id: string; subject: string; in_inbox: boolean }
   const m = await liveMessage(box, id)
@@ -220,6 +241,7 @@ export async function undoMove(who: Me, p: { move?: unknown }) {
     if (back.length) await gmail(box.id, `${t}/modify`, { method: 'POST', body: { addLabelIds: back } })
   } else if (mv.to_place === 'Spam') await gmail(box.id, `${t}/modify`, { method: 'POST', body: { removeLabelIds: ['SPAM'], addLabelIds: back } })
   else if (mv.to_place === 'Archive') await gmail(box.id, `${t}/modify`, { method: 'POST', body: { addLabelIds: ['INBOX'] } })
+  else if (mv.label_id) await gmail(box.id, `${t}/modify`, { method: 'POST', body: { removeLabelIds: [mv.label_id], addLabelIds: back } })   // "moved to a label"
   else await gmail(box.id, `${t}/modify`, { method: 'POST', body: { removeLabelIds: ['INBOX'] } })
   await reindexThread(box, mv.thread_id)
   await admin.from('rpmail_moves').update({ undone: true }).eq('id', mv.id)

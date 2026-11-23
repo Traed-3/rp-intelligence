@@ -7,6 +7,7 @@ import { notifyTest } from '@/lib/rpmail/background'
 import { plateDone, plateAdd } from '@/lib/rpmail/overview'
 import { listMessages, searchGmail, readMessage, readAttachment, markRead, fileMessage, undoMove, markDone, setSignature, draftPrep, sendMail } from '@/lib/rpmail/mail-ops'
 import { setPrefs, doneList, setStar, bulk } from '@/lib/rpmail/extras'
+import { labelList, labelSave, labelDelete, labelApply, blockList, blockSender } from '@/lib/rpmail/organize'
 import { attachPrepare, attachRemove, contacts, templateList, templateSave, templateDelete } from '@/lib/rpmail/compose-ops'
 import { setEnabled, disconnect, oauthStart, adminState, adminSetUser, adminSaveShared, adminDeleteShared, adminGrant } from '@/lib/rpmail/connect'
 
@@ -29,6 +30,8 @@ const GETS: Record<string, { any?: boolean; run: (who: Me, q: Q, req: NextReques
   contacts: { run: (who, q) => contacts(who, q) },
   templates: { run: who => templateList(who) },
   done_list: { run: who => doneList(who) },
+  labels: { run: (who, q) => labelList(who, q) },
+  blocks: { run: (who, q) => blockList(who, q) },
   draft_prep: { run: (who, q) => draftPrep(who, q) },
   connect: { any: true, run: async (who, q, req) => NextResponse.redirect(await oauthStart(who, q.mailbox, req.nextUrl.origin)) },
   admin_state: { any: true, run: who => adminState(who) },
@@ -52,6 +55,10 @@ const POSTS: Record<string, { any?: boolean; run: (who: Me, b: B) => Promise<unk
   notify_test: { run: (who, b) => notifyTest(who, b) },
   star: { run: (who, b) => setStar(who, b) },
   bulk: { run: (who, b) => bulk(who, b) },
+  label_save: { run: (who, b) => labelSave(who, b) },
+  label_delete: { run: (who, b) => labelDelete(who, b) },
+  label_apply: { run: (who, b) => labelApply(who, b) },
+  block: { run: (who, b) => blockSender(who, b) },
   signature: { run: (who, b) => setSignature(who, b) },
   send: { run: (who, b) => sendMail(who, b) },
   plate_done: { run: (who, b) => plateDone(who, b) },

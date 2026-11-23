@@ -45,6 +45,8 @@ const everyAction = (mailbox: string, id: string): [method: 'GET' | 'POST', op: 
   ['POST', 'done', { mailbox, id }], ['POST', 'star', { mailbox, id }], ['POST', 'bulk', { mailbox, ids: [id], action: 'Trash' }], ['POST', 'signature', { mailbox, text: 'x' }],
   ['POST', 'send', { mailbox, mode: 'new', to: 'x@example.com', subject: 'hi', body: 'hi', confirmed: true }],
   ['POST', 'send', { mailbox, mode: 'forward', id, to: 'x@example.com', confirmed: true }],
+  ['GET', 'labels', { mailbox }], ['POST', 'label_save', { mailbox, name: 'Vendors' }], ['POST', 'label_apply', { mailbox, id, label: 'Label_1' }], ['POST', 'label_delete', { mailbox, label: 'Label_1' }],
+  ['GET', 'blocks', { mailbox }], ['POST', 'block', { mailbox, addr: 'someone@example.com' }],
   ['POST', 'plate_add', { mailbox, id }], ['POST', 'disconnect', { mailbox }],
 ]
 

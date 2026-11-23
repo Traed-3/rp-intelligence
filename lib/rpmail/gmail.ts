@@ -79,7 +79,7 @@ export async function pace(mailboxId: string, perSecond = 18): Promise<void> {
 /** Google saying "slow down" rather than "no". */
 export class Busy extends Error {}
 
-type Opts = { method?: 'GET' | 'POST'; params?: Record<string, string | string[]>; body?: unknown; token?: string }
+type Opts = { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; params?: Record<string, string | string[]>; body?: unknown; token?: string }
 
 /** One Gmail call. Returns null for "not found". Waits and retries when Google says slow down. */
 export async function gmail<T = Record<string, unknown>>(mailboxId: string, path: string, opts: Opts = {}): Promise<T | null> {

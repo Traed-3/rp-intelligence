@@ -12,7 +12,7 @@ const like = (v: unknown, pat: string) => new RegExp('^' + pat.replace(/[.*+?^${
 const cmp = (a: unknown, b: unknown) => (a == null && b == null ? 0 : a == null ? -1 : b == null ? 1 : a < b ? -1 : a > b ? 1 : 0)
 
 const SERIAL = new Set(['rpmail_moves', 'rpmail_sent'])
-const UUID_PK = new Set(['rpmail_mailboxes', 'rpmail_templates', 'con_tasks'])
+const UUID_PK = new Set(['rpmail_mailboxes', 'rpmail_templates', 'con_tasks', 'rpmail_rules'])
 const DEFAULTS: Record<string, Row> = {
   rpmail_mailboxes: { crew_reads: false, token_secret_id: null, scope: null, connected_at: null, history_id: null, sync: {}, last_sync_at: null, last_error: null, owner_id: null, failing_since: null, fail_alerted_at: null, notify_mark: null },
   rpmail_moves: { undone: false },
@@ -47,6 +47,7 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string } |
   gte(c: string, v: unknown) { this.filters.push(r => r[c] != null && cmp(r[c], v) >= 0); return this }   // like SQL: nothing compares to an empty value
   lt(c: string, v: unknown) { this.filters.push(r => r[c] != null && cmp(r[c], v) < 0); return this }
   ilike(c: string, pat: string) { this.filters.push(r => like(r[c], pat)); return this }
+  contains(c: string, v: unknown[]) { this.filters.push(r => Array.isArray(r[c]) && v.every(x => (r[c] as unknown[]).includes(x))); return this }
   or(expr: string) {
     const parts = expr.split(',').map(p => { const [c, op, ...rest] = p.split('.'); return { c, op, v: rest.join('.') } })
     this.filters.push(r => parts.some(p => (p.op === 'ilike' ? like(r[p.c], p.v) : String(r[p.c]) === p.v)))
@@ -78,7 +79,7 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string } |
     } else if (this.op === 'delete') {
       out = all.filter(hit); this.db.tables[this.table] = all.filter(r => !hit(r))
       // The real database removes what hangs off a mailbox when the mailbox goes.
-      if (this.table === 'rpmail_mailboxes') for (const t of ['rpmail_access', 'rpmail_messages', 'rpmail_done', 'rpmail_moves']) this.db.tables[t] = (this.db.tables[t] ?? []).filter(r => !out.some(b => b.id === r.mailbox_id))
+      if (this.table === 'rpmail_mailboxes') for (const t of ['rpmail_access', 'rpmail_messages', 'rpmail_done', 'rpmail_moves', 'rpmail_blocks', 'rpmail_snoozes', 'rpmail_rules']) this.db.tables[t] = (this.db.tables[t] ?? []).filter(r => !out.some(b => b.id === r.mailbox_id))
     } else {
       out = all.filter(hit)
       for (const [c, asc] of [...this.orders].reverse()) out = [...out].sort((a, b) => (asc ? 1 : -1) * cmp(a[c], b[c]))
@@ -127,6 +128,14 @@ export class FakeDb {
       return { data: null, error: null }
     }
     if (name === 'sync_token_ok') return { data: a.t === 'the-vault-token', error: null }
+    if (name === 'rpmail_label_set' || name === 'rpmail_label_drop') {
+      for (const m of this.t('rpmail_messages')) {
+        if (m.mailbox_id !== a.p_mailbox || (name === 'rpmail_label_set' && m.thread_id !== a.p_thread)) continue
+        const cur = ((m.labels as string[] | undefined) ?? []).filter(l => l !== a.p_label)
+        m.labels = name === 'rpmail_label_set' && a.p_on ? [...cur, a.p_label] : cur
+      }
+      return { data: null, error: null }
+    }
     if (name === 'rpmail_outbox_stale') return { data: [...this.files.keys()].filter(k => this.stale.has(k)), error: null }
     const mine = this.t('rpmail_messages').filter(m => this.allowed(String(a.p_profile), String(m.mailbox_id)))
     if (name === 'rpmail_counts') {
@@ -157,6 +166,8 @@ export type SentMail = { account: string; raw: string; threadId?: string; draft:
 
 export class FakeGmail {
   boxes = new Map<string, FakeMsg[]>()      // address -> messages
+  labels = new Map<string, { id: string; name: string; type: string }[]>()   // address -> the labels people made
+  fresh = new Map<string, string[]>()      // address -> messages that arrived or changed since the mailbox was last looked at
   calls: GCall[] = []
   sent: SentMail[] = []
   revoked = new Set<string>()              // addresses whose sign-in Google has ended
@@ -166,7 +177,14 @@ export class FakeGmail {
     const id = (++this.n).toString(16).padStart(16, '0')
     const msg: FakeMsg = { id, threadId: m.threadId ?? id, labelIds: m.labelIds ?? ['INBOX', 'UNREAD'], to: address, body: 'Hello', date: Date.now() - 3_600_000 + this.n * 1000, ...m }
     const list = this.boxes.get(address) ?? []; list.push(msg); this.boxes.set(address, list)
+    this.fresh.set(address, [...(this.fresh.get(address) ?? []), id])
     return msg
+  }
+  addLabel(address: string, name: string) {
+    const all = this.labels.get(address) ?? []
+    const l = { id: 'Label_' + (all.length + 1), name, type: 'user' }
+    this.labels.set(address, [...all, l])
+    return l
   }
   get(address: string, id: string) { return (this.boxes.get(address) ?? []).find(m => m.id === id) }
   private full(m: FakeMsg) {
@@ -185,14 +203,29 @@ export class FakeGmail {
     const ok = (json: unknown) => ({ status: 200, json })
     const labels = (ms: FakeMsg[]) => { for (const m of ms) { m.labelIds = [...new Set([...m.labelIds.filter(l => !((body?.removeLabelIds as string[] | undefined) ?? []).includes(l)), ...((body?.addLabelIds as string[] | undefined) ?? [])])] } }
     let m: RegExpMatchArray | null
-    if (path === 'profile') return ok({ emailAddress: account, historyId: '100' })
+    if (path === 'profile') { this.fresh.set(account, []); return ok({ emailAddress: account, historyId: '100' }) }
+    if (path === 'labels' && method === 'GET') return ok({ labels: [{ id: 'INBOX', name: 'INBOX', type: 'system' }, ...(this.labels.get(account) ?? [])] })
+    if (path === 'labels' && method === 'POST') {
+      if ((this.labels.get(account) ?? []).some(l => l.name.toLowerCase() === String(body?.name).toLowerCase())) return { status: 409, json: { error: { message: 'Label name exists or conflicts' } } }
+      return ok(this.addLabel(account, String(body?.name)))
+    }
+    if ((m = path.match(/^labels\/(Label_[\w-]+)$/))) {
+      const all = this.labels.get(account) ?? [], l = all.find(x => x.id === m![1])
+      if (!l) return { status: 404, json: {} }
+      if (method === 'PATCH') { l.name = String(body?.name); return ok(l) }
+      if (method === 'DELETE') { this.labels.set(account, all.filter(x => x !== l)); for (const x of list) x.labelIds = x.labelIds.filter(i => i !== l.id); return { status: 204, json: null } }
+    }
     if (path === 'messages' && method === 'GET') {
       const q = query.get('q') ?? ''
       const vis = list.filter(x => !x.labelIds.some(l => l === 'TRASH' || l === 'SPAM'))
       const hit = q.includes('in:inbox') ? vis.filter(x => x.labelIds.includes('INBOX')) : /newer_than|^$/.test(q) ? vis : vis.filter(x => (x.subject + ' ' + x.body + ' ' + x.from).toLowerCase().includes(q.toLowerCase()))
       return ok({ messages: hit.map(x => ({ id: x.id })) })
     }
-    if (path === 'history') return ok({ history: [], historyId: '100' })
+    if (path === 'history') {
+      const ids = this.fresh.get(account) ?? []
+      this.fresh.set(account, [])
+      return ok({ history: ids.length ? [{ messages: ids.map(id => ({ id })) }] : [], historyId: '100' })
+    }
     if (path === 'messages/send' || path === 'drafts') {
       const msg = (path === 'drafts' ? (body?.message as Record<string, unknown>) : body) ?? {}
       this.sent.push({ account, raw: Buffer.from(String(msg.raw), 'base64url').toString('utf8'), threadId: msg.threadId as string | undefined, draft: path === 'drafts' })
@@ -208,6 +241,7 @@ export class FakeGmail {
       this.metadataReads++
       return ok({ ...full, payload: { headers: [...full.payload.headers, { name: 'Content-Type', value: x.files?.length ? 'multipart/mixed; boundary=x' : 'multipart/alternative; boundary=x' }] } })
     }
+    if ((m = path.match(/^messages\/([0-9a-f]+)\/trash$/))) { const x = list.find(y => y.id === m![1]); if (!x) return { status: 404, json: {} }; x.labelIds = [...x.labelIds.filter(l => l !== 'INBOX'), 'TRASH']; return ok({}) }
     if ((m = path.match(/^messages\/([0-9a-f]+)\/modify$/))) { const x = list.find(y => y.id === m![1]); if (!x) return { status: 404, json: {} }; labels([x]); return ok({}) }
     if ((m = path.match(/^messages\/([0-9a-f]+)\/attachments\/att(\d+)$/))) { const f = list.find(y => y.id === m![1])?.files?.[Number(m[2])]; return f ? ok({ data: f.data.toString('base64url') }) : { status: 404, json: {} } }
     if ((m = path.match(/^threads\/([0-9a-f]+)(\/(modify|trash|untrash))?$/))) {
@@ -237,7 +271,7 @@ export class FakeGmail {
       if (!acct || this.revoked.has(acct)) return json(401, { error: { message: 'Invalid Credentials' } })
       const path = url.pathname.replace('/gmail/v1/users/me/', '')
       const r = this.handle(acct, init?.method ?? 'GET', path, url.searchParams, init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : null)
-      return json(r.status, r.json)
+      return r.status === 204 ? new Response(null, { status: 204 }) : json(r.status, r.json)
     }
     throw new Error('A test tried to reach the internet: ' + url.host)
   }
