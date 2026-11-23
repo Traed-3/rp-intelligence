@@ -853,11 +853,40 @@ function PendingBar({ to, from, until, undo, now }: { to: string; from: string; 
 const NO_NOTIFY: Notify = { on: false, what: 'people', quiet_from: '', quiet_to: '', off: [] }
 
 /** New-mail notifications: on or off, what sets one off, quiet hours, and which mailboxes. Everything here can be turned back off. */
+// What this device's own notification handler last wrote down: when a notification reached it, and whether it could show it.
+type LastPush = { at: number; shown: boolean }
+async function lastPush(): Promise<LastPush | null> {
+  try {
+    if (!('caches' in window)) return null
+    const r = await (await caches.open('rps-diag')).match('/__push-last')
+    const d = r ? await r.json() as Partial<LastPush> : null
+    return d && typeof d.at === 'number' ? { at: d.at, shown: d.shown !== false } : null
+  } catch { return null }
+}
+const pause = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+// Make sure this device runs the newest notification handler before a test, without ever holding the test up for long.
+async function freshHandler() {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration()
+    if (!reg) return
+    await Promise.race([reg.update(), pause(4000)])
+    for (let i = 0; i < 10 && (reg.installing || reg.waiting); i++) await pause(300)
+  } catch { /* an old handler still shows notifications; it just cannot report back */ }
+}
+
 function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: BoxInfo[]; close: () => void; save: (n: Notify) => Promise<void> }) {
   const [n, setN] = useState<Notify>(start ?? NO_NOTIFY)
   const [busy, setBusy] = useState(false)
   const [test, setTest] = useState('')
   const [local, setLocal] = useState('')
+  const [last, setLast] = useState<LastPush | null>(null)
+  useEffect(() => {
+    // Looks again whenever the person comes back to the app, for a test that arrived while the phone was locked.
+    const look = () => { void lastPush().then(setLast) }
+    look(); void freshHandler()
+    document.addEventListener('visibilitychange', look)
+    return () => document.removeEventListener('visibilitychange', look)
+  }, [])
   // This device's own registration, if it has one. Never waits long: a browser without notifications has none.
   const mySub = async (): Promise<PushSubscription | null> => {
     try {
@@ -870,7 +899,9 @@ function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: Box
     setTest('Sending…'); setLocal('')
     type R = { devices: number; sent: number; failed: number; here: boolean | null }
     try {
+      await freshHandler()
       const sub = await mySub()
+      const since = Date.now() - 2000
       let r = await api<R>('notify_test', { endpoint: sub?.endpoint ?? '' })
       if (sub && r.here === false && !r.failed) {
         // This device is switched on but the site had lost track of it: register it again, then test once more.
@@ -879,11 +910,24 @@ function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: Box
       }
       const others = r.sent - (r.here ? 1 : 0)
       const n = (k: number) => `${k} other device${k === 1 ? '' : 's'}`
-      setTest(!r.devices ? 'No phone or computer has notifications switched on yet. Press the Enable button above first.'
-        : !r.sent ? 'The notification service refused it. Press Disable above, then Enable again, and try once more.'
-        : r.here ? `Sent to this device${others ? ` and ${n(others)}` : ''}. It should appear within a few seconds.`
-        : `Sent to ${n(others)}, but not this one: notifications are not switched on here. Press Enable above to get them on this device too.`)
+      if (!r.devices) return setTest('No phone or computer has notifications switched on yet. Press the Enable button above first.')
+      if (!r.sent) return setTest('The notification service refused it. Press Disable above, then Enable again, and try once more.')
+      if (!r.here) return setTest(`Sent to ${n(others)}, but not this one: notifications are not switched on here. Press Enable above to get them on this device too.`)
+      // Sent to the device in hand: wait for its own handler to say it arrived.
+      setTest(`Sent to this device${others ? ` and ${n(others)}` : ''}. Checking that it arrives…`)
+      let got: LastPush | null = null
+      for (let i = 0; i < 20 && !got; i++) { await pause(1000); const l = await lastPush(); if (l && l.at >= since) got = l }
+      if (got) setLast(got)
+      setTest(!got ? 'The notification service accepted it, but it has not reached this device after 20 seconds. Check the phone is online and Low Power Mode is off, then try again. If it keeps happening, press Disable above, then Enable, to register this device afresh.'
+        : got.shown ? 'This device received it and handed it to the phone to show. If you saw no banner, the phone itself is hiding it: open Nothing appeared? below.'
+        : 'This device received it but was not allowed to show it. Press Disable above, then Enable again, and allow notifications when asked.')
     } catch { setTest('Could not send the test. Try again in a minute.') }
+  }
+  // Real mail notifications arrive with the phone locked, so this one waits 15 seconds to give time to lock it.
+  const runLater = () => {
+    setLocal('')
+    setTest('Lock the phone now. A test arrives in about 15 seconds. When you open RPMail again, the line below says whether this device received it.')
+    void (async () => { const sub = await mySub(); await api('notify_test', { endpoint: sub?.endpoint ?? '', delay: 15 }).catch(() => null); setLast(await lastPush()) })()
   }
   // Shows one without going through the internet at all, to tell "the phone is hiding them" from "it never arrived".
   const runLocal = async () => {
@@ -934,8 +978,10 @@ function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: Box
             <PushToggle />
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <button type="button" className={btn('outline', 'sm')} onClick={runTest}>Send a test notification</button>
-              {test && <span className="text-xs text-muted-foreground" role="status">{test}</span>}
+              <button type="button" className={btn('ghost', 'sm')} onClick={runLater}>Send one in 15 seconds</button>
             </div>
+            {test && <p className="text-xs text-muted-foreground" role="status">{test}</p>}
+            {last && <p className="text-xs text-muted-foreground">Last notification this device received: {new Date(last.at).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', second: '2-digit' })}{last.shown ? '.' : ' (the device would not show it).'}</p>}
             {test && test !== 'Sending…' && (
               <details className="text-xs text-muted-foreground">
                 <summary className="cursor-pointer font-semibold text-foreground">Nothing appeared?</summary>
