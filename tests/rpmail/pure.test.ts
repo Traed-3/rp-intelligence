@@ -80,3 +80,23 @@ describe('push device addresses', () => {
       expect(isPushEndpoint(bad), String(bad)).toBe(false)
   })
 })
+
+describe('a person\'s own settings', () => {
+  it('knows when a day starts in each time zone, including the days the clocks change', async () => {
+    const { dayStartIn, inQuietHours, hourIn } = await import('@/lib/rpmail/prefs')
+    expect(dayStartIn('2026-11-23')).toBe('2026-11-23T05:00:00.000Z')                              // Eastern, winter
+    expect(dayStartIn('2026-07-01')).toBe('2026-07-01T04:00:00.000Z')                              // Eastern, summer
+    expect(dayStartIn('2026-03-08')).toBe('2026-03-08T05:00:00.000Z')                              // clocks go forward later that morning
+    expect(dayStartIn('2026-11-01')).toBe('2026-11-01T04:00:00.000Z')                              // clocks go back later that morning
+    expect(dayStartIn('2026-11-23', 0, 'America/Los_Angeles')).toBe('2026-11-23T08:00:00.000Z')
+    expect(dayStartIn('2026-07-01', 0, 'America/Chicago')).toBe('2026-07-01T05:00:00.000Z')
+    expect(dayStartIn('2026-07-01', 0, 'America/Phoenix')).toBe('2026-07-01T07:00:00.000Z')         // Arizona keeps one time all year
+    expect(dayStartIn('2026-12-31', 1, 'Pacific/Honolulu')).toBe('2027-01-01T10:00:00.000Z')
+    const quiet = { quiet_from: '21:00', quiet_to: '06:00' }
+    const at = new Date('2026-11-24T03:30:00Z')                                                    // 10:30 PM Eastern, 7:30 PM Pacific
+    expect(inQuietHours(quiet, at)).toBe(true)
+    expect(inQuietHours(quiet, at, 'America/Los_Angeles')).toBe(false)
+    expect(hourIn('America/New_York', at)).toBe(22)
+    expect(hourIn('Pacific/Honolulu', at)).toBe(17)
+  })
+})

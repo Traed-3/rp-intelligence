@@ -3,6 +3,7 @@ import { gmail, b64url, headerMap, isHidden, UserError, type GMessage } from './
 import { mailboxFor, noPricingAddresses, maySend, mayDelete, Forbidden, type Me, type Mailbox } from './access'
 import { logActivity } from './activity'
 import { contentRules, contentGuard } from './company'
+import { getPrefs, dayStartIn, DEFAULT_TZ } from './prefs'
 import { knownSites, loadMessages, toRow, walkParts, bodyText, type IndexRow } from './sync'
 import { buildRaw, cleanRecipients, pricingGuard, type OutFile } from './mime'
 import { parseAddrs, decodeWords, splitAddrList } from './parse'
@@ -57,15 +58,8 @@ export function groupThreads(rows: Row[], max = 200): Item[] {
 const likeSafe = (w: string) => w.replace(/[,()%_*\\"']/g, ' ').trim()
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
-/** The moment a calendar day starts in Eastern time, as the database stores it. `plus` moves on that many days. */
-export function easternDayStart(day: string, plus = 0): string {
-  const [y, m, d] = day.split('-').map(Number)
-  for (const offset of [5, 4]) {   // standard time, then daylight time
-    const at = new Date(Date.UTC(y, m - 1, d + plus, offset))
-    if (at.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).startsWith('00')) return at.toISOString()
-  }
-  return new Date(Date.UTC(y, m - 1, d + plus, 5)).toISOString()
-}
+/** The moment a calendar day starts in Eastern time. (Kept by name for the callers that are always Eastern.) */
+export const easternDayStart = (day: string, plus = 0) => dayStartIn(day, plus)
 
 export async function listMessages(who: Me, p: Record<string, string>) {
   const box = await mailboxFor(who, p.mailbox)
@@ -91,8 +85,11 @@ export async function listMessages(who: Me, p: Record<string, string>) {
   if (p.starred === '1') q = q.eq('starred', true)
   if (p.label) { if (!/^Label_[A-Za-z0-9_-]{1,40}$/.test(p.label)) throw new UserError('No such label.'); q = q.contains('labels', [p.label]) }
   if (p.from) { const s = likeSafe(p.from); if (s) q = q.or(`from_addr.ilike.%${s}%,from_name.ilike.%${s}%`) }
-  if (DAY.test(p.after ?? '')) q = q.gte('date', easternDayStart(p.after))            // from the start of that day
-  if (DAY.test(p.before ?? '')) q = q.lt('date', easternDayStart(p.before, 1))        // through the end of that day
+  if (DAY.test(p.after ?? '') || DAY.test(p.before ?? '')) {
+    const tz = (await getPrefs(who)).tz                                                // days are counted by the person's own clock
+    if (DAY.test(p.after ?? '')) q = q.gte('date', dayStartIn(p.after, 0, tz))         // from the start of that day
+    if (DAY.test(p.before ?? '')) q = q.lt('date', dayStartIn(p.before, 1, tz))        // through the end of that day
+  }
   if (p.site) { const s = likeSafe(p.site); if (s) q = q.or(`site.ilike.%${s}%,po.ilike.%${s}%,subject.ilike.%${s}%`) }
   for (const word of (p.q || '').split(/\s+/).map(likeSafe).filter(Boolean).slice(0, 6)) {
     q = q.or(`subject.ilike.%${word}%,from_name.ilike.%${word}%,from_addr.ilike.%${word}%,snippet.ilike.%${word}%,to_addrs.ilike.%${word}%`)
@@ -290,7 +287,7 @@ export async function setSignature(who: Me, p: { mailbox?: unknown; text?: unkno
   return { ok: true }
 }
 
-const whenText = (ms: number) => new Date(ms).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+const whenText = (ms: number, tz = DEFAULT_TZ) => new Date(ms).toLocaleString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 type Prep = { from: string; to: string; cc: string; subject: string; quoted: string; forward: boolean; attachments: string[]; signature: string
   msgid: string; refs: string; threadId: string; files: ReturnType<typeof walkParts>['files'] }
@@ -305,7 +302,7 @@ async function prep(who: Me, box: Mailbox, id: string, all: boolean, forward: bo
   const ccList = parseAddrs(decodeWords(h['cc'] ?? '')).map(a => a.addr)
   const mine = new Set([box.address, who.email].filter(Boolean))
   let subj = decodeWords(h['subject'] ?? '')
-  const when = whenText(Number(m.internalDate ?? Date.now()))
+  const when = whenText(Number(m.internalDate ?? Date.now()), (await getPrefs(who)).tz)
   const signature = await getSignature(who, box.id)
   const msgid = (h['message-id'] ?? '').trim()
   const refs = (((h['references'] ?? '') + ' ' + msgid).match(/<[^>]+>/g) ?? []).slice(-20).join(' ')
@@ -390,7 +387,7 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
     throw e
   }
 
-  const raw = buildRaw({ fromName: who.name, fromAddr: box.address, to, cc, subject, body: full, inReplyTo, references, files })
+  const raw = buildRaw({ fromName: (await getPrefs(who)).sender_name || who.name, fromAddr: box.address, to, cc, subject, body: full, inReplyTo, references, files })
   const message = { raw, ...(threadId ? { threadId } : {}) }
   const admin = createAdminClient()
   if (draft) {

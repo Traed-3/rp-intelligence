@@ -17,7 +17,7 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 | 2 | Writing mail: attach files (button, drag-drop, paste picture), drafts saved automatically, undo send, From picker on every message, address book fill-in, templates | shipped 2026-11-20, tried on real mail. Formatting, address groups and schedule send moved to later stages |
 | 3 | Organizing: labels (create, rename, delete, move), block sender, empty Trash, snooze / remind me, rules, date and sender filters, download all as zip | shipped 2026-11-23, checked by automated tests only (no test mailbox at the time). Parked for Trae: empty Trash and out-of-office, which both need a wider Google permission |
 | 4 | Mail keeps syncing with nobody watching (scheduled sync, catch-up, alert when a mailbox fails over an hour) + browser / phone / text notifications with quiet hours | shipped 2026-11-20. Push proven on Trae's iPhone 2026-11-23 (test notification seen); a real new-mail notification has not been seen yet; text messages wait on Trae (paid service); schedule send not built |
-| 5 | One Settings area (profile, mailboxes, signatures, notifications, rules, appearance, defaults) and company admin (read / send / delete per person, blocked-content rule, activity log with export) | company admin shipped 2026-11-23; the Settings area for a normal user is next |
+| 5 | One Settings area (profile, mailboxes, signatures, notifications, rules, appearance, defaults) and company admin (read / send / delete per person, blocked-content rule, activity log with export) | shipped 2026-11-23. The owner page was looked at on the live site; the rest by automated tests only. Still to do from this stage: writing with formatting (bold, lists, links) |
 | 6 | Automated tests + a check that runs before anything goes live; "one company cannot see another" proven by tests | shipped 2026-11-20 (done ahead of stages 3 to 5, because there was no test mailbox). 50 tests |
 | 7 | Selling it: companies as separate customers, sign-up, trial, Stripe plans and seats, billing page, plan limits, public page, help center, first-run walkthrough, owner view | waiting on Trae (Stripe account, prices, legal wording, product shape) |
 | 8 | More providers: Microsoft 365 / Outlook, then any mailbox by IMAP + SMTP | not started (Microsoft needs an Azure app registration = an account) |
@@ -58,7 +58,7 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 | Reply, reply all | Done | |
 | Forward with attachments | Done | Up to 20 MB. |
 | Address book fill-in as you type, from mail history | Done | To and Cc offer people from the person's own mailboxes; people they have written to come first. |
-| Address book groups | Missing | Stage 5. |
+| Address book groups | Done | Settings, Address groups. Typing a group's name in To or Cc offers it; picking it adds everyone in it. Each person's own. |
 | Signature per mailbox | Done | Per person per mailbox. Plain text. |
 | Canned replies / templates | Done | Save as template, Insert a template, Manage templates, in the message box. Each person's own. |
 | Out-of-office replies | Parked | Needs Trae's say-so. RPMail must never send mail by itself, so this has to be Gmail's own vacation responder, and switching that on from RPMail needs one more Google permission on the sign-in screen. |
@@ -99,9 +99,9 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 
 | Item | State | Note |
 |---|---|---|
-| One Settings area for a normal user | Missing | Only owners have a Settings page (people and shared mailboxes). Stage 5. |
-| Profile, appearance (light / dark / text size / density), default send address, undo-send delay, time zone, start page | Missing | Times are fixed to Eastern today. Stage 5. |
-| Everything that can be turned on can be turned off from the screen | Partly | RPMail on/off and disconnect: yes. Most other things do not exist yet. |
+| One Settings area for a normal user | Done | Settings button at the top of RPMail (`/rpmail/settings`): name on outgoing mail, mailboxes with a signature each and the default one to send from, time to undo a send, start page, list density, time zone, notifications, address groups, and turning RPMail off. Automated tests cover what is saved; the page itself has not been seen with a mailbox. |
+| Profile, appearance (light / dark / text size / density), default send address, undo-send delay, time zone, start page | Partly | Done: name on mail, list density, default send address, undo delay, time zone (seven US zones; used for quiet hours, date filters, the date in quoted replies and the 6 AM summary), start page. Light and dark are RP Intelligence's own switch. Not built: a text-size setting (the browser's zoom does it). |
+| Everything that can be turned on can be turned off from the screen | Done | RPMail itself, each mailbox sign-in, notifications, rules (each has an On switch), blocked senders, snoozes and reminders, company rules. |
 
 ## Company admin
 
@@ -184,6 +184,7 @@ Known rough edges from the pass (not fixed yet):
 
 ## Stage log
 
+- 2026-11-23: stage 5 part two (a person's own Settings) on branch `feat/rpmail-stage5b`: `lib/rpmail/prefs.ts` (settings moved out of extras.ts; new `sender_name`, `default_from`, `start`, `density`, `tz`, `groups`; `dayStartIn`, `inQuietHours` and `hourIn` take a time zone), `app/(app)/rpmail/settings` + `components/rpmail/rpmail-settings.tsx`, the Settings button, compact lists, address groups in the To and Cc boxes. No database change. 103 tests.
 - 2026-11-23: stage 5 part one (company admin) on branch `feat/rpmail-stage5a`: `rpmail_access.can_send` / `can_delete` (read by `mailboxFor` / `myMailboxes`, helpers `maySend` / `mayDelete`, `admin_grant` takes `level`), `lib/rpmail/activity.ts` (`logActivity`, `admin_activity`, `admin_activity_export`, clean-up in the scheduled check), `lib/rpmail/company.ts` (`rpmail_company`, `admin_content_save`, `contentGuard` after the pricing guard in `sendMail`). Migration `rpmail_admin.sql` applied. 99 tests.
 - 2026-11-23: stage 3 part two on branch `feat/rpmail-stage3b`: `lib/rpmail/arrival.ts` (blocked senders, then rules, applied once to mail that is new to the index), rules in organize.ts (`rules`, `rule_save`, `rule_delete`), `lib/rpmail/snooze.ts` (`snooze`), `wakeSnoozes` in the scheduled check, the Snoozed list, migration `rpmail_organize2.sql` (tables `rpmail_snoozes` and `rpmail_rules`, `rpmail_messages.quiet`, `rpmail_needs` leaves out what the person snoozed; applied). 88 tests. NOT checked on a real mailbox.
 - 2026-11-23: stage 3 part one on branch `feat/rpmail-stage3a`: `lib/rpmail/organize.ts` (labels, blocked senders), `lib/rpmail/zip.ts`, list filters `label` / `from` / `after` / `before` (days counted in Eastern time), blocked mail trashed during the incremental check (`applyBlocks` in sync.ts), bulk action `label`, migration `rpmail_organize.sql` (table `rpmail_blocks`, `rpmail_moves.label_id`, functions `rpmail_label_set` / `rpmail_label_drop`; applied). The stand-in Gmail now has labels, reports new mail through history, and can trash one message. 80 tests. NOT checked on a real mailbox: there is none since Trae had the test mailbox removed on 2026-11-23.

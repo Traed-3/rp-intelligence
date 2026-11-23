@@ -256,3 +256,33 @@ describe('the person\'s own settings and helpers', () => {
     expect(o.needs.map(n => n.id)).toContain(m1)
   })
 })
+
+describe('settings a person makes for themselves', () => {
+  it('uses the name they chose on mail they send, and falls back to their RP Intelligence name', async () => {
+    await sendMail(me, { mailbox: box, mode: 'new', to: 'pat@vendor.com', subject: 'One', body: 'Hi', confirmed: true })
+    expect(lastRaw()).toContain('From: "Ann Owner" <ann@gmail.com>')
+    await setPrefs(me, { sender_name: '  Ann <the> "Boss"\r\nBcc: x@evil.com  ' })                  // nothing that could start a new header line gets through
+    expect((await getPrefs(me)).sender_name).toBe('Ann the Boss Bcc: x@evil.com')
+    await setPrefs(me, { sender_name: 'Ann at RP' })
+    await sendMail(me, { mailbox: box, mode: 'new', to: 'pat@vendor.com', subject: 'Two', body: 'Hi', confirmed: true })
+    expect(lastRaw()).toContain('From: "Ann at RP" <ann@gmail.com>')
+    expect(lastRaw()).not.toContain('Bcc:')
+  })
+
+  it('keeps only settings that make sense, and never loses the ones that were not named', async () => {
+    await setPrefs(me, { undo_secs: 20, tz: 'America/Chicago', density: 'compact', default_from: box, start: other })
+    await setPrefs(me, { tz: 'Mars/Olympus', density: 'tiny', default_from: 'not-an-id' })
+    expect(await getPrefs(me)).toMatchObject({ undo_secs: 20, tz: 'America/New_York', density: 'comfortable', default_from: '', start: other })
+    await setPrefs(me, { groups: [{ name: ' Estimating  team ', addrs: 'Pat@Vendor.com, pat@vendor.com; not-an-address, sam@x.io' }, { name: '', addrs: ['a@b.co'] }, { name: 'Empty', addrs: [] }] })
+    expect((await getPrefs(me)).groups).toEqual([{ name: 'Estimating team', addrs: ['pat@vendor.com', 'sam@x.io'] }])
+  })
+
+  it('counts the days of a date filter by the person\'s own clock', async () => {
+    const late = world.gmail.add('ann@gmail.com', { from: 'pat@vendor.com', subject: 'Late night', date: Date.parse('2026-11-12T06:00:00Z') }).id   // 1 AM Eastern on the 12th, 10 PM Pacific on the 11th
+    await syncMailbox(await mailboxFor(me, box))
+    const has = async () => (await listMessages(me, { mailbox: box, view: 'all', after: '2026-11-12', before: '2026-11-12' })).messages.some(m => m.id === late)
+    expect(await has()).toBe(true)
+    await setPrefs(me, { tz: 'America/Los_Angeles' })
+    expect(await has()).toBe(false)
+  })
+})

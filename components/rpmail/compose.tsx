@@ -36,8 +36,8 @@ const readDraft = (s: ComposeStart): Saved | null => {
 }
 export const clearDraft = (s: ComposeStart) => { try { localStorage.removeItem(draftKey(s)) } catch { /* private window: nothing was kept */ } }
 
-export function Compose({ start, boxes, undoSecs, setUndoSecs, onClose, onDone, onSend }: {
-  start: ComposeStart; boxes: BoxInfo[]; undoSecs: number; setUndoSecs: (n: number) => void
+export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, onDone, onSend }: {
+  start: ComposeStart; boxes: BoxInfo[]; groups: { name: string; addrs: string[] }[]; undoSecs: number; setUndoSecs: (n: number) => void
   onClose: () => void; onDone: (text: string) => void; onSend: (out: Outgoing) => void }) {
   // Mail can only go out from a mailbox this person is allowed to send from (an owner can make a shared mailbox read only for someone).
   const connected = boxes.filter(b => b.connected && (start.mode === 'signature' || b.can_send !== false))
@@ -190,8 +190,8 @@ export function Compose({ start, boxes, undoSecs, setUndoSecs, onClose, onDone, 
               {from !== start.mailbox && start.mode !== 'new' && <p className="mt-1 text-xs text-muted-foreground">This goes out from a different mailbox than the one the message is in. The sent copy will be in {box?.name}.</p>}
               {box?.crew_reads && <p className="mt-1 text-xs text-warning">The crew reads this mailbox and its Sent mail. Pricing is blocked from going out from it.</p>}
             </div>
-            <AddrInput label="To" value={to} onChange={setTo} autoFocus={start.mode !== 'reply'} placeholder="Start typing a name or address" />
-            <AddrInput label="Cc" value={cc} onChange={setCc} />
+            <AddrInput label="To" value={to} onChange={setTo} groups={groups} autoFocus={start.mode !== 'reply'} placeholder={groups.length ? 'Start typing a name, an address or a group' : 'Start typing a name or address'} />
+            <AddrInput label="Cc" value={cc} onChange={setCc} groups={groups} />
             <div><label className={lab}>Subject</label><input className="rp-input" value={subject} onChange={e => setSubject(e.target.value)} /></div>
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
@@ -274,7 +274,7 @@ export function Compose({ start, boxes, undoSecs, setUndoSecs, onClose, onDone, 
 }
 
 /** An address line that offers people from your own mail as you type. Several addresses are separated by commas. */
-function AddrInput({ label, value, onChange, autoFocus, placeholder }: { label: string; value: string; onChange: (v: string) => void; autoFocus?: boolean; placeholder?: string }) {
+function AddrInput({ label, value, onChange, autoFocus, placeholder, groups = [] }: { label: string; value: string; onChange: (v: string) => void; autoFocus?: boolean; placeholder?: string; groups?: { name: string; addrs: string[] }[] }) {
   const [hits, setHits] = useState<{ name: string; addr: string }[]>([])
   const [at, setAt] = useState(0)
   const [open, setOpen] = useState(false)
@@ -285,7 +285,9 @@ function AddrInput({ label, value, onChange, autoFocus, placeholder }: { label: 
     const t = setTimeout(() => { api<{ contacts: { name: string; addr: string }[] }>('contacts', undefined, { q: last }).then(r => { if (live) { setHits(r.contacts); setAt(0) } }).catch(() => null) }, 220)
     return () => { live = false; clearTimeout(t) }
   }, [last, open])
-  const shown = open && last.length >= 2 ? hits : []
+  // The person's own address groups come first: picking one puts everyone in it on the line.
+  const groupHits = last.length >= 2 ? groups.filter(g => g.name.toLowerCase().includes(last.toLowerCase())).map(g => ({ name: `Group: ${g.name} (${g.addrs.length})`, addr: g.addrs.join(', ') })) : []
+  const shown = open && last.length >= 2 ? [...groupHits, ...hits] : []
   const pick = (addr: string) => {
     const parts = value.split(/[,;]/); parts.pop()
     onChange([...parts.map(p => p.trim()).filter(Boolean), addr].join(', ') + ', ')

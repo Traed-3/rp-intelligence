@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   Mail, LayoutDashboard, PenSquare, RefreshCw, Paperclip, Check, Archive, Trash2, ShieldAlert, Reply, ReplyAll, Forward, Inbox,
-  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal, AlarmClock, BellRing, Wand2,
+  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal, AlarmClock, BellRing, Wand2, Settings,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -19,9 +19,12 @@ import { Compose, clearDraft, type ComposeStart, type Outgoing } from './compose
 // The built-in RPMail page: Dashboard (a tile per mailbox, My Plate, Your jobs, Needs you, Daily summary) and one
 // inbox per mailbox. Unread mail is bold everywhere. Opening a message never marks it read.
 
-type Notify = { on: boolean; what: 'needs' | 'people' | 'all'; quiet_from: string; quiet_to: string; off: string[] }
-type Prefs = { hidden: string[]; order: string[]; undo_secs?: number; notify?: Notify }
-type State = { prefs?: Prefs; enabled: boolean; name: string; role: string; googleReady: boolean; personalAddress: string | null; loginEmail: string; boxes: BoxInfo[]; note: string | null }
+export type Notify = { on: boolean; what: 'needs' | 'people' | 'all'; quiet_from: string; quiet_to: string; off: string[] }
+export type Group = { name: string; addrs: string[] }
+export type Prefs = { hidden: string[]; order: string[]; undo_secs?: number; notify?: Notify; sender_name?: string; default_from?: string; start?: string; density?: 'comfortable' | 'compact'; tz?: string; groups?: Group[] }
+/** Lists drawn tighter (one line less per message) when the person chose Compact in Settings. */
+const Compact = createContext(false)
+export type State = { prefs?: Prefs; enabled: boolean; name: string; role: string; googleReady: boolean; personalAddress: string | null; loginEmail: string; boxes: BoxInfo[]; note: string | null }
 type PlateItem = { id: string; title: string; detail: string; kind: string; site_number: string | null; priority: number; due_date: string | null; status: string; waiting_on: string | null; mail: Item | null; mail_n: number }
 type SumItem = { mailbox_id: string; id: string; date: number; from_name: string; subject: string; site: string | null; po: string | null; snippet: string; why?: string; unread?: boolean }
 type Summary = { day: string; created: number; data: { since: number; boxes: { id: string; name: string; received: number; items: SumItem[]; more: number }[]; needs: SumItem[]; stale: SumItem[]; permits: SumItem[]; pos: SumItem[]; deadlines: SumItem[] } }
@@ -35,6 +38,8 @@ type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all' | 'snoozed'; 
 type LabelSet = { box: string; labels: Label[]; can_edit: boolean }
 type BulkAction = 'Archive' | 'Trash' | 'read' | 'unread' | 'done' | 'label'
 type View = { kind: 'dash' } | { kind: 'box'; id: string }
+/** The time zones a person can pick in Settings (the same list the server accepts). */
+export const ZONE_NAMES: Record<string, string> = { 'America/New_York': 'Eastern', 'America/Chicago': 'Central', 'America/Denver': 'Mountain', 'America/Phoenix': 'Arizona', 'America/Los_Angeles': 'Pacific', 'America/Anchorage': 'Alaska', 'Pacific/Honolulu': 'Hawaii' }
 /** Which list a set of rows belongs to, so a list for another mailbox or filter is never shown under the wrong heading. */
 const keyOf = (v: View, f: Filter) => v.kind === 'box' ? [v.id, f.view, f.unread, f.att, !!f.starred, f.label ?? '', f.after ?? '', f.before ?? ''].join('|') : ''
 
@@ -132,8 +137,15 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
     } finally { syncing.current = false; setBusy(false) }
   }, [refresh])
 
+  const opened = useRef(!!connected)   // the start page is applied once, and never over a mailbox the person was sent to
   const boot = useCallback((): Promise<void> => api<State>('state')
-    .then(async s => { setSt(s); if (s.enabled) { await refresh(); void syncAll(s.boxes) } })
+    .then(async s => {
+      setSt(s)
+      const start = s.prefs?.start
+      if (!opened.current && start && s.boxes.some(b => b.id === start)) setView({ kind: 'box', id: start })
+      opened.current = true
+      if (s.enabled) { await refresh(); void syncAll(s.boxes) }
+    })
     .catch(e => setErr((e as Error).message)), [refresh, syncAll])
 
   useEffect(() => {
@@ -298,7 +310,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   }, [pending])
 
   const savePrefs = useCallback((next: Partial<Prefs>) => act(async () => {
-    setSt(s => s ? { ...s, prefs: { hidden: s.prefs?.hidden ?? [], order: s.prefs?.order ?? [], undo_secs: s.prefs?.undo_secs, notify: s.prefs?.notify, ...next } } : s)
+    setSt(s => s ? { ...s, prefs: { ...s.prefs, hidden: s.prefs?.hidden ?? [], order: s.prefs?.order ?? [], ...next } } : s)
     await api('prefs', next)
   }), [act])
 
@@ -322,8 +334,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   }
 
   // Keyboard shortcuts (press ? for the list). Off while typing in a box or writing a message.
-  const keyState = useRef({ list: null as Item[] | null, sel, msg, compose: false, view, boxes })
-  useEffect(() => { keyState.current = { list, sel, msg, compose: !!compose, view, boxes } })
+  const keyState = useRef({ list: null as Item[] | null, sel, msg, compose: false, view, boxes, def: '' })
+  useEffect(() => { keyState.current = { list, sel, msg, compose: !!compose, view, boxes, def: st?.prefs?.default_from ?? '' } })
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
@@ -343,7 +355,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
       const done = () => e.preventDefault()
       switch (e.key) {
         case '?': setHelp(h => !h); return done()
-        case 'c': if (first) setCompose({ mode: 'new', mailbox: first.id }); return done()
+        case 'c': { const from = k.view.kind === 'box' && first?.can_send ? first : k.boxes.find(b => b.id === k.def && b.connected && b.can_send) ?? k.boxes.find(b => b.connected && b.can_send); if (from) setCompose({ mode: 'new', mailbox: from.id }); return done() }
         case '/': document.getElementById('rp-search')?.focus(); return done()
         case 'j': step(1); return done()
         case 'k': step(-1); return done()
@@ -380,6 +392,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
     onMenu: (e: React.MouseEvent, it: Item) => { e.preventDefault(); setBoxMenu(null); setMenu({ x: e.clientX, y: e.clientY, item: it }) } }
 
   return (
+    <Compact.Provider value={st.prefs?.density === 'compact'}>
     <div className="p-3 sm:p-5 max-w-[1500px] mx-auto" onClick={() => { if (menu) setMenu(null); if (boxMenu) setBoxMenu(null) }}>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
@@ -388,9 +401,10 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
         </div>
         <div className="flex items-center gap-2">
           <button className={btn('ghost')} onClick={() => setNotifyOpen(true)} title="New-mail notifications"><Bell /><span className="hidden sm:inline">Notifications{st.prefs?.notify?.on ? ' on' : ''}</span></button>
+          <Link className={btn('ghost')} href="/rpmail/settings" title="Your name on mail, signatures, defaults, time zone and more"><Settings /><span className="hidden sm:inline">Settings</span></Link>
           <button className={cn(btn('ghost'), 'hidden sm:inline-flex')} onClick={() => setHelp(true)} title="Keyboard shortcuts (press ?)"><Keyboard />Shortcuts</button>
           <button className={btn('ghost')} onClick={() => void syncAll(boxes)} disabled={busy} title="Check for new mail"><RefreshCw className={cn(busy && 'animate-spin')} />{busy ? 'Checking' : 'Check mail'}</button>
-          <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected && cur.can_send ? cur.id : boxes.find(b => b.connected && b.can_send)?.id ?? '' })} disabled={!boxes.some(b => b.connected && b.can_send) || !!pending}
+          <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected && cur.can_send ? cur.id : boxes.find(b => b.id === st.prefs?.default_from && b.connected && b.can_send)?.id ?? boxes.find(b => b.connected && b.can_send)?.id ?? '' })} disabled={!boxes.some(b => b.connected && b.can_send) || !!pending}
             title={boxes.some(b => b.connected) && !boxes.some(b => b.connected && b.can_send) ? 'You can read your mailboxes here but not send from them. An owner can change that.' : undefined}><PenSquare />New message</button>
         </div>
       </div>
@@ -464,7 +478,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
       {help && <HelpSheet close={() => setHelp(false)} />}
       {organize && cur && <OrganizeSheet box={cur} labels={labelSet?.box === cur.id ? labelSet.labels : []} canEdit={labelSet?.box === cur.id && labelSet.can_edit} ruleFrom={organize.from}
         reload={async () => { await loadLabels(cur.id); await refresh() }} close={() => setOrganize(null)} say={say} />}
-      {notifyOpen && <NotifySheet start={st.prefs?.notify} boxes={boxes} close={() => setNotifyOpen(false)} save={async n => { await savePrefs({ notify: n }); setNotifyOpen(false); say(n.on ? 'Notifications are on.' : 'Notifications are off.') }} />}
+      {notifyOpen && <NotifySheet start={st.prefs?.notify} boxes={boxes} zone={ZONE_NAMES[st.prefs?.tz ?? ''] ?? 'Eastern'} close={() => setNotifyOpen(false)} save={async n => { await savePrefs({ notify: n }); setNotifyOpen(false); say(n.on ? 'Notifications are on.' : 'Notifications are off.') }} />}
       {toast && (
         <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg bg-foreground text-background px-4 py-2.5 text-sm shadow-lg max-w-[92vw]">
           <span>{toast.text}</span>
@@ -472,9 +486,10 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
         </div>
       )}
       {pending && !compose && <PendingBar to={pending.out.to} from={pending.out.from} until={pending.until} undo={undoSend} now={sendNow} />}
-      {compose && <Compose key={JSON.stringify(compose)} start={compose} boxes={boxes} undoSecs={st.prefs?.undo_secs ?? 10} setUndoSecs={n => void savePrefs({ undo_secs: n })}
+      {compose && <Compose key={JSON.stringify(compose)} start={compose} boxes={boxes} groups={st.prefs?.groups ?? []} undoSecs={st.prefs?.undo_secs ?? 10} setUndoSecs={n => void savePrefs({ undo_secs: n })}
         onClose={() => setCompose(null)} onDone={text => { setCompose(null); say(text); void refresh() }} onSend={out => queueSend(out, st.prefs?.undo_secs ?? 10)} />}
     </div>
+    </Compact.Provider>
   )
 }
 
@@ -546,10 +561,11 @@ type RowProps = { onOpen: (it: Item) => void; onMenu: (e: React.MouseEvent, it: 
 
 function Row({ m, selected, boxLabel, onDone, onOpen, onMenu, onStar, pick, labelNames, drag }: { m: Item; selected?: boolean; boxLabel?: string; onDone?: () => void; pick?: { on: boolean; toggle: () => void }; labelNames?: Map<string, string>; drag?: boolean } & RowProps) {
   const bold = m.unread || m.waiting
+  const compact = useContext(Compact)
   return (
     <div onClick={() => onOpen(m)} onContextMenu={e => onMenu(e, m)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && onOpen(m)}
       draggable={drag || undefined} onDragStart={drag ? e => { e.dataTransfer.setData(DRAG, m.id); e.dataTransfer.effectAllowed = 'move' } : undefined}
-      className={cn('flex gap-2 px-3 py-2 border-b border-hairline cursor-pointer hover:bg-raised', selected && 'bg-primary/10', bold ? 'text-foreground' : 'text-muted-foreground')}>
+      className={cn('flex gap-2 px-3 border-b border-hairline cursor-pointer hover:bg-raised', compact ? 'py-1' : 'py-2', selected && 'bg-primary/10', bold ? 'text-foreground' : 'text-muted-foreground')}>
       {pick && <input type="checkbox" className="mt-1 size-4 shrink-0" aria-label="Select this conversation" checked={pick.on} onClick={e => e.stopPropagation()} onChange={pick.toggle} />}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
@@ -557,7 +573,7 @@ function Row({ m, selected, boxLabel, onDone, onOpen, onMenu, onStar, pick, labe
           <span className={cn('ml-auto shrink-0 text-xs tabular-nums', bold && 'font-bold')}>{when(m.date)}</span>
         </div>
         <div className={cn('truncate text-sm', bold ? 'font-bold text-foreground' : '')}>{m.subject || '(no subject)'}</div>
-        <div className="truncate text-xs text-muted-foreground">{m.snippet}</div>
+        {!compact && <div className="truncate text-xs text-muted-foreground">{m.snippet}</div>}
         <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
           {m.waiting && <span className="rp-pill" data-tone="warning">Waiting on a reply</span>}
           {m.snooze && <span className="rp-pill" data-tone={m.snooze.woke ? (m.snooze.kind === 'remind' ? 'warning' : 'info') : undefined}>{snoozeText(m.snooze)}</span>}
@@ -777,7 +793,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, rowProps, rel
           <label className="inline-flex items-center gap-1.5">On or before <input type="date" className="rp-input !w-auto" value={filter.before ?? ''} onChange={e => setFilter({ ...filter, before: e.target.value })} /></label>
           <button className={btn('outline', 'xs')} type="submit">Apply</button>
           {narrowed && <button className={btn('ghost', 'xs')} type="button" onClick={() => { setFilter({ ...filter, from: '', after: '', before: '' }); setTimeout(reload, 0) }}>Clear</button>}
-          <span>Covers the mail RPMail has loaded (the inbox and the last 90 days).</span>
+          <span>Covers the mail RPMail has loaded (the inbox and the last 90 days). Days are counted in your time zone.</span>
         </form>
       )}
       {labels.length > 0 && (
@@ -1248,7 +1264,7 @@ async function freshHandler() {
   } catch { /* an old handler still shows notifications; it just cannot report back */ }
 }
 
-function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: BoxInfo[]; close: () => void; save: (n: Notify) => Promise<void> }) {
+export function NotifySheet({ start, boxes, close, save, zone = 'Eastern' }: { start?: Notify; boxes: BoxInfo[]; close: () => void; save: (n: Notify) => Promise<void>; zone?: string }) {
   const [n, setN] = useState<Notify>(start ?? NO_NOTIFY)
   const [busy, setBusy] = useState(false)
   const [test, setTest] = useState('')
@@ -1331,7 +1347,7 @@ function NotifySheet({ start, boxes, close, save }: { start?: Notify; boxes: Box
               {what.map(([v, l, d]) => <label key={v} className="flex items-start gap-2.5"><input type="radio" name="rp-notify-what" className="mt-0.5 size-4" checked={n.what === v} onChange={() => setN({ ...n, what: v })} /><span><span className="text-foreground">{l}</span><span className="block text-xs text-muted-foreground">{d}</span></span></label>)}
             </div>
             <div>
-              <p className="rp-label mb-1.5">Quiet hours (Eastern time)</p>
+              <p className="rp-label mb-1.5">Quiet hours ({zone} time)</p>
               <div className="flex flex-wrap items-center gap-2 text-muted-foreground">Nothing between
                 <input type="time" className="rp-input !w-auto" value={n.quiet_from} onChange={e => setN({ ...n, quiet_from: e.target.value })} aria-label="Quiet hours start" /> and
                 <input type="time" className="rp-input !w-auto" value={n.quiet_to} onChange={e => setN({ ...n, quiet_to: e.target.value })} aria-label="Quiet hours end" />
