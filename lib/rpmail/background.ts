@@ -88,9 +88,12 @@ async function push(profileId: string, payload: { title: string; message: string
 /**
  * The person pressed "Send a test notification": one goes to each of their own devices, and we say plainly what
  * happened. `here` says whether the device they are holding (its address is sent along) is one of them.
+ * The only delay allowed is 15 seconds.
  */
-export async function notifyTest(who: Pick<Me, 'id'>, p: { endpoint?: unknown } = {}) {
+export async function notifyTest(who: Pick<Me, 'id'>, p: { endpoint?: unknown; delay?: unknown } = {}) {
   const admin = createAdminClient()
+  // "Send one in 15 seconds": time to lock the phone first, which is how real mail notifications arrive.
+  if (Number(p.delay) === 15) await new Promise(r => setTimeout(r, 15_000))
   const { data: subs } = await admin.from('push_subscriptions').select('endpoint, p256dh, auth_key').eq('profile_id', who.id)
   const mine = typeof p.endpoint === 'string' && p.endpoint ? p.endpoint : null
   let sent = 0, failed = 0, here: boolean | null = mine ? false : null

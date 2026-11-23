@@ -3,6 +3,9 @@
 // No caching — Next.js handles caching on its own.
 
 const CACHE = 'rps-v1'
+// One tiny record, kept on this device only: when it last received a notification and whether it could show it.
+// The Notifications box reads it to say "this phone received the test" or "it never arrived". No message text is kept.
+const DIAG = 'rps-diag'
 
 self.addEventListener('install', () => {
   self.skipWaiting()
@@ -11,7 +14,7 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE && k !== DIAG).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   )
 })
@@ -26,14 +29,18 @@ self.addEventListener('push', (event) => {
   let data = { title: 'RP Intelligence', body: 'You have a new alert.', link: '/' }
   try { data = { ...data, ...event.data.json() } } catch {}
 
+  const shown = self.registration.showNotification(data.title, {
+    body: data.body,
+    icon: '/icon-192-v2.png',
+    badge: '/icon-192-v2.png',
+    data: { link: data.link },
+    requireInteraction: false,
+  }).then(() => true, () => false)
+
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icon-192-v2.png',
-      badge: '/icon-192-v2.png',
-      data: { link: data.link },
-      requireInteraction: false,
-    })
+    shown.then(ok => caches.open(DIAG)
+      .then(c => c.put('/__push-last', new Response(JSON.stringify({ at: Date.now(), shown: ok }), { headers: { 'Content-Type': 'application/json' } })))
+      .catch(() => {}))
   )
 })
 

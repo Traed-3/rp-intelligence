@@ -142,4 +142,20 @@ describe('the test notification button', () => {
     expect(await notifyTest(asMe(ann), { endpoint: 'device:Bob Manager' })).toMatchObject({ sent: 1, here: false })
     expect(pushes.every(p => p.to === 'device:Ann Owner')).toBe(true)
   })
+
+  it('can wait 15 seconds first, so the phone can be locked, and no other wait is accepted', async () => {
+    const { notifyTest } = await import('@/lib/rpmail/background')
+    vi.useFakeTimers()
+    try {
+      const later = notifyTest(asMe(ann), { delay: 15 })
+      await vi.advanceTimersByTimeAsync(14_000)
+      expect(pushes).toEqual([])
+      await vi.advanceTimersByTimeAsync(1_500)
+      expect(await later).toMatchObject({ sent: 1 })
+      pushes.length = 0
+      const now = notifyTest(asMe(ann), { delay: 100000 })     // ignored: sent straight away
+      await vi.advanceTimersByTimeAsync(50)
+      expect(await now).toMatchObject({ sent: 1 })
+    } finally { vi.useRealTimers() }
+  })
 })
