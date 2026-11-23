@@ -47,4 +47,11 @@ export const HOME_SCREEN_GUIDE = {
   audience: 'Everyone',
 }
 
+export const RPMAIL_GUIDE = {
+  href: '/help/rpmail',
+  title: 'Using RPMail',
+  summary: 'Your work email inside RP Intelligence: turning it on, reading, replying, drafts, pictures, labels, snooze and the rest.',
+  audience: 'Anyone who has RPMail',
+}
+
 export const helpGuideBySlug = (slug: string) => HELP_GUIDES.find(g => g.slug === slug)

@@ -36,10 +36,9 @@ Nothing here needs money. In rough order of how much a person would notice:
 1. A pass on real mail for stages 3 and 5, formatting and the conversation view (needs a mailbox connected; ask Trae before reconnecting the test one). Until then the screens can be looked at with made-up mail: `node scripts/rpmail-tryout/build.mjs`.
 6. Schedule send: Trae's say-so first (mail would leave after the person has walked away).
 7. Out-of-office: needs one more Google permission, so each person presses Sign in again once. Empty Trash stays set aside (it needs full-mailbox permission, and Gmail empties Trash itself after 30 days).
-8. A short how-to for staff under Technical Help.
 9. Two-step sign-in for RP Intelligence (the whole site, not only RPMail).
 
-Done from this list: conversation view, pictures inside the text, signatures and templates that keep their formatting, the rough edges, reopening Gmail drafts (2026-11-23). Still plain: a picture (a logo) in a signature.
+Done from this list: conversation view, pictures inside the text, signatures and templates that keep their formatting, the rough edges, reopening Gmail drafts, the staff how-to (2026-11-23). Still plain: a picture (a logo) in a signature.
 
 ## Accounts and sign-in
 
@@ -144,7 +143,7 @@ Done from this list: conversation view, pictures inside the text, signatures and
 | Public product page with prices, sign-up | Not needed | |
 | Terms of service | Not needed | |
 | Privacy policy | Done | The page at /privacy is written for our own staff use, which is what this is. |
-| Help center with how-to guides | Missing | For staff, not customers: one short guide under Technical Help. On the "What is left" list. |
+| Help center with how-to guides | Done | Technical Help > Using RPMail (`/help/rpmail`), ten short parts in the words the screens use; also a Help button at the top of RPMail. |
 | First-run walkthrough | Partly | There is a "Turn on RPMail" screen and a connect screen; no guided tour after that. The staff guide covers it. |
 | Owner view: customers, plans, revenue, mailboxes, errors | Not needed | Settings, RPMail already shows people, mailboxes and the activity log. |
 
@@ -204,6 +203,7 @@ Known rough edges from the pass (not fixed yet):
 
 ## Stage log
 
+- 2026-11-23: staff how-to on branch `feat/rpmail-help`: `/help/rpmail` (`RPMAIL_GUIDE` in lib/help.ts, tile on Technical Help, Help button in RPMail's top bar). Every button name in it was checked against the screens. Keep it in step when a label changes.
 - 2026-11-23: reopening Gmail drafts on branch `feat/rpmail-drafts`: `lib/rpmail/drafts.ts` (`draftList`, `draftOpen`, `draftCarry`), GET actions `drafts` and `draft_open`, `sendMail` takes `draft_id` + `keep` (PUT drafts/{id}, then drafts/send, so Gmail keeps no second copy; reply headers, conversation and kept files carried; goes out only from the draft's own mailbox), Drafts tab in each mailbox, compose mode `draft`. No database change. 217 RPMail tests. Tried in a browser on the try-out page; NOT on real Gmail.
 - 2026-11-23: rough edges on branch `feat/rpmail-rough-edges`: Needs you limited to 30 days (migration `rpmail_needs_age.sql`, applied; a conversation back from a snooze or reminder still counts), `readMessage` fetches the message, sites, Done and snoozes together and the inline pictures all at once, the list line shows while a message opens, and every browser `confirm()` pop-up in RPMail (6) is an on-page box (`useAsk`). 207 RPMail tests. Tried in a browser on the try-out page; open speed NOT re-measured on real mail.
 - 2026-11-23: slow-input fix, in the same pull request as the formatted signatures. The automatic security review flagged one pattern in the new signature code; checking the rest turned up three more of the same kind, two of them already live: a message full of odd spaces tied up the sender's request (2.5 seconds for 40,000, minutes at the size limit; live since the formatting change earlier the same day), and received mail made of thousands of unclosed tags took a minute to open and could stall the background check for that mailbox (there since stage 1). All are now single passes that read each character once (`trimLineEnds`, `trimEmptyLines` in rich.ts; `dropBlocks` and a rewritten `htmlToText` in parse.ts; `sanitizeHtml` in mail-ops.ts; limits on the reader's own patterns in thread-view.ts). `tests/rpmail/slow-input.test.ts` feeds each one worst-case input and checks the new versions take out exactly what the old ones did. 204 RPMail tests.

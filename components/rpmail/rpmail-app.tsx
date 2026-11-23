@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import Link from 'next/link'
 import {
   Mail, LayoutDashboard, PenSquare, RefreshCw, Paperclip, Check, Archive, Trash2, ShieldAlert, Reply, ReplyAll, Forward, Inbox,
-  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal, AlarmClock, BellRing, Wand2, Settings,
+  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal, AlarmClock, BellRing, Wand2, Settings, CircleHelp,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -421,6 +421,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           <button className={btn('ghost')} onClick={() => setNotifyOpen(true)} title="New-mail notifications"><Bell /><span className="hidden sm:inline">Notifications{st.prefs?.notify?.on ? ' on' : ''}</span></button>
           <Link className={cn(btn('ghost'), '!text-[0.8rem] !font-semibold')} href="/rpmail/settings" title="Your name on mail, signatures, defaults, time zone and more"><Settings /><span className="hidden sm:inline">Settings</span></Link>
           <button className={cn(btn('ghost'), 'hidden sm:inline-flex')} onClick={() => setHelp(true)} title="Keyboard shortcuts (press ?)"><Keyboard />Shortcuts</button>
+          <Link className={cn(btn('ghost'), '!text-[0.8rem] !font-semibold hidden sm:inline-flex')} href="/help/rpmail" title="How to use RPMail, step by step"><CircleHelp />Help</Link>
           <button className={btn('ghost')} onClick={() => void syncAll(boxes)} disabled={busy} title="Check for new mail"><RefreshCw className={cn(busy && 'animate-spin')} />{busy ? 'Checking' : 'Check mail'}</button>
           <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected && cur.can_send ? cur.id : boxes.find(b => b.id === st.prefs?.default_from && b.connected && b.can_send)?.id ?? boxes.find(b => b.connected && b.can_send)?.id ?? '' })} disabled={!boxes.some(b => b.connected && b.can_send) || !!pending}
             title={boxes.some(b => b.connected) && !boxes.some(b => b.connected && b.can_send) ? 'You can read your mailboxes here but not send from them. An owner can change that.' : undefined}><PenSquare />New message</button>

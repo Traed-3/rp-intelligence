@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { RpmailApp } from '@/components/rpmail/rpmail-app'
 import { RpmailSettings } from '@/components/rpmail/rpmail-settings'
+import RpmailHelpPage from '@/app/(app)/help/rpmail/page'
 import { keptWording } from '@/lib/rpmail/rich'
 import { replyQuoteHtml } from '@/lib/rpmail/rich'
 import { uploads } from './supabase-shim'
@@ -95,5 +96,5 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   return json({ ok: true, moves: [], n: 0, templates: [], labels: [], rules: [], blocks: [], items: [] })
 }
 
-// Add #settings to the address to see the person's own Settings page instead of the mail page.
-createRoot(document.getElementById('root')!).render(<div className="p-4 sm:p-6 max-w-[1500px] mx-auto">{location.hash === '#settings' ? <RpmailSettings /> : <RpmailApp localUrl={null} />}</div>)
+// Add #settings to the address for the person's own Settings page, or #help for the RPMail guide, instead of the mail page.
+createRoot(document.getElementById('root')!).render(<div className="p-4 sm:p-6 max-w-[1500px] mx-auto">{location.hash === '#settings' ? <RpmailSettings /> : location.hash === '#help' ? <RpmailHelpPage /> : <RpmailApp localUrl={null} />}</div>)
