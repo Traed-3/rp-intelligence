@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { hasComplianceGrant } from '@/lib/compliance-guard'
 import { isSurveyOnly } from '@/lib/field-surveys'
 import { allowedDashboardCards, buildNav } from '@/lib/nav-items'
-import { arrange, loadUiPrefs, MAX_TABS } from '@/lib/ui-prefs'
+import { arrange, cardStyleOf, loadUiPrefs, MAX_TABS } from '@/lib/ui-prefs'
 import { PageHeader } from '@/components/ui/page-header'
 import { hasRpmail } from '@/lib/rpmail/has'
 import { PersonalizeEditor } from './editor'
@@ -44,7 +44,7 @@ export default async function PersonalizePage() {
         description="Choose what you see and in what order. This only changes your own screen, on every device you sign in on."
         crumbs={isAdmin ? [{ label: 'Settings', href: '/settings' }, { label: 'Personalize' }] : undefined}
       />
-      <PersonalizeEditor cards={cards} menu={menu} tabChoices={choices} tabs={picked} standardTabs={standard} maxTabs={MAX_TABS} />
+      <PersonalizeEditor cards={cards} menu={menu} tabChoices={choices} tabs={picked} standardTabs={standard} maxTabs={MAX_TABS} cardStyle={cardStyleOf(prefs)} />
     </div>
   )
 }

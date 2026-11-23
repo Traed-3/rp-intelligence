@@ -4,65 +4,14 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { canReadConstruction, money } from '@/lib/construction'
 import { moduleLabel } from '@/lib/modules'
-import { ArrowRight, Wrench, HardHat, Fuel, AlertTriangle, CheckCircle, FileText, Package, ShieldCheck, ListChecks, SlidersHorizontal } from 'lucide-react'
+import { Wrench, HardHat, Fuel, AlertTriangle, CheckCircle, FileText, Package, ShieldCheck, ListChecks, SlidersHorizontal } from 'lucide-react'
 import { hasComplianceGrant } from '@/lib/compliance-guard'
 import { loadFiles } from '@/lib/compliance-data'
 import { allowedDashboardCards, type DashboardCardKey } from '@/lib/nav-items'
-import { loadUiPrefs, visible } from '@/lib/ui-prefs'
+import { loadUiPrefs, visible, cardStyleOf } from '@/lib/ui-prefs'
+import { DepartmentCard } from '@/components/dashboard/department-card'
 
 const SVC_OPEN_STATUSES = ['dispatched', 'new', 'on_site', 'in_progress', 'waiting_parts', 'rtn_needed']
-
-type Figure = { label: string; value: string | number; alert?: boolean }
-
-function DepartmentCard({
-  href, title, icon: Icon, accent, figures, allClear, badge,
-}: {
-  href: string
-  title: string
-  icon: React.ComponentType<{ className?: string }>
-  accent: string
-  figures: Figure[]
-  allClear?: boolean
-  badge?: string
-}) {
-  return (
-    <Link
-      href={href}
-      className="rp-card rp-card-link group relative p-5 flex flex-col"
-    >
-      {badge && (
-        <span className="absolute -top-2.5 left-4 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200 shadow-sm">
-          {badge}
-        </span>
-      )}
-
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${accent}`}>
-            <Icon className="w-4.5 h-4.5" />
-          </span>
-          <h2 className="text-base font-bold text-gray-900">{title}</h2>
-        </div>
-        <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
-      </div>
-
-      {allClear ? (
-        <div className="flex items-center gap-2 text-green-700 text-sm font-medium py-2">
-          <CheckCircle className="w-4 h-4" /> All caught up
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {figures.map((f) => (
-            <div key={f.label}>
-              <p className={`text-2xl font-bold ${f.alert ? 'text-red-600' : 'text-gray-900'}`}>{f.value}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{f.label}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </Link>
-  )
-}
 
 export default async function CompanyDashboardPage({
   searchParams,
@@ -87,6 +36,7 @@ export default async function CompanyDashboardPage({
   ])
   const allowed = allowedDashboardCards({ role: profile?.role, userId: user!.id, blockedModules: (blocks ?? []).map(b => b.module), complianceGranted })
   const cards = visible([...allowed], prefs.dashboard)
+  const look = cardStyleOf(prefs)   // the square style picked in Settings → Personalize
   const show = (k: DashboardCardKey) => cards.some(c => c.key === k)
   const none = Promise.resolve(null)
   const todayStr = new Date().toISOString().split('T')[0]
@@ -177,7 +127,7 @@ export default async function CompanyDashboardPage({
 
   const cardFor: Record<DashboardCardKey, React.ReactNode> = {
     maintenance: (
-      <DepartmentCard key="maintenance" href="/maintenance" title="Maintenance & Fleet" icon={Wrench} accent="bg-blue-100 text-blue-700"
+      <DepartmentCard key="maintenance" cardKey="maintenance" look={look} href="/maintenance" title="Maintenance & Fleet" icon={Wrench}
         figures={[
           { label: 'Open Tickets', value: maintOpen ?? 0 },
           { label: 'Critical / Safety', value: maintCritical ?? 0, alert: !!maintCritical },
@@ -185,7 +135,7 @@ export default async function CompanyDashboardPage({
         ]} />
     ),
     service: (
-      <DepartmentCard key="service" href="/service" title="Service Dispatch" icon={Fuel} accent="bg-green-100 text-green-700"
+      <DepartmentCard key="service" cardKey="service" look={look} href="/service" title="Service Dispatch" icon={Fuel}
         figures={[
           { label: 'Open Work Orders', value: svcOpen ?? 0 },
           { label: 'Return Trip Needed', value: svcRtn ?? 0, alert: !!svcRtn },
@@ -194,7 +144,7 @@ export default async function CompanyDashboardPage({
         ]} />
     ),
     construction: (
-      <DepartmentCard key="construction" href="/construction" title="Construction" icon={HardHat} accent="bg-amber-100 text-amber-700"
+      <DepartmentCard key="construction" cardKey="construction" look={look} href="/construction" title="Construction" icon={HardHat}
         figures={[
           { label: 'Active Jobs', value: conJobsActive },
           { label: 'Docs to Review', value: conReviewCount, alert: !!conReviewCount },
@@ -202,7 +152,7 @@ export default async function CompanyDashboardPage({
         ]} />
     ),
     my_plate: (
-      <DepartmentCard key="my_plate" href="/my" title="My Plate" icon={ListChecks} accent="bg-blue-100 text-blue-700"
+      <DepartmentCard key="my_plate" cardKey="my_plate" look={look} href="/my" title="My Plate" icon={ListChecks}
         figures={[
           { label: 'Your Move', value: plateStats?.[0].count ?? 0 },
           { label: 'Waiting On', value: plateStats?.[1].count ?? 0 },
@@ -210,7 +160,7 @@ export default async function CompanyDashboardPage({
         ]} />
     ),
     billing: (
-      <DepartmentCard key="billing" href="/billing" title="Quotes & Invoices" icon={FileText} accent="bg-purple-100 text-purple-700"
+      <DepartmentCard key="billing" cardKey="billing" look={look} href="/billing" title="Quotes & Invoices" icon={FileText}
         figures={[
           { label: 'Open Quotes', value: billingStats?.[0].count ?? 0 },
           { label: 'Draft Invoices', value: billingStats?.[1].count ?? 0 },
@@ -218,7 +168,7 @@ export default async function CompanyDashboardPage({
         ]} />
     ),
     inventory: (
-      <DepartmentCard key="inventory" href="/inventory" title="Inventory" icon={Package} accent="bg-sky-100 text-sky-700"
+      <DepartmentCard key="inventory" cardKey="inventory" look={look} href="/inventory" title="Inventory" icon={Package}
         figures={[
           { label: 'Parts Need a Price', value: inventoryStats?.[0].count ?? 0, alert: !!inventoryStats?.[0].count },
           { label: 'Paperwork to Receive', value: inventoryStats?.[1].count ?? 0 },
@@ -226,7 +176,7 @@ export default async function CompanyDashboardPage({
         ]} />
     ),
     compliance: (
-      <DepartmentCard key="compliance" href="/compliance" title="DQF & Certs" icon={ShieldCheck} accent="bg-red-100 text-red-700"
+      <DepartmentCard key="compliance" cardKey="compliance" look={look} href="/compliance" title="DQF & Certs" icon={ShieldCheck}
         figures={[
           { label: 'DOT Items Expired', value: dotExpired, alert: !!dotExpired },
           { label: 'DOT Items Due Soon', value: dotSoon },

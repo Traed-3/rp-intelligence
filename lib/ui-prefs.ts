@@ -7,7 +7,20 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * access first, and the choices are applied on top.
  */
 export type ListPref = { order?: string[]; hidden?: string[] }
-export type UiPrefs = { dashboard?: ListPref; nav?: ListPref; tabs?: string[] }
+/** How the Dashboard squares look (Trae, 11/23/26). Picked on Settings → Personalize; drawn by components/dashboard/department-card.tsx. */
+export const CARD_STYLES = [
+  { key: 'gold-icons', label: 'Navy Header, gold icons', desc: 'Navy band across the top, gold icons, gold line under the band.' },
+  { key: 'navy-header', label: 'Navy Header', desc: 'The same navy band with white icons.' },
+  { key: 'navy-gold', label: 'Navy and Gold', desc: 'White square with a navy bar on top, a short gold line under the title and colored icons.' },
+] as const
+export type CardStyle = typeof CARD_STYLES[number]['key']
+export const DEFAULT_CARD_STYLE: CardStyle = 'gold-icons'
+const isCardStyle = (v: unknown): v is CardStyle => CARD_STYLES.some(c => c.key === v)
+
+export type UiPrefs = { dashboard?: ListPref; nav?: ListPref; tabs?: string[]; cardStyle?: CardStyle }
+
+/** The person's square style, or the standard one. */
+export const cardStyleOf = (prefs: UiPrefs): CardStyle => prefs.cardStyle ?? DEFAULT_CARD_STYLE
 
 /** Most tabs that fit the phone bottom bar next to "More" without crowding. */
 export const MAX_TABS = 5
@@ -30,6 +43,7 @@ export function parsePrefs(raw: unknown): UiPrefs {
   const d = listPref(o.dashboard); if (d) out.dashboard = d
   const n = listPref(o.nav); if (n) out.nav = n
   const t = strings(o.tabs, MAX_TABS); if (t.length) out.tabs = t
+  if (isCardStyle(o.cardStyle) && o.cardStyle !== DEFAULT_CARD_STYLE) out.cardStyle = o.cardStyle
   return out
 }
 
