@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { gmail, UserError } from './gmail'
 import { mailboxFor, myMailboxes, type Me } from './access'
 import { LIST_COLS, toItem, fileMessage, markRead, markDone, type Item } from './mail-ops'
+import { labelApply, labelId } from './organize'
 
 // RPMail: the person's own screen choices (which dashboard boxes are closed, and their order), the list of things
 // they ticked Done, the star, and "do this to all the ones I selected". Like everything else in RPMail, each function
@@ -80,22 +81,24 @@ export async function setStar(who: Me, p: { mailbox?: unknown; id?: unknown; on?
   return { ok: true, starred: on }
 }
 
-const BULK = ['Archive', 'Trash', 'read', 'unread', 'done'] as const
+const BULK = ['Archive', 'Trash', 'read', 'unread', 'done', 'label'] as const
 type BulkAction = typeof BULK[number]
 
 /** One action on every selected conversation. Each one goes through the same checks as doing it by hand. */
-export async function bulk(who: Me, p: { mailbox?: unknown; ids?: unknown; action?: unknown }) {
+export async function bulk(who: Me, p: { mailbox?: unknown; ids?: unknown; action?: unknown; label?: unknown; move?: unknown }) {
   const box = await mailboxFor(who, p.mailbox)
   const action = p.action as BulkAction
   if (!BULK.includes(action)) throw new UserError('That is not something RPMail can do to a selection.')
   const list = Array.isArray(p.ids) ? [...new Set(p.ids.filter((x): x is string => typeof x === 'string' && GID.test(x)))] : []
   if (!list.length) throw new UserError('Nothing is selected.')
   if (list.length > 40) throw new UserError('Select 40 or fewer at a time.')
+  const label = action === 'label' ? labelId(p.label) : ''
   const moves: number[] = []
   let ok = 0, failed = 0
   for (const id of list) {
     try {
       if (action === 'Archive' || action === 'Trash') { const r = await fileMessage(who, { mailbox: box.id, id, dest: action }); if (r.move_id) moves.push(r.move_id as number) }
+      else if (action === 'label') { const r = await labelApply(who, { mailbox: box.id, id, label, on: true, move: p.move === true }); if (r.move_id) moves.push(r.move_id) }
       else if (action === 'done') await markDone(who, { mailbox: box.id, id, on: true })
       else await markRead(who, { mailbox: box.id, id, unread: action === 'unread' })
       ok++
