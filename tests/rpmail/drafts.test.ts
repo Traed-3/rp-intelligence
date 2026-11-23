@@ -37,6 +37,21 @@ describe('listing and opening drafts', () => {
     expect(r).toMatchObject({ to: 'pat@vendor.com', cc: 'bo@vendor.com', subject: 'Plan', html: '<div>See the <b>plan</b></div>', reply: false, attachments: [{ i: 0, name: 'plan.pdf', size: 9 }] })
   })
 
+  it('brings a draft\'s pictures back into the text, as the person\'s own waiting pictures, so they go out again', async () => {
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('png')])
+    const d = world.gmail.addDraft('ann@gmail.com', { to: 'pat@vendor.com', subject: 'Pic', body: 'See [picture]', html: '<div>See <img src="cid:pic1@x"></div>',
+      files: [{ name: 'check.png', type: 'image/png', data: png, cid: 'pic1@x' }, { name: 'fake.png', type: 'image/png', data: Buffer.from('<html>'), cid: 'pic2@x' }] })
+    const r = await draftOpen(me, { mailbox: box, draft: d.id })
+    const path = [...world.db.files.keys()].find(k => k.startsWith(ann.id + '/'))!
+    expect(path).toMatch(/\/check\.png$/)
+    expect(r.html).toBe(`<div>See <img src="/api/rpmail/attach_view?path=${encodeURIComponent(path)}"></div>`)
+    expect(world.db.files.size).toBe(1)                     // the one that is not really a picture is not kept
+    expect(r.attachments).toEqual([])
+    // and it goes out again inside the mail
+    await sendMail(me, { mailbox: box, mode: 'new', draft_id: d.id, to: 'pat@vendor.com', subject: 'Pic', html: r.html, confirmed: true })
+    expect(world.gmail.sent.find(s => s.draft)!.raw).toContain('multipart/related')
+  })
+
   it('opens a plain draft as lines', async () => {
     const d = world.gmail.addDraft('ann@gmail.com', { to: 'pat@vendor.com', subject: 'Plain', body: 'line one\nline two' })
     expect((await draftOpen(me, { mailbox: box, draft: d.id })).html).toBe('<div>line one</div><div>line two</div>')
