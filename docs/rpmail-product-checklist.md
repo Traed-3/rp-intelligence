@@ -1,10 +1,16 @@
 # RPMail product checklist
 
-Running list for turning hosted RPMail (inside RP Intelligence) into something a company would pay a
-subscription for. Source of the list: `~/rps-inbox/PRODUCT-BUILD-PROMPT.md` (Trae, 2026-11-20).
+Running list for building hosted RPMail (inside RP Intelligence) to the standard of a mail program a company would
+pay for. Source of the list: `~/rps-inbox/PRODUCT-BUILD-PROMPT.md` (Trae, 2026-11-20).
+
+**It is not for sale (Trae, 2026-11-23: "Im not selling it - I just wanted it made like I was so it was solid and had
+all the bells and whistles - this is just an internal mail program").** Everything that exists only to sell it to
+other companies is marked **Not needed** below. Do not build sign-up, plans, Stripe, a public page or customer legal pages.
 
 Marks: **Done** = built and on the live site. **Partly** = some of it works, the note says what is missing.
 **Missing** = not built. **Waiting on Trae** = cannot move without a decision, money, or a sign-in only he has.
+**Not needed** = only mattered for selling it; dropped on Trae's word (2026-11-23). **Set aside** = not worth it for
+an internal program as things stand; the note says what would bring it back.
 
 Last audit: 2026-11-20, against `main` at `aa49e8f` (PR #173). Live database at that time: 0 people with RPMail
 on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the same day (see "Tested on a real mailbox" below); items it did not reach are listed there.
@@ -19,9 +25,24 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 | 4 | Mail keeps syncing with nobody watching (scheduled sync, catch-up, alert when a mailbox fails over an hour) + browser / phone / text notifications with quiet hours | shipped 2026-11-20. Push proven on Trae's iPhone 2026-11-23 (test notification seen); a real new-mail notification has not been seen yet; text messages wait on Trae (paid service); schedule send not built |
 | 5 | One Settings area (profile, mailboxes, signatures, notifications, rules, appearance, defaults) and company admin (read / send / delete per person, blocked-content rule, activity log with export) | shipped 2026-11-23. The owner page was looked at on the live site; the rest by automated tests only. Writing with formatting (bold, italic, underline, lists, links) added the same day: the message box was tried in a browser on a stand-alone page, the send path by automated tests; not yet sent through a real mailbox |
 | 6 | Automated tests + a check that runs before anything goes live; "one company cannot see another" proven by tests | shipped 2026-11-20 (done ahead of stages 3 to 5, because there was no test mailbox). 50 tests |
-| 7 | Selling it: companies as separate customers, sign-up, trial, Stripe plans and seats, billing page, plan limits, public page, help center, first-run walkthrough, owner view | waiting on Trae (Stripe account, prices, legal wording, product shape) |
-| 8 | More providers: Microsoft 365 / Outlook, then any mailbox by IMAP + SMTP | not started (Microsoft needs an Azure app registration = an account) |
-| 9 | Trust: two-step sign-in, session list, export my data, delete my account, error tracking, uptime checks, tested restore, Google verification package | not started / partly waiting on Trae |
+| 7 | Selling it: companies as separate customers, sign-up, trial, Stripe plans and seats, billing page, plan limits, public page, owner view | **Not needed** (Trae, 2026-11-23: internal only). A short how-to for staff is kept on the list under "What is left" |
+| 8 | More providers: Microsoft 365 / Outlook, then any mailbox by IMAP + SMTP | **Set aside**: every staff mailbox is Gmail. Comes back only if a staff mailbox turns up that is not |
+| 9 | Trust: two-step sign-in, session list, export my data, delete my account, error tracking, uptime checks, tested restore, Google verification package | **Mostly not needed** for an internal program (see "Trust, safety and reliability"). Kept: two-step sign-in is worth a look, since staff mail now sits behind the RP Intelligence password |
+
+## What is left (internal program, 2026-11-23)
+
+Nothing here needs money. In rough order of how much a person would notice:
+
+1. A pass on real mail for stages 3 and 5 and for formatting (needs a mailbox connected; ask Trae before reconnecting the test one).
+2. Conversation view: the whole thread stacked in the reader, not one message with links to the others.
+3. Pictures inside the text (a pasted picture goes along as an attachment today).
+4. Open a draft saved to Gmail Drafts again in RPMail.
+5. Signatures and templates that keep their formatting.
+6. Rough edges: message open speed, an age limit on Needs you, on-page boxes instead of browser pop-ups, the reply showing in the thread without reopening.
+7. Schedule send: Trae's say-so first (mail would leave after the person has walked away).
+8. Out-of-office: needs one more Google permission, so each person presses Sign in again once. Empty Trash stays set aside (it needs full-mailbox permission, and Gmail empties Trash itself after 30 days).
+9. A short how-to for staff under Technical Help.
+10. Two-step sign-in for RP Intelligence (the whole site, not only RPMail).
 
 ## Accounts and sign-in
 
@@ -34,12 +55,12 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 | More than one mailbox per person | Partly | One own mailbox + any number of shared ones. A second personal mailbox is not possible yet. |
 | "Which address am I sending from" picker | Done | On every new message, reply and forward. A reply sent from a different mailbox than the one the mail is in still threads for the other side. |
 | Gmail and Google Workspace | Partly | Gmail works. A Workspace address (not @gmail.com) is refused by the address check. |
-| Microsoft 365 / Outlook | Missing | Stage 8. |
-| Any mailbox by IMAP + SMTP with an app password | Missing | Stage 8. |
+| Microsoft 365 / Outlook | Set aside | Every staff mailbox is Gmail. |
+| Any mailbox by IMAP + SMTP with an app password | Set aside | Same. It would also mean storing mailbox passwords. |
 | Clear message when a sign-in expires, with a one-click fix | Partly | A yellow bar on the mailbox says mail is not arriving, with a Sign in again button. Not yet seen against a really expired Google sign-in. |
 | Shared mailboxes: who can read | Done | Ticked per person by an owner. Tech and shop logins only get mailboxes marked "the crew reads this". |
-| Shared mailboxes: who can send, who can delete | Missing | Access is all-or-nothing today. Stage 5. |
-| Visible record of who did what | Partly | Sends, drafts and moves are recorded in the database; no screen shows them. Stage 5. |
+| Shared mailboxes: who can send, who can delete | Done | Per person, per shared mailbox (see Company admin). |
+| Visible record of who did what | Done | The activity log (see Company admin). |
 
 ## Everyday email
 
@@ -116,33 +137,35 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 
 ## Selling it as a subscription
 
+**Not needed: RPMail is an internal program (Trae, 2026-11-23).** Kept here so nobody builds it by mistake.
+
 | Item | State | Note |
 |---|---|---|
-| Companies as separate customers, proven by tests | Partly | Proven by tests: every mail action is refused across companies and across people, the other mailbox's Google sign-in is never used, and an owner cannot reach into another company. (The tests were checked by breaking the rule on purpose: they fail.) Still to do in stage 7: sign-up for a second company, and a Gmail address can only exist once across all companies. |
-| Sign-up, free trial, plans per person, seats, cancel, receipts, failed payments, billing page (Stripe) | Missing | Waiting on Trae: Stripe account and prices. |
-| Plan limits with friendly messages | Missing | Stage 7. |
-| Public product page with prices, sign-up | Missing | Stage 7. |
-| Terms of service | Missing | Waiting on Trae (legal wording to approve). |
-| Privacy policy | Partly | A privacy page exists at /privacy, written for our own staff use. Needs a customer version Trae approves. |
-| Help center with how-to guides | Missing | Stage 7. |
-| First-run walkthrough | Partly | There is a "Turn on RPMail" screen and a connect screen; no guided tour after that. |
-| Owner view: customers, plans, revenue, mailboxes, errors | Missing | Stage 7. |
+| Companies as separate customers, proven by tests | Done (as far as it matters) | The tests still prove one person cannot reach another's mailbox and one company cannot reach another's. Sign-up for a second company is not needed. |
+| Sign-up, free trial, plans per person, seats, cancel, receipts, failed payments, billing page (Stripe) | Not needed | |
+| Plan limits with friendly messages | Not needed | |
+| Public product page with prices, sign-up | Not needed | |
+| Terms of service | Not needed | |
+| Privacy policy | Done | The page at /privacy is written for our own staff use, which is what this is. |
+| Help center with how-to guides | Missing | For staff, not customers: one short guide under Technical Help. On the "What is left" list. |
+| First-run walkthrough | Partly | There is a "Turn on RPMail" screen and a connect screen; no guided tour after that. The staff guide covers it. |
+| Owner view: customers, plans, revenue, mailboxes, errors | Not needed | Settings, RPMail already shows people, mailboxes and the activity log. |
 
 ## Trust, safety and reliability
 
 | Item | State | Note |
 |---|---|---|
 | Sign-in tokens stored encrypted, never logged | Done | Supabase Vault; only the server can read them; errors never print them. |
-| Optional two-step sign-in | Missing | Stage 9. |
-| Session list with "sign out everywhere" | Missing | Stage 9. |
-| Export all my data | Missing | Stage 9. |
-| Delete my account, and deletion really removes it | Partly | Turning RPMail off removes the Google sign-in; the short mail list for that mailbox stays until reconnect. Stage 9. |
-| Google verification and yearly security review | Missing | Write-up and prepared material in stage 9. Costs money and needs Trae. |
+| Optional two-step sign-in | Missing | Worth doing for the whole site: staff mail sits behind the RP Intelligence password. On the "What is left" list. |
+| Session list with "sign out everywhere" | Set aside | An owner can already disable a person in Settings, Users, which signs them out. |
+| Export all my data | Not needed | The mail stays in Gmail; RPMail keeps only a short list. The activity log already downloads as a spreadsheet. |
+| Delete my account, and deletion really removes it | Done (as far as it matters) | Turning RPMail off removes the Google sign-in; an owner removing a shared mailbox removes its list too. |
+| Google verification and yearly security review | Not needed | Only for an app offered to the public. What does matter for staff use: Google's sign-in screen for the `rps-inbox` project must be set to "In production", or every mailbox is signed out after 7 days. Only Trae can see or change that in Google Cloud. |
 | Mail keeps syncing without anyone watching | Done | Supabase's scheduler calls `/api/rpmail/cron` every 5 minutes; the mailbox that has waited longest goes first. A first load also continues there with the page closed. |
 | Retries and respect for Google's limits | Done | Waits and retries when Google says slow down; loads in chunks. |
 | Catch up after an outage | Done | The scheduled check picks up from Gmail's bookmark; if the bookmark is too old it reloads the mailbox. |
 | Alert to Trae when a mailbox has failed for over an hour | Done | Owners get an email, a bell notification and a push, once a day at most per mailbox, and it stops when the mailbox recovers. Covered by a test; not yet seen on a really broken mailbox. |
-| Error tracking, uptime checks | Missing | Stage 9. |
+| Error tracking, uptime checks | Set aside | Paid services. Owners already get an alert when a mailbox has failed for over an hour, and Vercel keeps the error log. |
 | Database backups and a tested restore | Partly | Supabase Pro takes daily backups. A restore has not been tested for RPMail. |
 | Works on a phone, installable | Partly | RP Intelligence is installable and the RPMail page folds to one column. Not checked on a real phone with real mail. |
 | Automated tests + a check before going live | Partly | 50 tests (`npm test`) against a stand-in Gmail and a stand-in database: access rules, loading, reading, filing with Undo, sending, the pricing rule. They run on every pull request (GitHub "Tests") and inside the Vercel build, so a failing test stops a deploy. Not covered: the screens themselves (no browser tests), and the stand-ins are not the real Gmail or the real database. |

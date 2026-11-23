@@ -679,6 +679,8 @@ is never changed from here). PER USER, NEVER PER ROLE.
 - Google: Web OAuth client in Google Cloud project `rps-inbox`, scope gmail.modify, redirect
   `https://rpintelligence.app/api/rpmail/oauth/callback`; Vercel env `RPMAIL_GOOGLE_CLIENT_ID` / `RPMAIL_GOOGLE_CLIENT_SECRET`
   (optional `RPMAIL_APP_ORIGIN`). Without them the page shows "Sign in with Google is not switched on yet".
+- NOT FOR SALE (Trae, 2026-11-23): RPMail is an internal mail program built to a product standard. No sign-up, plans, Stripe, public page
+  or customer legal pages. What is left is listed in docs/rpmail-product-checklist.md under "What is left".
 - Product build (2026-11-20 on): the running Done / Partly / Missing list and build order is docs/rpmail-product-checklist.md. Stage 1 added
   lib/rpmail/extras.ts (per-person `rpmail_prefs`: closed dashboard boxes + order; Done list; star; bulk actions) and, in rpmail-app.tsx,
   the mailbox right-click menu, tick boxes, keyboard shortcuts (HelpSheet / KEYS) and printMessage.
