@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import { useFormStatus } from 'react-dom'
-import { ArrowDown, ArrowUp, Eye, EyeOff, Lock } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Eye, EyeOff, Lock, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { RingLoader } from '@/components/ui/ring-loader'
 import { savePrefs } from './actions'
+import { DepartmentCard } from '@/components/dashboard/department-card'
+import { CARD_STYLES, type CardStyle } from '@/lib/ui-prefs'
 
 type Row = { key: string; label: string; desc?: string; hidden: boolean; locked?: boolean }
 type Choice = { key: string; label: string }
@@ -64,9 +66,39 @@ function SaveBar({ dirty }: { dirty: boolean }) {
   )
 }
 
-export function PersonalizeEditor({ cards: cards0, menu: menu0, tabChoices, tabs: tabs0, standardTabs, maxTabs }: {
-  cards: Row[]; menu: Row[]; tabChoices: Choice[]; tabs: string[]; standardTabs: string[]; maxTabs: number
+/** The three looks for the Dashboard squares, each shown as a real square so you see what you get. */
+function CardStylePicker({ value, onChange }: { value: CardStyle; onChange: (v: CardStyle) => void }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" role="radiogroup" aria-label="Dashboard square style">
+      {CARD_STYLES.map(st => {
+        const on = st.key === value
+        return (
+          <button key={st.key} type="button" role="radio" aria-checked={on} onClick={() => onChange(st.key)}
+            className={cn('rounded-xl border-2 p-3 text-left transition-colors', on ? 'border-primary bg-primary/5' : 'border-transparent hover:border-border')}>
+            <div className="pointer-events-none">
+              <DepartmentCard cardKey="maintenance" title="Fleet" icon={Wrench} look={st.key}
+                figures={[{ label: 'Open Tickets', value: 54 }, { label: 'Vehicles Down', value: 4, alert: true }]} />
+            </div>
+            <div className="mt-3 flex items-start gap-2">
+              <span className={cn('mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border', on ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}>
+                {on && <Check className="size-3.5" />}
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-foreground">{st.label}</span>
+                <span className="block text-xs text-muted-foreground">{st.desc}</span>
+              </span>
+            </div>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+export function PersonalizeEditor({ cards: cards0, menu: menu0, tabChoices, tabs: tabs0, standardTabs, maxTabs, cardStyle: cardStyle0 }: {
+  cards: Row[]; menu: Row[]; tabChoices: Choice[]; tabs: string[]; standardTabs: string[]; maxTabs: number; cardStyle: CardStyle
 }) {
+  const [cardStyle, setCardStyle] = useState(cardStyle0)
   const [cards, setCards] = useState(cards0)
   const [menu, setMenu] = useState(menu0)
   const [tabs, setTabs] = useState(tabs0)
@@ -77,6 +109,7 @@ export function PersonalizeEditor({ cards: cards0, menu: menu0, tabChoices, tabs
     dashboard: { order: cards.map(c => c.key), hidden: cards.filter(c => c.hidden).map(c => c.key) },
     nav: { order: menu.map(m => m.key), hidden: menu.filter(m => m.hidden).map(m => m.key) },
     tabs,
+    cardStyle,
   }
   const custom = tabs.length > 0
   const label = (k: string) => tabChoices.find(c => c.key === k)?.label ?? k
@@ -85,6 +118,14 @@ export function PersonalizeEditor({ cards: cards0, menu: menu0, tabChoices, tabs
   return (
     <form action={async fd => { await savePrefs(fd); setDirty(false); if (fd.get('reset')) window.location.reload() }} className="space-y-8">
       <input type="hidden" name="prefs" value={JSON.stringify(prefs)} />
+
+      <section className="space-y-3">
+        <div>
+          <h2>Dashboard square style</h2>
+          <p className="rp-subtitle">Pick how the squares on your Dashboard look. Tap one, then Save.</p>
+        </div>
+        <CardStylePicker value={cardStyle} onChange={touch(setCardStyle)} />
+      </section>
 
       <section className="space-y-3">
         <div>
