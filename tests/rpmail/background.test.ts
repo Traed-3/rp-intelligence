@@ -7,7 +7,7 @@ import { world, addPerson, addBox, type Person } from './fakes'
 
 const pushes: { to: string; title: string; message: string }[] = []
 const emails: { to: string; subject: string }[] = []
-vi.mock('@/lib/push', () => ({ sendPushNotification: async (sub: { endpoint: string }, p: { title: string; message: string }) => { pushes.push({ to: sub.endpoint, ...p }) } }))
+vi.mock('@/lib/push', () => ({ sendPushNotification: async (sub: { endpoint: string }, p: { title: string; message: string }) => { pushes.push({ to: sub.endpoint, ...p }); return 'sent' } }))
 vi.mock('@/lib/email', () => ({ sendAlertEmail: async (e: { to: string; subject: string }) => { emails.push(e) } }))
 
 const { runBackground, notifyNewMail } = await import('@/lib/rpmail/background')
@@ -126,5 +126,16 @@ describe('new-mail notifications', () => {
     expect(inQuietHours({ quiet_from: '21:00', quiet_to: '06:00' }, new Date('2026-11-20T03:30:00Z'))).toBe(true)    // 10:30 PM Eastern
     expect(inQuietHours({ quiet_from: '21:00', quiet_to: '06:00' }, new Date('2026-11-20T17:00:00Z'))).toBe(false)   // noon Eastern
     expect(inQuietHours({ quiet_from: '', quiet_to: '' }, new Date())).toBe(false)
+  })
+})
+
+describe('the test notification button', () => {
+  it('goes only to the devices of the person who pressed it, and says so when they have none', async () => {
+    const { notifyTest } = await import('@/lib/rpmail/background')
+    const sue = addPerson(A, 'manager', 'Sue NoPhone', 'sue@gmail.com')
+    expect(await notifyTest(asMe(sue))).toMatchObject({ devices: 0, sent: 0 })
+    expect(pushes).toEqual([])
+    expect(await notifyTest(asMe(ann))).toMatchObject({ devices: 1, sent: 1, failed: 0 })
+    expect(pushes.map(p => p.to)).toEqual(['device:Ann Owner'])
   })
 })

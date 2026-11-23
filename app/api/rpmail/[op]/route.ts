@@ -3,6 +3,7 @@ import { me, requireMe, mailboxFor, Forbidden, type Me } from '@/lib/rpmail/acce
 import { Busy, NotConnected, UserError } from '@/lib/rpmail/gmail'
 import { syncMailbox } from '@/lib/rpmail/sync'
 import { state, overview } from '@/lib/rpmail/overview'
+import { notifyTest } from '@/lib/rpmail/background'
 import { plateDone, plateAdd } from '@/lib/rpmail/overview'
 import { listMessages, searchGmail, readMessage, readAttachment, markRead, fileMessage, undoMove, markDone, setSignature, draftPrep, sendMail } from '@/lib/rpmail/mail-ops'
 import { setPrefs, doneList, setStar, bulk } from '@/lib/rpmail/extras'
@@ -48,6 +49,7 @@ const POSTS: Record<string, { any?: boolean; run: (who: Me, b: B) => Promise<unk
   template_save: { run: (who, b) => templateSave(who, b) },
   template_delete: { run: (who, b) => templateDelete(who, b) },
   prefs: { run: (who, b) => setPrefs(who, b) },
+  notify_test: { run: who => notifyTest(who) },
   star: { run: (who, b) => setStar(who, b) },
   bulk: { run: (who, b) => bulk(who, b) },
   signature: { run: (who, b) => setSignature(who, b) },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isPushEndpoint } from '@/lib/push'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -9,7 +10,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const { endpoint, keys } = body ?? {}
-  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+  if (!isPushEndpoint(endpoint) || typeof keys?.p256dh !== 'string' || typeof keys?.auth !== 'string') {
     return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
   }
 

@@ -12,11 +12,21 @@ function ensureVapid() {
   vapidSet = true
 }
 
+// A device's address comes from the browser, so only the real push services are ever contacted.
+const PUSH_HOSTS = /(^|\.)(fcm\.googleapis\.com|push\.apple\.com|push\.services\.mozilla\.com|notify\.windows\.com)$/
+export function isPushEndpoint(endpoint: unknown): boolean {
+  try {
+    const u = new URL(String(endpoint))
+    return u.protocol === 'https:' && !u.username && !u.port && PUSH_HOSTS.test(u.hostname.toLowerCase())
+  } catch { return false }
+}
+
 export async function sendPushNotification(
   subscription: { endpoint: string; p256dh: string; auth_key: string },
   payload: { title: string; message: string; link?: string }
-) {
-  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return
+): Promise<'sent' | 'gone' | 'failed' | 'off'> {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return 'off'
+  if (!isPushEndpoint(subscription.endpoint)) return 'failed'
   ensureVapid()
 
   try {
@@ -24,11 +34,13 @@ export async function sendPushNotification(
       { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth_key } },
       JSON.stringify({ title: payload.title, body: payload.message, link: payload.link ?? '/' }),
     )
+    return 'sent'
   } catch (err: unknown) {
     // 410 = subscription is gone; silently ignore
-    if ((err as { statusCode?: number })?.statusCode !== 410) {
-      console.error('[push] delivery failed:', (err as Error)?.message)
-    }
+    const code = (err as { statusCode?: number })?.statusCode
+    if (code === 410 || code === 404) return 'gone'
+    console.error('[push] delivery failed:', (err as Error)?.message)
+    return 'failed'
   }
 }
 

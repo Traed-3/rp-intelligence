@@ -70,3 +70,13 @@ describe('who may be given a shared mailbox', () => {
     expect(mayGrant('owner', { kind: 'personal', crew_reads: false })).toBe(false)
   })
 })
+
+describe('push device addresses', () => {
+  it('only the real push services are accepted', async () => {
+    const { isPushEndpoint } = await import('@/lib/push')
+    for (const ok of ['https://web.push.apple.com/abc', 'https://fcm.googleapis.com/fcm/send/x', 'https://updates.push.services.mozilla.com/wpush/v2/x', 'https://wns2-by3p.notify.windows.com/w/?token=x'])
+      expect(isPushEndpoint(ok), ok).toBe(true)
+    for (const bad of ['http://web.push.apple.com/abc', 'https://169.254.169.254/latest', 'https://localhost/x', 'https://evil.com/fcm.googleapis.com', 'https://fcm.googleapis.com.evil.com/x', 'https://a@push.apple.com/x', 'https://web.push.apple.com:8443/x', 'nope', null])
+      expect(isPushEndpoint(bad), String(bad)).toBe(false)
+  })
+})
