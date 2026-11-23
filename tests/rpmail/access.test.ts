@@ -47,6 +47,8 @@ const everyAction = (mailbox: string, id: string): [method: 'GET' | 'POST', op: 
   ['POST', 'send', { mailbox, mode: 'forward', id, to: 'x@example.com', confirmed: true }],
   ['GET', 'labels', { mailbox }], ['POST', 'label_save', { mailbox, name: 'Vendors' }], ['POST', 'label_apply', { mailbox, id, label: 'Label_1' }], ['POST', 'label_delete', { mailbox, label: 'Label_1' }],
   ['GET', 'blocks', { mailbox }], ['POST', 'block', { mailbox, addr: 'someone@example.com' }],
+  ['GET', 'rules', { mailbox }], ['POST', 'rule_save', { mailbox, match: { from: 'someone@example.com' }, action: { archive: true } }], ['POST', 'rule_delete', { mailbox, id: '00000000-0000-4000-8000-000000000000' }],
+  ['POST', 'snooze', { mailbox, id, until: Date.now() + 3_600_000 }],
   ['POST', 'plate_add', { mailbox, id }], ['POST', 'disconnect', { mailbox }],
 ]
 

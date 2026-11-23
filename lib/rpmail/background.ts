@@ -16,13 +16,13 @@ import { OUTBOX } from './compose-ops'
 
 const HOUR = 3_600_000
 
-export type BackgroundResult = { checked: number; failed: number; alerts: number; notified: number; summaries: number; cleaned: number; ms: number }
+export type BackgroundResult = { checked: number; failed: number; alerts: number; notified: number; woken: number; summaries: number; cleaned: number; ms: number }
 
 export async function runBackground(budgetMs = 45_000): Promise<BackgroundResult> {
   const admin = createAdminClient()
   const started = Date.now()
   const left = () => budgetMs - (Date.now() - started)
-  const out: BackgroundResult = { checked: 0, failed: 0, alerts: 0, notified: 0, summaries: 0, cleaned: 0, ms: 0 }
+  const out: BackgroundResult = { checked: 0, failed: 0, alerts: 0, notified: 0, woken: 0, summaries: 0, cleaned: 0, ms: 0 }
 
   // The mailbox that has waited longest goes first, so one big or broken mailbox cannot starve the rest.
   const { data } = await admin.from('rpmail_mailboxes').select(BOX_COLS).order('last_sync_at', { ascending: true, nullsFirst: true }).limit(400)
@@ -49,6 +49,7 @@ export async function runBackground(budgetMs = 45_000): Promise<BackgroundResult
   }
 
   out.alerts = await alertFailing().catch(() => 0)
+  out.woken = await wakeSnoozes().catch(() => 0)
   if (left() > 8_000) out.summaries = await morningSummaries(left() - 4_000).catch(() => 0)
   if (left() > 3_000) out.cleaned = await cleanOutbox().catch(() => 0)
   out.ms = Date.now() - started
@@ -121,7 +122,7 @@ export async function notifyNewMail(box: Pick<Mailbox, 'id' | 'name' | 'kind' | 
   const now = new Date().toISOString()
   if (!box.notify_mark) { await admin.from('rpmail_mailboxes').update({ notify_mark: now }).eq('id', box.id); return 0 }   // first look: nothing is "new" yet
   const { data } = await admin.from('rpmail_messages').select('gmail_id, date, from_name, from_addr, subject, bulk, asks')
-    .eq('mailbox_id', box.id).eq('in_inbox', true).eq('sent', false).eq('unread', true).gte('date', box.notify_mark).order('date', { ascending: false }).limit(40)
+    .eq('mailbox_id', box.id).eq('in_inbox', true).eq('sent', false).eq('unread', true).eq('quiet', false).gte('date', box.notify_mark).order('date', { ascending: false }).limit(40)
   const fresh = ((data ?? []) as NewRow[]).filter(r => Date.parse(r.date) > Date.parse(box.notify_mark as string))
   if (!fresh.length) return 0
   // Announced up to the newest message seen (not "up to now"), so mail that lands between the check and this line is not skipped.
@@ -151,6 +152,40 @@ export async function notifyNewMail(box: Pick<Mailbox, 'id' | 'name' | 'kind' | 
     if (await push(p.id as string, payload)) sent++
   }
   return sent
+}
+
+/**
+ * Snoozes and reminders whose time has come. A snoozed conversation is back on the person's lists from this moment;
+ * a reminder is only given if nobody has written back since it was set. Each is the person's own, so it goes to
+ * their devices whatever their new-mail setting is, but never inside their quiet hours (it is still marked, and
+ * shows in RPMail).
+ */
+export async function wakeSnoozes(): Promise<number> {
+  const admin = createAdminClient()
+  const now = new Date()
+  await admin.from('rpmail_snoozes').delete().lt('woke_at', new Date(now.getTime() - 3 * 86_400_000).toISOString())   // shown as "back" for three days, then forgotten
+  const { data } = await admin.from('rpmail_snoozes').select('id, profile_id, mailbox_id, thread_id, subject, kind, created_at')
+    .is('woke_at', null).lte('until', now.toISOString()).order('until', { ascending: true }).limit(100)
+  let n = 0
+  for (const z of data ?? []) {
+    const gone = () => admin.from('rpmail_snoozes').delete().eq('id', z.id)
+    const [{ data: p }, { data: box }, { data: acc }, { data: on }] = await Promise.all([
+      admin.from('profiles').select('id, role, company_id, is_active').eq('id', z.profile_id).maybeSingle(),
+      admin.from('rpmail_mailboxes').select('id, name, kind, crew_reads, company_id').eq('id', z.mailbox_id).maybeSingle(),
+      admin.from('rpmail_access').select('mailbox_id').eq('profile_id', z.profile_id).eq('mailbox_id', z.mailbox_id).maybeSingle(),
+      admin.from('rpmail_users').select('enabled').eq('profile_id', z.profile_id).maybeSingle(),
+    ])
+    // The same rule as reading the mailbox. Someone who no longer has it is told nothing about it.
+    if (!p || !box || !acc || !on?.enabled || p.is_active === false || p.company_id !== box.company_id || (box.kind === 'shared' && !box.crew_reads && isLockedRole(p.role as string))) { await gone(); continue }
+    const { data: thread } = await admin.from('rpmail_messages').select('date, sent').eq('mailbox_id', z.mailbox_id).eq('thread_id', z.thread_id).order('date', { ascending: false }).limit(30)
+    if (!thread?.length) { await gone(); continue }                                                    // the conversation is no longer in the mailbox
+    if (z.kind === 'remind' && thread.some(m => !m.sent && Date.parse(m.date as string) > Date.parse(z.created_at as string))) { await gone(); continue }   // they wrote back: nothing to remind about
+    await admin.from('rpmail_snoozes').update({ woke_at: now.toISOString() }).eq('id', z.id)
+    n++
+    if (inQuietHours((await getPrefs({ id: z.profile_id as string })).notify, now)) continue
+    await push(z.profile_id as string, { title: `${z.kind === 'remind' ? 'No reply yet' : 'Back in your inbox'} (${box.name})`, message: (z.subject as string) || '(no subject)', link: '/rpmail' })
+  }
+  return n
 }
 
 /** After 6 in the morning, make today's summary for everyone who has RPMail on and does not have it yet. */

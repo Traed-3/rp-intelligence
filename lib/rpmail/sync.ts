@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { gmail, pace, pooled, b64url, headerMap, isHidden, NotConnected, type GMessage, type GPart } from './gmail'
 import { parseAddrs, decodeWords, htmlToText, topOf, asksForSomething, deadlineHint, findSite, findPo, isBulk } from './parse'
 import type { Mailbox, SyncState } from './access'
+import { onArrival } from './arrival'
 
 // RPMail: keeps the small index (rpmail_messages) in step with Gmail.
 //   * First time: lists the inbox plus the last 90 days and loads them a chunk at a time (the page keeps asking
@@ -138,29 +139,6 @@ export async function loadMessages(box: Mailbox, ids: string[], sites: Set<strin
   return { stored: rows.length, failed }
 }
 
-/**
- * Mail from a sender this mailbox has blocked goes straight to Gmail's Trash (Gmail keeps it 30 days) and never
- * reaches the lists or a notification. Only mail that has just arrived in the inbox is touched.
- */
-async function applyBlocks(box: Mailbox, ids: string[]): Promise<number> {
-  if (!ids.length) return 0
-  const admin = createAdminClient()
-  const { data: bl } = await admin.from('rpmail_blocks').select('addr').eq('mailbox_id', box.id)
-  const blocked = new Set((bl ?? []).map(b => String(b.addr).toLowerCase()))
-  if (!blocked.size) return 0
-  let n = 0
-  for (let i = 0; i < ids.length; i += 200) {
-    const { data } = await admin.from('rpmail_messages').select('gmail_id, from_addr').eq('mailbox_id', box.id).eq('in_inbox', true).eq('sent', false).in('gmail_id', ids.slice(i, i + 200))
-    for (const r of data ?? []) {
-      if (!blocked.has(String(r.from_addr ?? '').toLowerCase())) continue
-      await gmail(box.id, `messages/${r.gmail_id}/trash`, { method: 'POST' })
-      await admin.from('rpmail_messages').delete().eq('mailbox_id', box.id).eq('gmail_id', r.gmail_id)
-      n++
-    }
-  }
-  return n
-}
-
 export type SyncResult = { done: boolean; total: number; left: number; changed: number; busy?: boolean }
 
 /**
@@ -222,9 +200,16 @@ export async function syncMailbox(box: Mailbox, budgetMs = 18_000): Promise<Sync
         return { done: false, total: 0, left: 1, changed }
       }
       if (ids.size) {
-        const r = await loadMessages(box, [...ids], sites)
+        const list = [...ids]
+        // Which of these are new to RPMail: blocked senders and rules act on mail as it arrives, never on older mail that only changed.
+        const known = new Set<string>()
+        for (let i = 0; i < list.length; i += 200) {
+          const { data: have } = await admin.from('rpmail_messages').select('gmail_id').eq('mailbox_id', box.id).in('gmail_id', list.slice(i, i + 200))
+          for (const h of have ?? []) known.add(h.gmail_id as string)
+        }
+        const r = await loadMessages(box, list, sites)
         changed += r.stored
-        await applyBlocks(box, [...ids])
+        await onArrival(box, list.filter(i => !known.has(i)))
         if (r.failed.length) latest = historyId   // look again next time
       }
       await save({ history_id: latest, sync: { ...sync, busy: undefined }, last_sync_at: new Date().toISOString(), last_error: null, failing_since: null, fail_alerted_at: null })

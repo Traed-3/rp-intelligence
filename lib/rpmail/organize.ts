@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { gmail, UserError } from './gmail'
 import { mailboxFor, isMailAdmin, Forbidden, type Me, type Mailbox } from './access'
 import { fileMessage, indexRow, gid } from './mail-ops'
+import type { Rule, RuleAction, RuleMatch } from './arrival'
 
 // RPMail: keeping a mailbox tidy. Labels (Gmail's own, so they show in Gmail too) and blocked senders.
 // Like everything else in RPMail, each function starts from `mailboxFor(me, …)`.
@@ -140,4 +141,61 @@ export async function blockSender(who: Me, p: { mailbox?: unknown; addr?: unknow
   let move_id: number | null = null
   if (fromMessage) move_id = ((await fileMessage(who, { mailbox: box.id, id: p.id, dest: 'Trash' })).move_id as number | null) ?? null
   return { ok: true, blocked: true, addr, move_id }
+}
+
+// ── Rules ─────────────────────────────────────────────────────────────────────────────────────────────────────
+// What to do with mail as it arrives (lib/rpmail/arrival.ts applies them). A rule belongs to the mailbox, so it
+// changes things for everyone who uses that mailbox: the person on their own mailbox, an owner on a shared one.
+const UUID = /^[0-9a-f-]{36}$/
+const word = (v: unknown, max = 100) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
+
+export async function ruleList(who: Me, p: Record<string, string>) {
+  const box = await mailboxFor(who, p.mailbox)
+  const { data } = await createAdminClient().from('rpmail_rules').select('id, name, position, enabled, match, action').eq('mailbox_id', box.id).order('position', { ascending: true })
+  return { rules: (data ?? []) as Rule[], can_edit: mayReshape(who, box) }
+}
+
+/** Make a rule, or change one (with `id`). It acts on mail that arrives from now on, never on mail already here. */
+export async function ruleSave(who: Me, p: { mailbox?: unknown; id?: unknown; name?: unknown; match?: unknown; action?: unknown; enabled?: unknown }) {
+  const box = await mailboxFor(who, p.mailbox)
+  if (!mayReshape(who, box)) throw new Forbidden('On a shared mailbox only an owner can change the rules.')
+  const m = (p.match && typeof p.match === 'object' ? p.match : {}) as Record<string, unknown>
+  const a = (p.action && typeof p.action === 'object' ? p.action : {}) as Record<string, unknown>
+  const match: RuleMatch = {}
+  for (const k of ['from', 'to', 'subject'] as const) { const v = word(m[k]); if (v) match[k] = v }
+  if (!Object.keys(match).length) throw new UserError('Say what the mail has to match: who it is from, who it is to, or words in the subject.')
+  if (Object.values(match).some(v => v.length < 2)) throw new UserError('Each thing to match needs at least two characters, or the rule would catch nearly everything.')
+  let action: RuleAction = {}
+  if (a.trash === true) action = { trash: true }   // Trash on its own: there is nothing left to label or star
+  else {
+    if (a.label) {
+      const label = labelId(a.label)
+      if (!(await userLabels(box)).some(l => l.id === label)) throw new UserError('That label is no longer in Gmail.')
+      action.label = label
+    }
+    for (const k of ['archive', 'read', 'star', 'quiet'] as const) if (a[k] === true) action[k] = true
+  }
+  if (!Object.keys(action).length) throw new UserError('Say what should happen to the mail.')
+  const name = word(p.name, 80) || [match.from && 'From ' + match.from, match.to && 'To ' + match.to, match.subject && 'Subject has ' + match.subject].filter(Boolean).join(', ').slice(0, 80)
+  const admin = createAdminClient()
+  const fields = { name, match, action, enabled: p.enabled !== false }
+  if (p.id !== undefined && p.id !== null && p.id !== '') {
+    if (typeof p.id !== 'string' || !UUID.test(p.id)) throw new UserError('No such rule.')
+    const { data } = await admin.from('rpmail_rules').update(fields).eq('id', p.id).eq('mailbox_id', box.id).select('id')
+    if (!data?.length) throw new UserError('That rule is no longer there.')
+    return { ok: true, id: p.id }
+  }
+  const { count } = await admin.from('rpmail_rules').select('id', { count: 'exact', head: true }).eq('mailbox_id', box.id)
+  if ((count ?? 0) >= 50) throw new UserError('This mailbox already has 50 rules. Delete one you no longer need first.')
+  const { data: made, error } = await admin.from('rpmail_rules').insert({ mailbox_id: box.id, profile_id: who.id, position: count ?? 0, ...fields }).select('id').single()
+  if (error) throw new Error('Could not save that rule.')
+  return { ok: true, id: made.id as string }
+}
+
+export async function ruleDelete(who: Me, p: { mailbox?: unknown; id?: unknown }) {
+  const box = await mailboxFor(who, p.mailbox)
+  if (!mayReshape(who, box)) throw new Forbidden('On a shared mailbox only an owner can change the rules.')
+  if (typeof p.id !== 'string' || !UUID.test(p.id)) throw new UserError('No such rule.')
+  await createAdminClient().from('rpmail_rules').delete().eq('id', p.id).eq('mailbox_id', box.id)
+  return { ok: true }
 }
