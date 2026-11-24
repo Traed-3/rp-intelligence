@@ -1,26 +1,69 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { Sparkles, X, Send, FileText } from 'lucide-react'
+import { useState, useRef, useEffect, Fragment } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Sparkles, X, Send, FileText, RotateCcw } from 'lucide-react'
+import { safeAppPath } from '@/lib/assistant/links'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 
 const NAVY = 'var(--hero)'
-const SUGGESTIONS = [
-  'How do I change a due date?',
-  "What's overdue?",
-  'Who is clocked in?',
-  'Assign 61026P16 to Ariel Kerner',
-]
+const STORE_KEY = 'askrps:chat'
+const KEEP = 40   // messages kept in this tab's memory
 
-export function AskRps() {
+/** Read the saved chat for this tab. Only ever this person's own (a different login starts fresh). */
+function loadSaved(userId: string): { open: boolean; messages: Msg[] } {
+  try {
+    const raw = sessionStorage.getItem(STORE_KEY)
+    if (!raw) return { open: false, messages: [] }
+    const v = JSON.parse(raw)
+    if (v?.userId !== userId || !Array.isArray(v.messages)) return { open: false, messages: [] }
+    const messages = v.messages.filter((m: any) => (m?.role === 'user' || m?.role === 'assistant') && typeof m.content === 'string')
+    return { open: !!v.open, messages }
+  } catch { return { open: false, messages: [] } }
+}
+
+/** Page paths in an answer (`/construction/jobs/...`) become links into the app; anything else, plain text. */
+function AnswerText({ text, onNavigate }: { text: string; onNavigate: () => void }) {
+  const parts = text.split(/(`[^`\n]{1,200}`)/g)
+  return (
+    <>
+      {parts.map((part, i) => {
+        const path = /^`[^`]+`$/.test(part) ? safeAppPath(part.slice(1, -1)) : null
+        if (path) return <Link key={i} href={path} onClick={onNavigate} className="font-medium text-blue-600 underline underline-offset-2 break-all">{path}</Link>
+        if (/^`[^`]+`$/.test(part)) return <code key={i} className="rounded bg-gray-100 px-1 text-[0.85em]">{part.slice(1, -1)}</code>
+        return <Fragment key={i}>{part}</Fragment>
+      })}
+    </>
+  )
+}
+
+export function AskRps({ suggestions, userId }: { suggestions: string[]; userId: string }) {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [restored, setRestored] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
+  // Bring the chat back after moving to another page (same tab only).
+  useEffect(() => {
+    const saved = loadSaved(userId)
+    setMessages(saved.messages)
+    setOpen(saved.open)
+    setRestored(true)
+  }, [userId])
+
+  useEffect(() => {
+    if (!restored) return
+    try { sessionStorage.setItem(STORE_KEY, JSON.stringify({ userId, open, messages: messages.slice(-KEEP) })) } catch { /* private window: chat just isn't kept */ }
+  }, [restored, userId, open, messages])
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading, open])
+  useEffect(() => { if (open) inputRef.current?.focus() }, [open])
 
   async function send(text: string) {
     const t = text.trim()
@@ -33,9 +76,9 @@ export function AskRps() {
       const res = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next, page: pathname }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       setMessages([...next, { role: 'assistant', content: data.reply ?? data.error ?? 'Something went wrong.' }])
     } catch {
       setMessages([...next, { role: 'assistant', content: 'Network error — please try again.' }])
@@ -51,9 +94,8 @@ export function AskRps() {
     setLoading(true)
     try {
       const res = await fetch('/api/daily-summary?dry_run=true')
-      const data = await res.json()
-      const reply = data.content ?? data.error ?? 'Could not generate an update.'
-      setMessages([...next, { role: 'assistant', content: reply }])
+      const data = await res.json().catch(() => ({}))
+      setMessages([...next, { role: 'assistant', content: data.content ?? data.error ?? 'Could not generate an update.' }])
     } catch {
       setMessages([...next, { role: 'assistant', content: 'Network error — please try again.' }])
     } finally {
@@ -61,11 +103,14 @@ export function AskRps() {
     }
   }
 
+  // On a phone the chat covers the page, so following a link closes it.
+  const closeOnPhone = () => { if (typeof window !== 'undefined' && window.innerWidth < 768) setOpen(false) }
+
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 md:bottom-5 right-4 z-40 inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+        className="fixed bottom-20 md:bottom-5 right-4 z-40 inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all print:hidden"
         style={{ background: NAVY }}
       >
         <Sparkles className="w-4 h-4" /> Ask RPS
@@ -74,14 +119,20 @@ export function AskRps() {
   }
 
   return (
-    <div className="rp-card fixed bottom-20 md:bottom-5 right-4 z-40 w-[min(92vw,380px)] h-[min(72vh,580px)] flex flex-col shadow-2xl overflow-hidden">
+    <div className="rp-card fixed bottom-20 md:bottom-5 right-4 z-40 w-[min(92vw,400px)] h-[min(72vh,600px)] flex flex-col shadow-2xl overflow-hidden print:hidden">
       <div className="flex items-center justify-between px-4 py-3 text-white" style={{ background: NAVY }}>
         <div className="flex items-center gap-2 font-semibold"><Sparkles className="w-4 h-4" /> Ask RPS</div>
-        <button onClick={() => setOpen(false)} aria-label="Close"><X className="w-5 h-5" /></button>
+        <div className="flex items-center gap-3">
+          {messages.length > 0 && (
+            <button onClick={() => setMessages([])} disabled={loading} aria-label="New chat" title="New chat" className="disabled:opacity-50">
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          )}
+          <button onClick={() => setOpen(false)} aria-label="Close"><X className="w-5 h-5" /></button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
-        {/* Always-visible quick action */}
         <button
           onClick={getUpdateSinceLastSummary}
           disabled={loading}
@@ -91,9 +142,9 @@ export function AskRps() {
         </button>
         {messages.length === 0 && (
           <div className="text-sm text-gray-500 space-y-2">
-            <p>Or ask me a question — I can look things up and make changes for you. Try:</p>
+            <p>Ask me about anything in the app you can open: jobs, service calls, sites, parts, tickets, your plate, or how to do something. Try:</p>
             <ul className="space-y-1.5">
-              {SUGGESTIONS.map((s) => (
+              {suggestions.map((s) => (
                 <li key={s}>
                   <button onClick={() => send(s)} className="text-left text-blue-600 hover:underline">“{s}”</button>
                 </li>
@@ -103,14 +154,14 @@ export function AskRps() {
         )}
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-            <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card border border-gray-200 text-gray-800'}`}>
-              {m.content}
+            <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card border border-gray-200 text-gray-800'}`}>
+              {m.role === 'assistant' ? <AnswerText text={m.content} onNavigate={closeOnPhone} /> : m.content}
             </div>
           </div>
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="rp-card px-3 py-2 text-sm text-gray-400">Thinking…</div>
+            <div className="rp-card px-3 py-2 text-sm text-gray-400">Looking that up…</div>
           </div>
         )}
         <div ref={endRef} />
@@ -118,10 +169,12 @@ export function AskRps() {
 
       <form onSubmit={(e) => { e.preventDefault(); send(input) }} className="flex items-center gap-2 p-2 border-t border-gray-100 bg-card">
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          maxLength={4000}
           placeholder="Ask or tell me to do something…"
-          className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 px-3 py-2 text-base md:text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button type="submit" disabled={loading || !input.trim()} className="p-2 rounded-lg bg-primary text-primary-foreground disabled:opacity-40" aria-label="Send">
           <Send className="w-4 h-4" />

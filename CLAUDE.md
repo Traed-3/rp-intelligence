@@ -770,3 +770,39 @@ Settings → Users can email people a sign-in invite with ONE CLICK (login is em
 - Each send logs `activity_log` action `user_invite_sent` (ids/flags only); the Users page shows "invite sent <date>".
 - The action refuses before changing a password when RESEND_API_KEY is missing; if the email fails after a password change
   it says so (pressing Send invite again makes a new one).
+
+---
+
+## ASK RPS — WHOLE-APP ASSISTANT (2026-11-24)
+
+The floating "Ask RPS" chat (components/assistant/ask-rps.tsx → POST /api/assistant) now covers the whole app, not just
+the shop. Trae, 11/24/26: "I want it to encompass the entire app."
+- RULE: Ask RPS may only look into a part of the app the person could open as a page. `lib/assistant/access.ts`
+  `canUseArea(who, area)` copies each page's own check (roleMayVisit, module blocks from profile_module_blocks,
+  canReadConstruction, BILLING_READ_ROLES, canReadCompliance + the DQF access list). Areas: assets, tickets, shop,
+  construction, sites, service, billing, inventory, compliance, expenses, calendar, plate. Techs / mechanics / shop never
+  get billing, compliance or expenses, and never see sell prices or markups (`canSeeSellPrices`).
+- Tools live in lib/assistant/tools/*.ts (maintenance, construction, service, office, everyday), one `ToolDef` each with
+  its `area`. `lib/assistant/registry.ts`: `toolsFor(ctx)` hands the model ONLY the person's tools, and `runTool` checks
+  again before running (a refused tool never touches the database). Every query filters on company_id (admin client).
+- Changes are still only the four ticket changes (owner / manager / shop_manager, preview first, then confirm:true).
+- What it knows about using the app: `lib/assistant/knowledge.ts` (one block per area; a person is only told about the
+  parts they can open). WHEN A PAGE OR BUTTON IS ADDED OR RENAMED, UPDATE THE LINE THERE. New module = new area in
+  access.ts + a tools file + a knowledge block + a row in tests/assistant/access.test.ts.
+- Instructions: lib/assistant/prompt.ts. The stable part is cached; the date and the open page come after the cache
+  point. The chat sends the page path, so "this job / this ticket" resolves (job, service call, ticket, asset, quote,
+  invoice pages). The chat is kept in sessionStorage per tab and per login; page paths in answers become links.
+- Model: `claude-opus-5-5` (env ASSISTANT_MODEL overrides), effort medium, server-side refusal fallback to
+  `claude-opus-4-8` (env ASSISTANT_FALLBACK_MODEL). maxDuration 120 s, up to 10 look-up rounds.
+- Example questions: lib/assistant/suggestions.ts (picked from the person's areas, computed in the (app) layout).
+- Tests: tests/assistant/access.test.ts (every role × every area, module blocks, DQF list, refused tools, guide text).
+- Billing summary mirrors the Quotes & Invoices hub. The app does NOT track paid invoices (imported ones all say "sent"),
+  so Ask RPS never reports an unpaid total.
+- ANTHROPIC CREDIT (found 11/24/26): since 11/16/26 every Claude call from the app has been refused with "credit balance is
+  too low" — the ticket reader (479 tickets failed 11/16–11/24), receipt photo reading and Ask RPS. Ask RPS now says so in
+  plain words. After credit is added, re-queue the failed tickets:
+  `update svc_work_order_documents set extract_status='pending' where extract_status='failed' and extract_error ilike '%credit balance%'`.
+- Still to do (plan agreed 11/24/26): (2) more changes with the same preview/confirm rule — add a My Plate to-do (own, or
+  for someone when canAssignPlate), add a note to a job, post a daily update; never the master schedule or service-call
+  status. (3) Answers that type out as they come (streaming), voice input on the phone. (4) Hours / payroll questions for
+  owners and managers (Reports & Payroll area).
