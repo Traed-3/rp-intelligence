@@ -47,6 +47,13 @@ export const HOME_SCREEN_GUIDE = {
   audience: 'Everyone',
 }
 
+export const PLAYBOOK_GUIDE = {
+  href: '/help/construction-playbook',
+  title: 'Construction Playbook',
+  summary: 'How the Construction module works day to day: jobs, the status colors, quote or no quote, the schedule, materials, quotes and invoices.',
+  audience: 'Construction office',
+}
+
 export const RPMAIL_GUIDE = {
   href: '/help/rpmail',
   title: 'Using RPMail',
