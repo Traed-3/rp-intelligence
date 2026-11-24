@@ -14,12 +14,12 @@ export const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === '1'
 /** The shared login every visitor uses. Its password lives only in the demo project's env. */
 export const DEMO_EMAIL = 'demo@demo.rpintelligence.app'
 
-/** Production Supabase ref. Demo code paths refuse to run if they ever see it. */
-const PRODUCTION_REF = 'zktmhxheouwbyupeizjq'
+/** The demo Supabase project. Demo-only service-role code runs against this database and nothing else. */
+const DEMO_SUPABASE_URL = 'https://mkgxfxnvubravxrqvhdi.supabase.co'
 
 export function demoDatabaseIsSafe(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  return IS_DEMO && url.length > 0 && !url.includes(PRODUCTION_REF)
+  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim().replace(/\/+$/, '')
+  return IS_DEMO && url === DEMO_SUPABASE_URL
 }
 
 export const DEMO_BLOCKED_MESSAGE = 'That is turned off in the demo, so the sample data stays usable for everyone.'
