@@ -44,3 +44,4 @@ next-env.d.ts
 scripts/ingest/reports/
 scripts/ingest/backups/
 supabase/seed/smartsheet_dqf_*.json
+__pycache__/
