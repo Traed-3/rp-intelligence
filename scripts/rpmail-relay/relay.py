@@ -69,7 +69,9 @@ def lid(name): return 'Label_' + hashlib.sha1(name.encode()).hexdigest()[:12]
 def q(name): return '"%s"' % name.replace('\\', '\\\\').replace('"', '\\"')
 
 
-SYSTEM = {'Sent': 'SENT', 'Drafts': 'DRAFT', 'Spam': 'SPAM', 'Trash': 'TRASH', 'Starred': 'STARRED'}
+# The star comes from the \Flagged flag alone: Bridge changes the flag at once but fills its Starred folder a minute later,
+# so going by the folder made a star that was just taken off come back for that minute.
+SYSTEM = {'Sent': 'SENT', 'Drafts': 'DRAFT', 'Spam': 'SPAM', 'Trash': 'TRASH'}
 MEMBER_FOLDERS = ('INBOX', 'Sent', 'Drafts', 'Spam', 'Trash', 'Starred', 'Archive')
 LOCS = ('INBOX', 'Archive', 'Sent', 'Drafts', 'Spam', 'Trash')     # Proton keeps each message in one of these (or a Folders/ folder)
 HDR = '(UID FLAGS INTERNALDATE BODY.PEEK[HEADER.FIELDS (X-PM-INTERNAL-ID MESSAGE-ID REFERENCES IN-REPLY-TO)])'

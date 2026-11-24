@@ -147,6 +147,10 @@ class Filing(unittest.TestCase):
         self.job(self.work, 'POST', 'messages/%s/modify' % mid, {'removeLabelIds': ['UNREAD']})
         self.job(self.work, 'POST', 'messages/%s/modify' % mid, {'addLabelIds': ['STARRED']})
         self.assertEqual(self.w.calls[:2], [('flag', 20, '\\Seen', True), ('flag', 20, '\\Flagged', True)])
+        self.assertIn('STARRED', self.work.labels(self.w, 20))
+        self.w.labels_of['iidWorkInboxMail01'] |= {'Starred'}                  # Bridge's Starred folder catches up a minute late
+        self.job(self.work, 'POST', 'messages/%s/modify' % mid, {'removeLabelIds': ['STARRED']})
+        self.assertNotIn('STARRED', self.work.labels(self.w, 20))              # so the flag alone decides
         urgent = relay.lid('Labels/Urgent')
         self.job(self.work, 'POST', 'messages/%s/modify' % mid, {'addLabelIds': [urgent]})
         self.assertEqual(self.w.calls[-1], ('label+', 20, 'Labels/Urgent'))

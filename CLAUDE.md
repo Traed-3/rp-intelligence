@@ -751,6 +751,7 @@ is never changed from here). PER USER, NEVER PER ROLE.
   1025, SSL, loopback only) as the box's own address, only for a From equal to that address; Proton files the Sent copy. A send job older
   than 30 s when the helper gets it is refused (408), so a send the website gave up on (40 s) never goes out late. Drafts are APPENDed to
   Drafts; saving again or sending moves the old copy to Trash. Proton folders cannot be renamed or deleted from RPMail (labels can).
+  The star is the \\Flagged flag ONLY (not Bridge's Starred folder, which catches up about a minute late).
   A job body over 150 KB (a message with attachments) goes in pieces in `rpmail_relay_parts` from seq 1000 up; the helper fetches them
   with `body_of`. Helper checks: `python3 -I scripts/rpmail-relay/test_relay.py` (stand-in Bridge, no real mail).
   After changing relay.py: `cp scripts/rpmail-relay/relay.py ~/rpmail-relay/ && launchctl kickstart -k gui/$(id -u)/com.trae.rpmail-relay`.
