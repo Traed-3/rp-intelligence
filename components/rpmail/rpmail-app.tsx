@@ -68,9 +68,9 @@ const ago = (iso: string | null) => {
 }
 const size = (n: number) => n > 1_048_576 ? (n / 1_048_576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'
 const btn = (variant: 'default' | 'outline' | 'ghost' | 'destructive' = 'outline', sz: 'sm' | 'default' | 'xs' = 'sm') => buttonVariants({ variant, size: sz })
-/** The Done button on the dashboard lists (My Plate, Your jobs, Needs you): one look everywhere, solid blue (Trae, 11/24/26).
- *  A true blue on purpose: the site's own blue-600 is the brand navy, which read as dark, not blue. Same in light and dark mode. */
-const DONE_BTN = cn(buttonVariants({ size: 'xs' }), 'self-center shrink-0 border-transparent bg-[#1f6feb] text-white hover:bg-[#1858c0] focus-visible:ring-[#1f6feb]/40')
+/** The Done button on the dashboard lists (My Plate, Your jobs, Needs you): one look everywhere, a solid green pill (Trae, 11/24/26),
+ *  in the same green as the My Plate count (the theme's `success`). In dark mode that green is brighter, so the words turn dark. */
+const DONE_BTN = cn(buttonVariants({ size: 'xs' }), 'self-center shrink-0 rounded-full px-3 border-transparent bg-success text-white hover:bg-success/90 focus-visible:ring-success/40 dark:text-[oklch(0.2_0.04_160)]')
 
 export function RpmailApp({ localUrl, connected, connectError }: { localUrl: string | null; connected?: string; connectError?: string }) {
   const [st, setSt] = useState<State | null>(null)
