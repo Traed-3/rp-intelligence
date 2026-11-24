@@ -169,14 +169,12 @@ export default async function GuidePage() {
             Starsky&apos;s Master Schedule), the two ways a job can start (quoted vs. no quote needed), and
             how the schedule, materials, and daily updates all fit together.
           </Tip>
-          <a
-            href="https://claude.ai/artifact/Tb17WwUwmigqm9mVeA6pSY"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/help/construction-playbook"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
           >
             Open the Construction Playbook →
-          </a>
+          </Link>
         </Section>
       </div>
 
