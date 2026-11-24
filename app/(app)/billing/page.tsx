@@ -39,7 +39,7 @@ export default async function BillingHubPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {tiles.map(t => { const Icon = t.icon; return (
           <Link key={t.href} href={t.href} className="rp-card rp-card-link block p-5">
-            <div className="flex items-start gap-3"><span className="inline-flex w-10 h-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Icon className="w-5 h-5" /></span><div><div className="font-semibold text-gray-900">{t.title}</div><div className="text-sm text-gray-500 mt-0.5">{t.body}</div></div></div>
+            <div className="flex items-start gap-3"><span className="inline-flex w-10 h-10 items-center justify-center rounded-xl rp-icon-navy"><Icon className="w-5 h-5" /></span><div><div className="font-semibold text-gray-900">{t.title}</div><div className="text-sm text-gray-500 mt-0.5">{t.body}</div></div></div>
           </Link>) })}
       </div>
 

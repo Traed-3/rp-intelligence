@@ -41,7 +41,7 @@ export default async function TrainingVideoPage({ params }: { params: Promise<{ 
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="rp-title"><TitleIcon icon={GraduationCap} tone="info" />{item.title}</h1>
+          <h1 className="rp-title"><TitleIcon icon={GraduationCap} tone="navy" />{item.title}</h1>
           <p className="text-sm text-gray-500 mt-0.5">{item.summary}</p>
           <p className="text-xs text-gray-500 mt-1">{item.audience} · Video {item.video.length}</p>
         </div>
@@ -57,7 +57,7 @@ export default async function TrainingVideoPage({ params }: { params: Promise<{ 
       {item.form && showForm && (
         <div className="rp-card p-4 mb-16 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="rounded-lg p-2 bg-primary/10 text-primary"><ClipboardCheck className="w-5 h-5" /></span>
+            <span className="rounded-lg p-2 rp-icon-navy"><ClipboardCheck className="w-5 h-5" /></span>
             <p className="font-semibold text-gray-900">Ready to do yours?</p>
           </div>
           <Link href={item.form.href} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{item.form.label}</Link>

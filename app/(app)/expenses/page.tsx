@@ -90,7 +90,7 @@ export default async function ExpensesPage({
           { href: '/expenses/cards', icon: CreditCard, title: 'Card & account audit', body: 'Any card or vendor account: duplicates, refunds and receipts that do not match the amount in the email.', show: canAuditCards(profile!.role) },
         ].filter(t => t.show).map(t => (
           <Link key={t.href} href={t.href} className="rp-card rp-card-link p-4 flex items-start gap-3">
-            <span className="rounded-lg p-2 bg-primary/10 text-primary shrink-0"><t.icon className="size-5" /></span>
+            <span className="rounded-lg p-2 rp-icon-navy shrink-0"><t.icon className="size-5" /></span>
             <span>
               <span className="block font-semibold text-foreground">{t.title}</span>
               <span className="block text-xs text-muted-foreground mt-0.5">{t.body}</span>
