@@ -13,7 +13,7 @@ import { roleMayVisit, isFieldRole, noAccountingOrHr } from '@/lib/role-access'
  * Used by the sidebar / phone bar (components/app-nav.tsx) and by
  * Settings → Personalize, so the two can never disagree.
  */
-export type NavItem = { key: string; href: string; label: string; short?: string; icon: LucideIcon; match?: string[]; construction?: boolean; billing?: boolean; compliance?: boolean; module?: string }
+export type NavItem = { key: string; href: string; label: string; short?: string; icon: LucideIcon; match?: string[]; construction?: boolean; billing?: boolean; compliance?: boolean; module?: string; gold?: boolean }
 
 const item = (i: Omit<NavItem, 'key'>): NavItem => ({ key: i.href, ...i })
 
@@ -51,7 +51,7 @@ const receiptLink = item({ href: '/expenses/new', label: 'Submit Receipt', short
 
 const surveysLink = item({ href: '/construction/surveys', label: 'Field Surveys', short: 'Surveys', icon: ClipboardCheck })
 /** Forms: site surveys, ICON boot surveys, hydrostatic and spill bucket test reports (and later pre-trip, accident report). */
-const formsLink = item({ href: '/forms', label: 'Forms', icon: ClipboardCheck, match: ['/forms', '/construction/surveys'] })
+const formsLink = item({ href: '/forms', label: 'Forms', icon: ClipboardCheck, gold: true, match: ['/forms', '/construction/surveys'] })
 
 /** RPMail: a person's own mail. Shown only to a person who turned it on (rpmail_users) or has their own linked one (rpmail_links). Per user, never per role. */
 const rpmailLink = item({ href: '/rpmail', label: 'RPMail', short: 'Mail', icon: Mail })
@@ -85,7 +85,7 @@ export function buildNav({ role, userId, blockedModules, complianceGranted, hasR
     item({ href: '/tickets',   label: 'Tickets',   icon: ClipboardList }),
     item({ href: '/shop',      label: 'Shop',      icon: Users }),
     ...(canSeeConstruction ? [item({ href: '/construction', label: 'Build', icon: HardHat })] : []),
-    ...(canForms ? [item({ href: '/forms', label: 'Forms', icon: ClipboardCheck })] : []),
+    ...(canForms ? [item({ href: '/forms', label: 'Forms', icon: ClipboardCheck, gold: true })] : []),
   ].filter(t => roleMayVisit(role, t.href))
 
   /** Everything this person could put on the phone bar: the default tabs plus every sidebar entry, short labels. */

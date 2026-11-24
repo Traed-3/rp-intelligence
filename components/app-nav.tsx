@@ -83,7 +83,7 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
                 )}
               >
                 {isActive && <span aria-hidden className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-brand" />}
-                <item.icon className={cn('size-[18px] shrink-0 transition-colors', isActive ? 'text-brand' : 'text-gray-400 group-hover:text-gray-600')} strokeWidth={isActive ? 2.2 : 1.9} />
+                <item.icon className={cn('size-[18px] shrink-0 transition-colors', item.gold ? 'text-gold' : isActive ? 'text-brand' : 'text-gray-400 group-hover:text-gray-600')} strokeWidth={isActive ? 2.2 : 1.9} />
                 <span className="truncate">{item.label}</span>
               </Link>
             )
@@ -111,7 +111,7 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
           return (
             <Link key={item.href} href={item.href} aria-current={isActive ? 'page' : undefined} className={tabClass(isActive)}>
               {tabMark(isActive)}
-              <item.icon className="size-[22px]" strokeWidth={isActive ? 2.2 : 1.8} />
+              <item.icon className={cn('size-[22px]', item.gold && 'text-gold')} strokeWidth={isActive ? 2.2 : 1.8} />
               <span className={tabLabel}>{item.label}</span>
             </Link>
           )
@@ -140,7 +140,7 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
               {moreItems.map(item => (
                 <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-center text-xs font-medium text-gray-700 active:bg-raised">
-                  <item.icon className="size-5 text-brand" />
+                  <item.icon className={cn('size-5', item.gold ? 'text-gold' : 'text-brand')} />
                   {item.label}
                 </Link>
               ))}
