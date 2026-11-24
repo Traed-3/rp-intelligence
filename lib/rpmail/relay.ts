@@ -26,7 +26,8 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const PART = 3_000_000
 
 /** One Gmail-style call answered by the Mac helper. Same results as `gmail()`: the answer, null for "not found", or an error. */
-export async function relayCall<T>(mailboxId: string, method: string, path: string, params: Record<string, string | string[]>, body: unknown, waitMs = 40_000): Promise<T | null> {
+// 15 seconds at most: a background round has about 14 seconds per mailbox, so one slow answer must not use up a whole round.
+export async function relayCall<T>(mailboxId: string, method: string, path: string, params: Record<string, string | string[]>, body: unknown, waitMs = 15_000): Promise<T | null> {
   const admin = createAdminClient()
   const { data: box } = await admin.from('rpmail_mailboxes').select('address, relay_seen_at').eq('id', mailboxId).maybeSingle()
   if (!box) throw new UserError('No such mailbox.')
@@ -96,7 +97,8 @@ export async function relayExchange(p: Pull) {
   }
 
   if (p.wait !== true || !mine.size) return { jobs: [] }
-  const until = Date.now() + 20_000
+  // Held open 15 seconds at most, well inside the 60-second limit even when the database is slow.
+  const until = Date.now() + 15_000
   while (Date.now() < until) {
     const { data: fresh } = await admin.from('rpmail_relay_jobs').select('id').eq('status', 'new').in('mailbox_id', [...mine]).order('id').limit(20)
     if (fresh?.length) {
