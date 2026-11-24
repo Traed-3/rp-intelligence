@@ -6,6 +6,8 @@ import { PRETRIP_INTRO, pretripSections, pretripTitle, kindLabel, fmtDate, remar
 import { loadPretrip } from '@/lib/pretrip-pdf'
 import { PretripForm, PretripSignature, PretripEmail } from '@/components/forms/pretrip-form'
 import { submitInspection, saveSignature, emailInspection, reopenInspection, deleteInspection } from '../actions'
+import { Truck } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 const btn = 'px-3 py-1.5 rounded-lg border border-gray-300 bg-card hover:bg-gray-50'
@@ -32,7 +34,7 @@ export default async function PretripPage({ params }: { params: Promise<{ id: st
     <div className="p-4 sm:p-6 max-w-3xl mx-auto overflow-x-hidden space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="rp-title">{kindLabel(row.kind)} {row.unit_number ?? ''} <span className="text-base font-normal text-gray-500">· Pre-trip inspection</span></h1>
+          <h1 className="rp-title"><TitleIcon icon={Truck} tone="gold" />{kindLabel(row.kind)} {row.unit_number ?? ''} <span className="text-base font-normal text-gray-500">· Pre-trip inspection</span></h1>
           <p className="text-xs text-gray-500 mt-0.5">{fmtDate(row.inspection_date)} · {row.checked_by ?? 'driver'} · <span className="uppercase font-semibold">{locked ? 'finished' : 'draft'}</span>{locked && <> · <span className={flagged.length ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>{flagged.length ? `${flagged.length} NEED${flagged.length === 1 ? 'S' : ''} ATTENTION` : 'ALL OK'}</span></>}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">

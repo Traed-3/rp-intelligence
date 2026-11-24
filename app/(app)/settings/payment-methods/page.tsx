@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server'
 import { togglePaymentMethod } from '@/app/(app)/expenses/actions'
 import { addPaymentMethodDirect, saveExpenseCard, deleteExpenseCard, learnCardsFromPastReceipts } from './actions'
 import { PendingButton } from '@/components/expenses/pending-button'
+import { CreditCard } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const maxDuration = 300
 
@@ -37,7 +39,7 @@ export default async function PaymentMethodsPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">← Settings</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="rp-title">Payment Methods</h1>
+        <h1 className="rp-title"><TitleIcon icon={CreditCard} tone="gold" />Payment Methods</h1>
       </div>
 
       <p className="text-sm text-gray-500 mb-6">

@@ -15,6 +15,8 @@ import { InviteMessageButton } from './invite-message-button'
 import { DEFAULT_INVITE_SUBJECT, DEFAULT_INVITE_INTRO, DEFAULT_WHATS_NEW, type InviteContent } from '@/lib/invite-email'
 import { canManageUser, canAssignRole } from '@/lib/user-admin-rules'
 import { updateUserRole, toggleUserActive, updateDefaultLandingPage } from './actions'
+import { Users } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function UsersSettingsPage() {
   const supabase = await createClient()
@@ -82,7 +84,7 @@ export default async function UsersSettingsPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">← Settings</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="rp-title">User Management</h1>
+        <h1 className="rp-title"><TitleIcon icon={Users} tone="gold" />User Management</h1>
       </div>
 
       <div className="mb-6 flex flex-wrap items-start gap-3">

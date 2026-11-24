@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { me, isMailAdmin } from '@/lib/rpmail/access'
 import { RpmailAdmin } from '@/components/rpmail/rpmail-admin'
+import { Mail } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 // Settings -> RPMail (owners only): who has RPMail turned on, which shared mailboxes each person gets, and the
 // shared mailboxes themselves. Per person, never per role.
@@ -17,7 +19,7 @@ export default async function RpmailSettingsPage({ searchParams }: { searchParam
       <div className="mb-5 flex items-center gap-3">
         <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">← Settings</Link>
         <span className="text-muted-foreground">/</span>
-        <h1 className="rp-title">RPMail</h1>
+        <h1 className="rp-title"><TitleIcon icon={Mail} tone="gold" />RPMail</h1>
       </div>
       <RpmailAdmin connected={q.connected} connectError={q.connect_error?.slice(0, 300)} />
     </div>

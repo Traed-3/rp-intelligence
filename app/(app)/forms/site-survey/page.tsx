@@ -4,6 +4,8 @@ import { requireFieldSurveys } from '@/lib/construction-guard'
 import { type SiteSurveyRow, surveyTitle, surveyCounts, fmtDate } from '@/lib/site-survey'
 import { StartSurvey } from '@/components/forms/site-picker'
 import { createSurvey, findSites } from './actions'
+import { ClipboardList } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 const STATUS: Record<string, string> = { draft: 'rp-stage rp-stage-needs-scheduled', complete: 'rp-stage rp-stage-complete' }
@@ -20,7 +22,7 @@ export default async function SiteSurveyListPage() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto overflow-x-hidden">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="rp-title">Site Surveys</h1>
+          <h1 className="rp-title"><TitleIcon icon={ClipboardList} tone="gold" />Site Surveys</h1>
           <p className="text-sm text-gray-500 mt-0.5">The whole site on one form: tanks, sumps, buckets, dispensers, piping, electrical, photos and a site plan. Add as many of each as the site has.</p>
         </div>
         <Link href="/forms" className="text-sm text-gray-500 hover:text-gray-700">← Forms</Link>

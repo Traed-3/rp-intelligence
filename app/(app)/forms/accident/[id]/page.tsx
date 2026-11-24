@@ -6,6 +6,8 @@ import { ACCIDENT_INTRO, ACCIDENT_NOTIFY, fmtDate, accidentFlags } from '@/lib/a
 import { loadAccident } from '@/lib/accident-pdf'
 import { AccidentForm, AccidentPhotos, AccidentSignature, AccidentEmail } from '@/components/forms/accident-form'
 import { submitReport, addPhotos, deletePhoto, saveSignature, emailReport, reopenReport, deleteReport } from '../actions'
+import { TriangleAlert } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 const btn = 'px-3 py-1.5 rounded-lg border border-gray-300 bg-card hover:bg-gray-50'
@@ -29,7 +31,7 @@ export default async function AccidentPage({ params }: { params: Promise<{ id: s
     <div className="p-4 sm:p-6 max-w-3xl mx-auto overflow-x-hidden space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="rp-title">Accident report{row.unit_number ? <span className="text-base font-normal text-gray-500"> · Truck {row.unit_number}</span> : null}</h1>
+          <h1 className="rp-title"><TitleIcon icon={TriangleAlert} tone="gold" />Accident report{row.unit_number ? <span className="text-base font-normal text-gray-500"> · Truck {row.unit_number}</span> : null}</h1>
           <p className="text-xs text-gray-500 mt-0.5">{fmtDate(row.accident_date)} · {row.employee_name ?? 'driver'} · <span className="uppercase font-semibold">{locked ? 'submitted' : 'draft'}</span>{flags.length ? <> · <span className="text-amber-700 font-bold">{flags.join(', ').toUpperCase()}</span></> : null}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">

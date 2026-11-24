@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireFieldSurveys } from '@/lib/construction-guard'
 import { testTitle, stateInfo, ITEM_KINDS, STATES } from '@/lib/containment-test'
 import { createTest } from './actions'
+import { Droplets } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-card'
@@ -26,7 +28,7 @@ export default async function ContainmentTestsPage() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto overflow-x-hidden">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-emerald-500 before:to-emerald-700 before:shrink-0">Sump / UDC / Spill Bucket Tests</h1>
+          <h1 className="rp-title"><TitleIcon icon={Droplets} tone="gold" />Sump / UDC / Spill Bucket Tests</h1>
           <p className="text-sm text-gray-500 mt-0.5">Filled out at the site. The site&apos;s state picks the form: Maryland → MDE, Virginia → DEQ, West Virginia → WVDEP. Finish makes the PDF and emails it.</p>
         </div>
         <Link href="/construction/surveys" className="text-sm text-gray-500 hover:text-gray-700">← Field Surveys</Link>

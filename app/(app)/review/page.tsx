@@ -5,6 +5,7 @@ import { suggestAssets } from '@/lib/asset-match'
 import { Inbox } from 'lucide-react'
 import { ReviewRow } from './review-row'
 import { assignImport, createAssetForImport, rejectImport } from './actions'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function ReviewPage() {
   const supabase = await createClient()
@@ -40,7 +41,7 @@ export default async function ReviewPage() {
         <div className="p-2 rounded-lg bg-amber-50 border border-amber-100">
           <Inbox className="w-5 h-5 text-amber-600" />
         </div>
-        <h1 className="rp-title">Email Review</h1>
+        <h1 className="rp-title"><TitleIcon icon={Inbox} tone="gold" />Email Review</h1>
       </div>
       <p className="text-sm text-gray-500 mb-6 ml-1">
         Emails whose unit number didn’t match an asset land here first — nothing is added until you decide.

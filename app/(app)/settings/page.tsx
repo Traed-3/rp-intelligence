@@ -2,9 +2,10 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { Users, Building2, CreditCard, BookOpen, Bell, Inbox, SlidersHorizontal, Mail } from 'lucide-react'
+import { Users, Building2, CreditCard, BookOpen, Bell, Inbox, SlidersHorizontal, Mail, Settings } from 'lucide-react'
 import { GmailSyncPanel } from './gmail-sync-panel'
 import { BillingInboxPanel } from './billing-inbox-panel'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 const LINKS = [
   { href: '/settings/personalize',     icon: SlidersHorizontal, title: 'Personalize',        desc: 'Your own dashboard cards, side menu and phone buttons. Every user has this page.' },
@@ -31,7 +32,7 @@ export default async function SettingsPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="rp-title">Settings</h1>
+        <h1 className="rp-title"><TitleIcon icon={Settings} tone="gold" />Settings</h1>
         <p className="text-sm text-gray-500 mt-0.5">Manage your RPS platform.</p>
       </div>
 
@@ -45,8 +46,8 @@ export default async function SettingsPage() {
             href={l.href}
             className="rp-card rp-card-link flex items-center gap-4 p-5"
           >
-            <div className="p-2.5 rounded-lg bg-gray-100 border border-gray-200">
-              <l.icon className="w-5 h-5 text-gray-600" />
+            <div className="p-2.5 rounded-lg bg-gold-soft border border-gold/25">
+              <l.icon className="w-5 h-5 text-gold" />
             </div>
             <div>
               <p className="font-semibold text-gray-900">{l.title}</p>

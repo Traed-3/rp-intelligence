@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireFieldSurveys } from '@/lib/construction-guard'
 import { surveyTitle, surveyTypeLabel, SURVEY_TYPES, SUMP_TYPES } from '@/lib/survey'
 import { createSurvey } from './actions'
+import { ClipboardCheck } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-card'
@@ -27,7 +29,7 @@ export default async function SurveysPage() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto overflow-x-hidden">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="rp-title">Field Surveys</h1>
+          <h1 className="rp-title"><TitleIcon icon={ClipboardCheck} tone="gold" />Field Surveys</h1>
           <p className="text-sm text-gray-500 mt-0.5">ICON sump survey worksheets, filled on the phone, photos through the camera, PDF built here.</p>
         </div>
         <div className="flex items-center gap-3">

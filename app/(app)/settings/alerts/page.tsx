@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { PushToggle } from './push-toggle'
 import { saveAlertPreferences, updatePhone } from './actions'
+import { Bell } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 const ALERT_DEFS = [
   {
@@ -78,7 +80,7 @@ export default async function AlertsPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">← Settings</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="rp-title">Alerts &amp; Notifications</h1>
+        <h1 className="rp-title"><TitleIcon icon={Bell} tone="gold" />Alerts &amp; Notifications</h1>
       </div>
 
       <p className="text-sm text-gray-500 mb-8">

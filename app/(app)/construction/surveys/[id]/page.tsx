@@ -5,6 +5,8 @@ import { requireFieldSurveys } from '@/lib/construction-guard'
 import { surveyTitle, surveyTypeLabel, SUMP_TYPES, type SurveyRow, type SumpRow, type PhotoRow } from '@/lib/survey'
 import { SurveySumpCard } from '@/components/construction/survey-sump-card'
 import { saveSurveyHeader, addSump, saveSump, deleteSump, addSurveyPhotos, deletePhoto, completeSurvey, reopenSurvey, deleteSurvey } from '../actions'
+import { ClipboardCheck } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-card disabled:bg-gray-50'
@@ -30,7 +32,7 @@ export default async function SurveyEditorPage({ params }: { params: Promise<{ i
     <div className="p-4 sm:p-6 max-w-4xl mx-auto overflow-x-hidden space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="rp-title">{surveyTitle(sv)} <span className="text-base font-normal text-gray-500">· {surveyTypeLabel(sv.survey_type)}</span></h1>
+          <h1 className="rp-title"><TitleIcon icon={ClipboardCheck} tone="gold" />{surveyTitle(sv)} <span className="text-base font-normal text-gray-500">· {surveyTypeLabel(sv.survey_type)}</span></h1>
           <p className="text-xs text-gray-500 mt-0.5">{sv.survey_date} · {sv.tech_name ?? 'tech'} · <span className={`uppercase font-semibold ${sv.status === 'complete' ? 'text-success' : sv.status === 'draft' ? 'text-warning' : 'text-info'}`}>{sv.status}</span></p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
