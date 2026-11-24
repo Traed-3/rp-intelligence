@@ -144,7 +144,7 @@ export async function createPermitProject(_state: ActionState, formData: FormDat
 
   // find or create the site
   let { data: site } = await admin.from('con_permit_sites')
-    .select('id, jurisdiction_id').eq('company_id', profile.company_id).eq('site_number', siteNumber).maybeSingle()
+    .select('id, jurisdiction_id, state').eq('company_id', profile.company_id).eq('site_number', siteNumber).maybeSingle()
   if (!site) {
     const jid = str(formData.get('jurisdiction_id'))
     const ins = await admin.from('con_permit_sites').insert({
@@ -156,7 +156,7 @@ export async function createPermitProject(_state: ActionState, formData: FormDat
       state: str(formData.get('state')),
       brand: str(formData.get('brand')),
       jurisdiction_id: jid,
-    }).select('id, jurisdiction_id').single()
+    }).select('id, jurisdiction_id, state').single()
     if (ins.error) return { error: ins.error.message }
     site = ins.data
   }
@@ -176,7 +176,7 @@ export async function createPermitProject(_state: ActionState, formData: FormDat
   // permits are added manually on the rare occasions a jurisdiction wants them.
   await admin.from('con_permits').insert({
     company_id: profile.company_id, project_id: projectId, permit_key: `${siteNumber}-ELEC`,
-    permit_type: 'Electrical', pulled_by: defaultPulledBy('Electrical'), requirement_status: 'Required', status: 'Not Started',
+    permit_type: 'Electrical', pulled_by: defaultPulledBy('Electrical', site?.state), requirement_status: 'Required', status: 'Not Started',
   })
 
   // "If we have a permit, it's a project" — auto-link (or auto-create) the

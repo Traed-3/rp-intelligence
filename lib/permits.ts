@@ -50,14 +50,17 @@ export function isPermitComplete(status: string) {
 }
 
 export const PERMIT_TYPES = ['Electrical', 'Building', 'Mechanical', 'Plumbing', 'Fire', 'Zoning', 'Other'] as const
-export const PULLED_BY = ['Hash Construction', 'RPS', 'Engineering Firm'] as const
+export const PULLED_BY = ['Hash Construction', 'J&J Electric', 'RPS', 'Engineering Firm'] as const
 export const REQUIREMENT_STATUSES = ['Unknown', 'Required', 'Not Required'] as const
-export const PROJECT_TYPES = ['Dispenser Replacement', 'STP Circuit Repair', 'Tank Replacement', 'MUL Conversion'] as const
+export const PROJECT_TYPES = ['Dispenser Replacement', 'STP Circuit Repair', 'Tank Replacement', 'MUL Conversion', 'Product Line / UDC Replacement'] as const
 export const REQUEST_TYPES = ['Non-PE Stamped', 'PE Stamped'] as const
 
-// Who pulls a permit, by type. Electrical is Hash; everything else is RPS.
-export function defaultPulledBy(permitType: string): string {
-  return permitType === 'Electrical' ? 'Hash Construction' : 'RPS'
+// Who pulls a permit, by type (and state). Electrical is Hash in VA and
+// J&J Electric in MD/WV (Hash's license is VA only); everything else is RPS.
+export function defaultPulledBy(permitType: string, state?: string | null): string {
+  if (permitType !== 'Electrical') return 'RPS'
+  const st = (state ?? '').toUpperCase()
+  return st === 'MD' || st === 'WV' ? 'J&J Electric' : 'Hash Construction'
 }
 
 // The 28-day rule: permit due date is always the work date minus 28 days.
