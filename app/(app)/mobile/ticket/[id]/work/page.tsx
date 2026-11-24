@@ -49,7 +49,7 @@ export default async function MobileWorkPage({
   const asset = (ticket as any).assets
 
   return (
-    <div className="min-h-screen bg-gray-50 p-5">
+    <div className="min-h-screen p-5">
       <div className="max-w-sm mx-auto space-y-5">
         <div className="flex items-center justify-between">
           <Link href="/shop/my-tasks" className="text-sm text-blue-600">← My Tasks</Link>

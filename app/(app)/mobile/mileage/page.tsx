@@ -24,7 +24,7 @@ export default async function MobileMileagePage() {
   const today = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="rp-title"><TitleIcon icon={Gauge} tone="info" />Log Mileage</h1>

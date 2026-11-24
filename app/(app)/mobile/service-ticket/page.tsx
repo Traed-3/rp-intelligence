@@ -34,7 +34,7 @@ export default async function MobileServiceTicketsPage() {
   const otherWos = wos.filter(w => !myWos.includes(w))
 
   return (
-    <div className="min-h-screen bg-gray-50 p-5">
+    <div className="min-h-screen p-5">
       <div className="max-w-sm mx-auto space-y-5">
         <div className="flex items-center justify-between">
           <h1 className="rp-title"><TitleIcon icon={Wrench} tone="info" />Service Tickets</h1>

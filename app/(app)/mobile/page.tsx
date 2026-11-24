@@ -73,7 +73,7 @@ export default async function MobilePage() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen flex flex-col">
       {/* Header */}
       <div className="relative overflow-hidden text-white px-6 pt-10 pb-8 rounded-b-3xl shadow-lg"
         data-hero>
