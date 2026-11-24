@@ -9,7 +9,7 @@ import { buildRaw, cleanRecipients, pricingGuard, type OutFile } from './mime'
 import { parseAddrs, decodeWords, splitAddrList, dropBlocks } from './parse'
 import { takeAttachments, takePictures, dropAttachments, MAX_ATTACH } from './compose-ops'
 import { randomBytes } from 'crypto'
-import { draftCarry, draftId } from './drafts'
+import { draftCarry, draftId, getDraft } from './drafts'
 import { cleanRich, hasFormatting, replyQuoteHtml, forwardQuoteHtml, pictureTag, escAttr, keptWording } from './rich'
 
 // RPMail: reading, filing and sending for one mailbox. Every function starts from `mailboxFor(me, …)`, so a person
@@ -387,11 +387,13 @@ const tooLong = (): never => { throw new UserError('That message is too long to 
 /**
  * Send, or save to Gmail Drafts. Called only from the person's own Send / Save draft click.
  * mode 'new' | 'reply' | 'forward'. A forward carries the original's attachments along.
+ * `schedule: true` (from the person's own Schedule click, confirmed): every check a send gets, then the message waits as a
+ * draft in the mailbox and the draft's id comes back; lib/rpmail/schedule.ts sends it at the time picked.
  */
 export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; id?: unknown; to?: unknown; cc?: unknown; subject?: unknown; body?: unknown
   quote?: unknown; draft?: unknown; confirmed?: unknown; from?: unknown; files?: unknown; html?: unknown
   /** A Gmail draft opened again in RPMail: it is updated (or sent) in place, and `keep` lists which of its files stay. */
-  draft_id?: unknown; keep?: unknown }) {
+  draft_id?: unknown; keep?: unknown; schedule?: unknown }) {
   // `src` is the mailbox the original message is in; `box` is the mailbox this goes out from (the From picker).
   const src = await mailboxFor(who, p.mailbox)
   // A draft lives in one mailbox, so it goes out from that one.
@@ -399,8 +401,9 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
   const box = p.from && p.from !== src.id && !fromDraft ? await mailboxFor(who, p.from) : src
   if (!maySend(box)) throw new Forbidden(`You can read ${box.name} but not send from it. An owner can change that in Settings, RPMail.`)
   const mode = fromDraft ? 'new' : p.mode === 'reply' || p.mode === 'forward' ? p.mode : 'new'
-  const draft = p.draft === true
-  if (!draft && p.confirmed !== true) throw new UserError('Press Send, then confirm.')
+  const scheduling = p.schedule === true
+  const draft = p.draft === true && !scheduling
+  if (!draft && p.confirmed !== true) throw new UserError(scheduling ? 'Press Schedule, then confirm.' : 'Press Send, then confirm.')
   const { to, cc } = cleanRecipients(String(p.to ?? ''), String(p.cc ?? ''), !draft)
   // A message written with formatting arrives as HTML. It is rebuilt from scratch here (cleanRich), and the plain text is
   // made from that same rebuilt copy, never taken from the page. So the rules below read exactly what will go out.
@@ -466,11 +469,25 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
     ...(html !== null ? { html: `<div dir="ltr">${html}</div>`, pictures } : {}) })
   const message = { raw, ...(threadId ? { threadId } : {}) }
   const admin = createAdminClient()
+  // A reopened draft that is sent, saved again or scheduled again is no longer the one that was scheduled (Gmail does the same).
+  const unschedule = () => fromDraft ? admin.from('rpmail_scheduled').update({ status: 'cancelled', error: 'The draft was changed or sent before the time came.' })
+    .eq('mailbox_id', box.id).eq('draft_id', fromDraft).eq('status', 'waiting').then(() => null, () => null) : null
+  if (scheduling) {
+    const r = fromDraft
+      ? await gmail<{ id?: string; message?: { threadId?: string } }>(box.id, 'drafts/' + fromDraft, { method: 'PUT', body: { id: fromDraft, message } })
+      : await gmail<{ id?: string; message?: { threadId?: string } }>(box.id, 'drafts', { method: 'POST', body: { message } })
+    if (!r?.id) throw new UserError('It could not be put in Drafts to wait there, so nothing was scheduled. Try again.')
+    await unschedule()
+    await dropAttachments([...own.paths, ...pics.paths])   // the draft carries them now
+    return { ok: true, scheduled: true, draft_id: r.id, thread_id: r.message?.threadId ?? threadId ?? null, mailbox_id: box.id, from: box.address,
+      to: [...to, ...cc].join(', '), subject }
+  }
   if (draft) {
     const r = fromDraft
       ? await gmail<{ id?: string }>(box.id, 'drafts/' + fromDraft, { method: 'PUT', body: { id: fromDraft, message } })
       : await gmail<{ id?: string }>(box.id, 'drafts', { method: 'POST', body: { message } })
     await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'draft', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
+    await unschedule()
     await dropAttachments([...own.paths, ...pics.paths])
     await logActivity(who, 'draft', { box, detail: `To ${[...to, ...cc].join(', ').slice(0, 120) || '(nobody yet)'}: ${subject.slice(0, 120)}` })
     return { ok: true, draft: true, from: box.address }
@@ -481,10 +498,46 @@ export async function sendMail(who: Me, p: { mailbox?: unknown; mode?: unknown; 
     ? await gmail<{ id?: string; threadId?: string }>(box.id, 'drafts/send', { method: 'POST', body: { id: fromDraft } })
     : await gmail<{ id?: string; threadId?: string }>(box.id, 'messages/send', { method: 'POST', body: message })
   await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'send', to_addrs: [...to, ...cc].join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r?.id ?? null })
+  await unschedule()
   await dropAttachments([...own.paths, ...pics.paths])
   await logActivity(who, 'send', { box, detail: `To ${[...to, ...cc].join(', ').slice(0, 120)}: ${subject.slice(0, 120)}` })
   if (r?.id) await loadMessages(box, [r.id], await knownSites(box.company_id)).catch(() => null)
   return { ok: true, sent: true, to: [...to, ...cc].join(', '), from: box.address }
+}
+
+/**
+ * Send a scheduled message: the draft that has been waiting in the mailbox. Called only by lib/rpmail/schedule.ts, for a
+ * person who scheduled it themselves, when its time comes (or when they press Send now).
+ * Everything is checked again first, as if they pressed Send right now: they still have the mailbox and may send from it,
+ * the draft is still there and has someone to go to, and the pricing and blocked-content rules pass on what is in the
+ * draft now (it may have been changed in Gmail since). Gmail is asked once only, so a send is never repeated by itself.
+ */
+export async function sendScheduled(who: Me, s: { mailbox_id: string; draft_id: string }) {
+  const box = await mailboxFor(who, s.mailbox_id)
+  if (!maySend(box)) throw new Forbidden(`You can no longer send from ${box.name}. An owner can change that in Settings, RPMail.`)
+  const m = await getDraft(box, draftId(s.draft_id))
+  const h = headerMap(m.payload)
+  const addrs = (k: string) => parseAddrs(decodeWords(h[k] ?? '')).map(a => a.addr).filter(Boolean)
+  const to = [...addrs('to'), ...addrs('cc'), ...addrs('bcc')]
+  if (!to.length) throw new UserError('It has nobody to go to.')
+  const subject = decodeWords(h['subject'] ?? '')
+  const { plain, html, files } = walkParts(m.payload)
+  const text = [subject, bodyText(plain, html), ...files.map(f => f.name)].join('\n')
+  try {
+    const crewReads = await noPricingAddresses(box.company_id)
+    pricingGuard(box.address, to, text, crewReads)
+    contentGuard(await contentRules(box.company_id), box.address, to, text, crewReads)
+  } catch (e) {
+    if (e instanceof UserError) await logActivity(who, 'blocked_send', { box, detail: e.message.slice(0, 220) })
+    throw e
+  }
+  const r = await gmail<{ id?: string; threadId?: string }>(box.id, 'drafts/send', { method: 'POST', body: { id: s.draft_id }, tries: 1 })
+  if (!r) throw new UserError('It was no longer in Drafts (it may have been sent or deleted somewhere else), so nothing was sent.')
+  const admin = createAdminClient()
+  await admin.from('rpmail_sent').insert({ profile_id: who.id, mailbox_id: box.id, kind: 'send', to_addrs: to.join(', ').slice(0, 1000), subject: subject.slice(0, 300), gmail_id: r.id ?? null })
+  await logActivity(who, 'send', { box, detail: `Scheduled. To ${to.join(', ').slice(0, 110)}: ${subject.slice(0, 110)}` })
+  if (r.id) await loadMessages(box, [r.id], await knownSites(box.company_id)).catch(() => null)
+  return { id: r.id ?? null, to: to.join(', '), subject, box }
 }
 
 export { splitAddrList }

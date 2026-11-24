@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { Busy, NotConnected, UserError } from './gmail'
+import { Busy, NotConnected, Unconfirmed, UserError } from './gmail'
 
 // RPMail: Proton mailboxes. Proton mail is only reachable through Proton Bridge on the Mac Studio, which the website cannot
 // call. So a helper on that Mac (~/rpmail-relay) calls the website instead: it asks for work, answers each Gmail-style
@@ -79,7 +79,7 @@ export async function relayCall<T>(mailboxId: string, method: string, path: stri
       if (code === 400) throw new UserError(msg || 'Proton refused that.')
       throw new Error(`The Mac Studio said ${code}: ${msg.slice(0, 200)}`)
     }
-    if (sending) throw new Busy('The Mac Studio did not confirm the send in time. It may still go out: look in Sent before sending it again.')
+    if (sending) throw new Unconfirmed('The Mac Studio did not confirm the send in time. It may still go out: look in Sent before sending it again.')
     throw new Busy('The Mac Studio is taking too long to answer. Try again in a moment.')
   } finally {
     // The answer can hold message text: gone as soon as it has been read (parts first, then the job).

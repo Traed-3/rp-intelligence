@@ -7,14 +7,15 @@ import { isMailAdmin, Forbidden, type Me, type Mailbox } from './access'
 
 export const ACTIVITY: Record<string, string> = {
   sign_in: 'Signed a mailbox in with Google', sign_out: 'Signed a mailbox out',
-  send: 'Sent a message', draft: 'Saved a draft to Gmail', trash: 'Moved mail to Trash', spam: 'Marked mail as spam',
+  send: 'Sent a message', draft: 'Saved a draft to Gmail', schedule: 'Scheduled a message to send later', schedule_cancel: 'Cancelled a scheduled message',
+  schedule_failed: 'A scheduled message was not sent', trash: 'Moved mail to Trash', spam: 'Marked mail as spam',
   blocked_send: 'A send was blocked by a rule',
   block: 'Blocked a sender', unblock: 'Unblocked a sender', rule_save: 'Added or changed a mail rule', rule_delete: 'Deleted a mail rule', label_delete: 'Deleted a label',
   access: 'Changed what someone can do in a mailbox', rpmail_on: 'Turned RPMail on', rpmail_off: 'Turned RPMail off',
   mailbox_add: 'Added a shared mailbox', mailbox_remove: 'Removed a shared mailbox', content_rules: 'Changed the blocked-content rules',
 }
 const GROUPS: Record<string, string[]> = {
-  mail: ['send', 'draft', 'trash', 'spam', 'blocked_send'],
+  mail: ['send', 'draft', 'schedule', 'schedule_cancel', 'schedule_failed', 'trash', 'spam', 'blocked_send'],
   access: ['sign_in', 'sign_out', 'access', 'rpmail_on', 'rpmail_off', 'mailbox_add', 'mailbox_remove'],
   setup: ['block', 'unblock', 'rule_save', 'rule_delete', 'label_delete', 'content_rules'],
 }

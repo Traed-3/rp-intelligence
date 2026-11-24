@@ -46,6 +46,7 @@ const everyAction = (mailbox: string, id: string, draft = 'r' + id): [method: 'G
   ['POST', 'done', { mailbox, id }], ['POST', 'star', { mailbox, id }], ['POST', 'bulk', { mailbox, ids: [id], action: 'Trash' }], ['POST', 'signature', { mailbox, text: 'x' }],
   ['POST', 'send', { mailbox, mode: 'new', to: 'x@example.com', subject: 'hi', body: 'hi', confirmed: true }],
   ['POST', 'send', { mailbox, mode: 'forward', id, to: 'x@example.com', confirmed: true }],
+  ['GET', 'scheduled', { mailbox }], ['POST', 'schedule', { mailbox, mode: 'new', to: 'x@example.com', subject: 'later', body: 'later', confirmed: true, send_at: Date.now() + 3_600_000 }],
   ['GET', 'labels', { mailbox }], ['POST', 'label_save', { mailbox, name: 'Vendors' }], ['POST', 'label_apply', { mailbox, id, label: 'Label_1' }], ['POST', 'label_delete', { mailbox, label: 'Label_1' }],
   ['GET', 'blocks', { mailbox }], ['POST', 'block', { mailbox, addr: 'someone@example.com' }],
   ['GET', 'rules', { mailbox }], ['POST', 'rule_save', { mailbox, match: { from: 'someone@example.com' }, action: { archive: true } }], ['POST', 'rule_delete', { mailbox, id: '00000000-0000-4000-8000-000000000000' }],
@@ -133,7 +134,8 @@ describe('control: the same actions work for the person the mailbox belongs to',
       const r = await call(method, op, data)
       expect(r.status, `${op} on Ann's own mailbox`).toBe(200)
     }
-    expect(world.gmail.sent.length).toBe(2)
+    expect(world.gmail.sent.filter(s => !s.draft).length).toBe(2)          // the two sends; the scheduled one waits in Drafts
+    expect(world.db.t('rpmail_scheduled').map(r => r.status)).toEqual(['waiting'])
     expect((await call('POST', 'file', { mailbox: annBox, id: annMsg, dest: 'Trash' })).status).toBe(200)
     expect((await call('POST', 'disconnect', { mailbox: annBox })).status).toBe(200)
     expect(world.db.vault.has(annBox)).toBe(false)

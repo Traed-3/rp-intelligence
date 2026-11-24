@@ -32,6 +32,13 @@ const drafts = [
   { id: 'r1', date: now - 26 * H, to: 'bo@county.gov', subject: 'Inspection window for SU-4710', text: 'Bo, can we move the inspection to Thursday?', html: '<div>Bo, can we move the inspection to <b>Thursday</b>?</div>', files: [{ i: 0, name: 'site-plan.pdf', size: 210_000 }] },
   { id: 'r2', date: now - 3 * H, to: '', subject: '', text: 'Notes for Monday', html: '<div>Notes for Monday</div><ul><li>Order drop tubes</li></ul>', files: [] as { i: number; name: string; size: number }[] },
 ]
+// Scheduled messages: one waiting (it is draft r1), one that went out this morning, one that could not go.
+type Sch = { id: number; mailbox_id: string; draft_id: string; to: string; subject: string; send_at: number; status: string; sent_at: number | null; error: string | null }
+const scheduled: Sch[] = [
+  { id: 1, mailbox_id: '', draft_id: 'r1', to: 'bo@county.gov', subject: 'Inspection window for SU-4710', send_at: now + 15 * H, status: 'waiting', sent_at: null, error: null },
+  { id: 2, mailbox_id: '', draft_id: 'rX', to: 'pat@vendor.com', subject: 'Monday order', send_at: now - 5 * H, status: 'sent', sent_at: now - 5 * H, error: null },
+  { id: 3, mailbox_id: '', draft_id: 'r2', to: 'crew@rp.com', subject: 'Notes for Monday', send_at: now - 2 * H, status: 'failed', sent_at: null, error: 'It has nobody to go to.' },
+]
 const sentLog: unknown[] = []
 ;(window as unknown as { __sent: unknown[]; __uploads: Map<string, File> }).__sent = sentLog
 ;(window as unknown as { __uploads: Map<string, File> }).__uploads = uploads
@@ -73,8 +80,19 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (op === 'signature') { const k = keptWording(body.html, body.text, 4000); sig.text = k.text; sig.html = k.html; sentLog.push({ signature: body }); return json({ ok: true, ...k }) }
   if (op === 'prefs') { Object.assign(prefs, body); return json({ prefs }) }
   if (op === 'contacts') return json({ contacts: [] })
-  if (op === 'drafts') return json({ drafts: drafts.map(d => ({ id: d.id, thread_id: d.id, date: d.date, to: d.to, subject: d.subject, snippet: d.text.slice(0, 80) })) })
-  if (op === 'draft_open') { const d = drafts.find(x => x.id === q.get('draft')); return d ? json({ draft: d.id, to: d.to, cc: '', subject: d.subject, html: d.html, reply: false, attachments: d.files }) : json({ error: 'That draft is no longer in Gmail.' }, 400) }
+  const waitingFor = (id: string) => scheduled.find(x => x.draft_id === id && x.status === 'waiting')?.send_at ?? null
+  if (op === 'drafts') return json({ drafts: drafts.map(d => ({ id: d.id, thread_id: d.id, date: d.date, to: d.to, subject: d.subject, snippet: d.text.slice(0, 80), scheduled_at: waitingFor(d.id) })) })
+  if (op === 'draft_open') { const d = drafts.find(x => x.id === q.get('draft')); return d ? json({ draft: d.id, to: d.to, cc: '', subject: d.subject, html: d.html, reply: false, attachments: d.files, scheduled_at: waitingFor(d.id) }) : json({ error: 'That draft is no longer in Gmail.' }, 400) }
+  if (op === 'scheduled') return json({ scheduled: scheduled.map(x => ({ ...x, mailbox_id: q.get('mailbox') ?? BOX })) })
+  if (op === 'schedule') {
+    sentLog.push({ schedule: body })
+    const d = { id: 'r' + (drafts.length + 10), date: Date.now(), to: String(body.to), subject: String(body.subject), text: String(body.body), html: String(body.html ?? ''), files: [] as { i: number; name: string; size: number }[] }
+    drafts.push(d)
+    scheduled.push({ id: scheduled.length + 1, mailbox_id: BOX, draft_id: d.id, to: d.to, subject: d.subject, send_at: Number(body.send_at), status: 'waiting', sent_at: null, error: null })
+    return json({ ok: true, scheduled: true, id: scheduled.length, send_at: Number(body.send_at), from: ME, to: d.to })
+  }
+  if (op === 'schedule_cancel') { const x = scheduled.find(y => y.id === body.id); if (x) x.status = 'cancelled'; return json({ ok: true, cancelled: true }) }
+  if (op === 'schedule_now') { const x = scheduled.find(y => y.id === body.id); if (x) { x.status = 'sent'; x.sent_at = Date.now() } sentLog.push({ schedule_now: body }); return json({ ok: true, sent: true, to: x?.to ?? '', from: ME }) }
   if (op === 'attach_prepare') return json({ path: `${MY_ID}/${crypto.randomUUID()}/${String(body.name)}`, token: 'tok' })
   if (op === 'attach_remove') { uploads.delete(String(body.path)); return json({ ok: true }) }
   if (op === 'messages') {

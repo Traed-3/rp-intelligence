@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import Link from 'next/link'
 import {
   Mail, LayoutDashboard, PenSquare, RefreshCw, Paperclip, Check, Archive, Trash2, ShieldAlert, Reply, ReplyAll, Forward, Inbox,
-  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal, AlarmClock, BellRing, Wand2, Settings, CircleHelp,
+  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal, AlarmClock, BellRing, Wand2, Settings, CircleHelp, Clock, Send,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -15,7 +15,7 @@ import type { Rule } from '@/lib/rpmail/arrival'
 import { makeZip } from '@/lib/rpmail/zip'
 import { buildStack, startOpen, shownOf, isForward, htmlHasQuote, splitPlainQuote, shownText, ownPictures, wantsRemotePictures, frameHeight, messageDoc } from '@/lib/rpmail/thread-view'
 import { PushToggle } from '@/app/(app)/settings/alerts/push-toggle'
-import { Compose, clearDraft, type ComposeStart, type Outgoing } from './compose'
+import { Compose, clearDraft, whenText, type ComposeStart, type Outgoing } from './compose'
 import { useAsk } from './ask'
 import { ClipboardList, HardHat, Newspaper, type LucideIcon } from 'lucide-react'
 
@@ -37,7 +37,7 @@ type Full = Item & { cc_addrs: string; to_full: string; cc_full: string; text: s
   attachments: { i: number; name: string; type: string; size: number; inline: boolean }[]
   thread: ThreadItem[] }
 type Toast = { text: string; undo?: () => void } | null
-type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all' | 'snoozed' | 'drafts'; q: string; unread: boolean; att: boolean; starred?: boolean; label?: string; from?: string; after?: string; before?: string }
+type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all' | 'snoozed' | 'drafts' | 'scheduled'; q: string; unread: boolean; att: boolean; starred?: boolean; label?: string; from?: string; after?: string; before?: string }
 type LabelSet = { box: string; labels: Label[]; can_edit: boolean }
 type BulkAction = 'Archive' | 'Trash' | 'read' | 'unread' | 'done' | 'label'
 type View = { kind: 'dash' } | { kind: 'box'; id: string }
@@ -113,10 +113,12 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
     const v = viewRef.current, f = filterRef.current
     if (v.kind !== 'box') return Promise.resolve()
     // Drafts are read live from Gmail Drafts (they are not in the list RPMail keeps), and shown as list lines.
-    if (f.view === 'drafts') return api<{ drafts: { id: string; thread_id: string; date: number; to: string; subject: string; snippet: string }[] }>('drafts', undefined, { mailbox: v.id })
-      .then(r => setList({ key: keyOf(v, f), items: r.drafts.map(d => ({ mailbox_id: v.id, id: d.id, thread_id: d.thread_id, date: d.date, from_name: 'Draft', from_addr: '', to_addrs: d.to || '(nobody yet)',
-        subject: d.subject, snippet: d.snippet, unread: false, starred: false, has_att: false, in_inbox: false, sent: true, site: null, po: null, labels: [] })) }))
+    if (f.view === 'drafts') return api<{ drafts: { id: string; thread_id: string; date: number; to: string; subject: string; snippet: string; scheduled_at?: number | null }[] }>('drafts', undefined, { mailbox: v.id })
+      .then(r => setList({ key: keyOf(v, f), items: r.drafts.map(d => ({ mailbox_id: v.id, id: d.id, thread_id: d.thread_id, date: d.date, from_name: d.scheduled_at ? 'Scheduled' : 'Draft', from_addr: '', to_addrs: d.to || '(nobody yet)',
+        subject: d.subject, snippet: (d.scheduled_at ? `Goes out ${whenText(d.scheduled_at)}. ` : '') + d.snippet, unread: false, starred: false, has_att: false, in_inbox: false, sent: true, site: null, po: null, labels: [] })) }))
       .catch(e => setErr((e as Error).message))
+    // Scheduled messages have their own list (ScheduledList), which loads itself.
+    if (f.view === 'scheduled') { setList({ key: keyOf(v, f), items: [] }); return Promise.resolve() }
     return api<{ messages: Item[] }>('messages', undefined, { mailbox: v.id, view: f.view, q: f.q, unread: f.unread ? '1' : '', att: f.att ? '1' : '', starred: f.starred ? '1' : '',
       label: f.label ?? '', from: f.from ?? '', after: f.after ?? '', before: f.before ?? '' })
       .then(r => setList({ key: keyOf(v, f), items: r.messages }))
@@ -461,6 +463,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
               search={() => void act(async () => { say('Searching all of Gmail...'); const r = await api<{ messages: Item[] }>('search', { mailbox: cur.id, q: filter.q }); setList({ key: keyOf(view, filter), items: r.messages }); say(r.messages.length ? `${r.messages.length} found in Gmail.` : 'Nothing found in Gmail.') })}
               actions={{ fileTo, markRead, markDone, plateAdd, star: toggleStar, label: applyLabel, block: blockFrom, snooze, reply: (m, all, fwd) => setCompose({ mode: fwd ? 'forward' : 'reply', mailbox: m.mailbox_id, id: m.id, all }) }}
               editSig={() => setCompose({ mode: 'signature', mailbox: cur.id })}
+              openDraft={draft => setCompose({ mode: 'draft', mailbox: cur.id, draft })} say={say}
               disconnect={canSignOut(cur) ? () => signOut(cur) : undefined} />
           )}
         </div>
@@ -780,11 +783,67 @@ type Actions = {
   reply: (m: Full, all: boolean, fwd: boolean) => void
 }
 
-function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProps, reload, bulk, close, search, actions, editSig, disconnect, labels, canEdit, openOrganize, makeLabel, canSend }: {
+type Sched = { id: number; mailbox_id: string; draft_id: string; to: string; subject: string; send_at: number; status: 'waiting' | 'sending' | 'sent' | 'failed' | 'cancelled'; sent_at: number | null; error: string | null }
+
+/**
+ * The messages this person scheduled in one mailbox: what goes out when, and what went out, failed or was stopped in the
+ * last three days. Send now and Cancel ask first; Edit opens the waiting draft (sending, saving or scheduling it again
+ * there replaces the schedule).
+ */
+function ScheduledList({ box, openDraft, say, stamp }: { box: BoxInfo; openDraft: (draftId: string) => void; say: (text: string) => void; stamp?: unknown }) {
+  const [rows, setRows] = useState<Sched[] | null>(null)
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState<number | null>(null)
+  const [ask, asking] = useAsk()
+  const load = useCallback(() => api<{ scheduled: Sched[] }>('scheduled', undefined, { mailbox: box.id }).then(r => { setRows(r.scheduled); setErr('') }).catch(e => setErr((e as Error).message)), [box.id])
+  // Loads again every 30 seconds, and whenever the page reloads its lists (after something was scheduled, for one).
+  useEffect(() => { void load(); const t = setInterval(() => void load(), 30_000); return () => clearInterval(t) }, [load, stamp])
+  const run = async (s: Sched, what: 'now' | 'cancel') => {
+    const name = s.subject || '(no subject)'
+    const ok = await ask(what === 'now' ? { text: `Send "${name}" to ${s.to || 'nobody'} now?`, yes: 'Send now' } : { text: `Stop "${name}" from going out? It stays in Drafts, to finish or delete there.`, yes: s.status === 'failed' ? 'Take it off this list' : 'Stop it' })
+    if (!ok) return
+    setBusy(s.id); setErr('')
+    try {
+      if (what === 'now') { const r = await api<{ to: string }>('schedule_now', { id: s.id, confirmed: true }); say(`Sent to ${r.to}.`) }
+      else { await api('schedule_cancel', { id: s.id }); say(s.status === 'failed' ? 'Taken off the list. It is still in Drafts.' : 'Stopped. It is still in Drafts.') }
+    } catch (e) { setErr((e as Error).message) }
+    setBusy(null); void load()
+  }
+  const line = (s: Sched) => s.status === 'waiting' ? <>Goes out <b className="text-foreground">{whenText(s.send_at)}</b></>
+    : s.status === 'sending' ? 'Sending now...'
+    : s.status === 'sent' ? <span className="text-success">Sent {whenText(s.sent_at ?? s.send_at)}</span>
+    : s.status === 'cancelled' ? 'Stopped. It is in Drafts.'
+    : <span className="text-danger">Not sent: {s.error || 'something stopped it.'} It is still in Drafts.</span>
+  return (
+    <div>
+      {asking}
+      {err && <p className="m-3 rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{err}</p>}
+      {rows === null && !err && <Empty>Loading...</Empty>}
+      {rows && !rows.length && <Empty>Nothing is scheduled here. Write a message, press Schedule and pick a time. It waits in Drafts and goes out then.</Empty>}
+      {rows?.map(s => (
+        <div key={s.id} className="px-3 py-2.5 border-b border-hairline">
+          <p className="text-sm font-medium text-foreground truncate"><Clock className="inline size-3.5 text-muted-foreground mr-1" />{s.subject || '(no subject)'}</p>
+          <p className="text-xs text-muted-foreground truncate">To {s.to || '(nobody)'}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{line(s)}</p>
+          {(s.status === 'waiting' || s.status === 'failed') && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <button className={btn('outline', 'xs')} disabled={busy === s.id || !box.can_send} onClick={() => void run(s, 'now')}><Send />Send now</button>
+              <button className={btn('ghost', 'xs')} disabled={busy === s.id} onClick={() => openDraft(s.draft_id)}>Edit</button>
+              <button className={btn('ghost', 'xs')} disabled={busy === s.id} onClick={() => void run(s, 'cancel')}><X />{s.status === 'failed' ? 'Take off the list' : 'Stop it'}</button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProps, reload, bulk, close, search, actions, editSig, disconnect, labels, canEdit, openOrganize, makeLabel, canSend, openDraft, say }: {
   box: BoxInfo; filter: Filter; setFilter: (f: Filter) => void; list: Item[] | null; sel: { mailbox: string; id: string } | null; msg: Full | null; msgErr: string; peek: Item | null
   rowProps: RowProps; reload: () => void; bulk: (ids: string[], action: BulkAction, extra?: { label: string; move: boolean }) => void; close: () => void; search: () => void; actions: Actions; editSig: () => void; disconnect?: () => void
-  labels: Label[]; canEdit: boolean; openOrganize: (ruleFrom?: string) => void; makeLabel: (name: string) => Promise<Label | null>; canSend: boolean }) {
-  const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['drafts', 'Drafts'], ['filed', 'Filed'], ['snoozed', 'Snoozed'], ['all', 'All']]
+  labels: Label[]; canEdit: boolean; openOrganize: (ruleFrom?: string) => void; makeLabel: (name: string) => Promise<Label | null>; canSend: boolean
+  openDraft: (draftId: string) => void; say: (text: string) => void }) {
+  const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['drafts', 'Drafts'], ['scheduled', 'Scheduled'], ['filed', 'Filed'], ['snoozed', 'Snoozed'], ['all', 'All']]
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const chosen = (list ?? []).filter(m => picked.has(m.id)).map(m => m.id)   // only what is on screen right now
   const toggle = (id: string) => setPicked(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
@@ -851,6 +910,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProp
       )}
       <div className="lg:grid lg:grid-cols-[minmax(280px,38%)_1fr] lg:min-h-[60vh]">
         <div className={cn('lg:border-r border-hairline lg:max-h-[78vh] overflow-y-auto', sel && 'hidden lg:block')}>
+          {filter.view === 'scheduled' && <ScheduledList box={box} openDraft={openDraft} say={say} stamp={list} />}
           {list && list.length > 0 && filter.view !== 'needs' && filter.view !== 'drafts' && (
             <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 px-3 py-1.5 border-b border-hairline bg-card text-xs">
               <label className="inline-flex items-center gap-1.5 text-muted-foreground"><input type="checkbox" className="size-4" checked={chosen.length > 0 && chosen.length === Math.min(list.length, 40)} onChange={e => setPicked(e.target.checked ? new Set(list.slice(0, 40).map(m => m.id)) : new Set())} />{chosen.length ? `${chosen.length} selected` : 'Select'}</label>
@@ -873,7 +933,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProp
             </div>
           )}
           {list === null && <Empty>Loading...</Empty>}
-          {list && !list.length && <Empty>{box.loading ? 'Your mail is still loading. This fills in as it arrives.' : filter.view === 'drafts' ? 'No drafts. A message saved with Save to Gmail Drafts (here or in Gmail) shows here, to open and finish.' : filter.view === 'snoozed' ? 'Nothing is snoozed. Snooze a message to take it off your lists until a time you pick.' : 'Nothing here.'}</Empty>}
+          {list && !list.length && filter.view !== 'scheduled' && <Empty>{box.loading ? 'Your mail is still loading. This fills in as it arrives.' : filter.view === 'drafts' ? 'No drafts. A message saved with Save to Gmail Drafts (here or in Gmail) shows here, to open and finish.' : filter.view === 'snoozed' ? 'Nothing is snoozed. Snooze a message to take it off your lists until a time you pick.' : 'Nothing here.'}</Empty>}
           {list?.map(m => <Row key={m.id} m={m} selected={sel?.id === m.id} pick={filter.view !== 'needs' && filter.view !== 'drafts' ? { on: picked.has(m.id), toggle: () => toggle(m.id) } : undefined} labelNames={labelNames} drag={labels.length > 0 && filter.view !== 'drafts'} {...rowProps} />)}
         </div>
         <div className={cn('lg:max-h-[78vh] overflow-y-auto', !sel && 'hidden lg:block')}>

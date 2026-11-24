@@ -9,22 +9,25 @@ import { ensureSummary } from './overview'
 import { OUTBOX } from './compose-ops'
 import { cleanActivity } from './activity'
 import { cleanRelay } from './relay'
+import { sendDue } from './schedule'
 
 // RPMail: the work that happens with nobody looking at the page. Called every few minutes by the scheduler
 // (/api/rpmail/cron). It checks every connected mailbox for new mail, tells the owners when one has been failing
 // for over an hour, sends new-mail notifications to the people who asked for them, makes the morning summary, and
-// clears out attachments that were uploaded for a message nobody sent.
-// It never sends an email from anyone's mailbox.
+// clears out attachments that were uploaded for a message nobody sent. The only mail it sends is mail a person scheduled
+// themselves (lib/rpmail/schedule.ts; also run every minute on its own).
 
 const HOUR = 3_600_000
 
-export type BackgroundResult = { checked: number; failed: number; alerts: number; notified: number; woken: number; summaries: number; cleaned: number; ms: number }
+export type BackgroundResult = { checked: number; failed: number; alerts: number; notified: number; woken: number; summaries: number; cleaned: number; scheduled: number; ms: number }
 
 export async function runBackground(budgetMs = 45_000): Promise<BackgroundResult> {
   const admin = createAdminClient()
   const started = Date.now()
   const left = () => budgetMs - (Date.now() - started)
-  const out: BackgroundResult = { checked: 0, failed: 0, alerts: 0, notified: 0, woken: 0, summaries: 0, cleaned: 0, ms: 0 }
+  const out: BackgroundResult = { checked: 0, failed: 0, alerts: 0, notified: 0, woken: 0, summaries: 0, cleaned: 0, scheduled: 0, ms: 0 }
+  // Mail a person scheduled comes first: it has a time to keep (the every-minute run normally has it out already).
+  out.scheduled = (await sendDue(8_000).catch(() => ({ sent: 0 }))).sent
 
   // The mailbox that has waited longest goes first, so one big or broken mailbox cannot starve the rest.
   const { data } = await admin.from('rpmail_mailboxes').select(BOX_COLS).order('last_sync_at', { ascending: true, nullsFirst: true }).limit(400)
