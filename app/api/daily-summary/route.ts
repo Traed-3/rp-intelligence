@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { sendAlertEmail } from '@/lib/email'
+import { summaryMarkdownToHtml } from '@/lib/summary-email'
 import { syncGmailToTickets } from '@/lib/gmail-sync'
 import { checkProjectNotifications } from '@/lib/notifications'
 
@@ -223,7 +224,8 @@ export async function GET(request: NextRequest) {
       to:      RECIPIENT,
       subject: `Daily shop summary — ${context.period.end}`,
       title:   `Shop update: ${context.period.start} → ${context.period.end}`,
-      message: mdToInlineHtml(content),
+      messageHtml: summaryMarkdownToHtml(content),
+      text:    content,
       link:    '/maintenance',
     })
 
@@ -466,17 +468,4 @@ function whoIs(email: string): { initials: string; full_name: string } {
   const user = e.split('@')[0].replace(/\.rp$/, '')
   const initials = (user.slice(0, 2)).toUpperCase()
   return { initials, full_name: user }
-}
-
-// Minimal markdown → inline HTML for the email body (Resend accepts HTML)
-function mdToInlineHtml(md: string): string {
-  let html = md
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/^### (.+)$/gm, '<h4 style="margin:18px 0 6px;font-size:14px">$1</h4>')
-    .replace(/^## (.+)$/gm,  '<h3 style="margin:22px 0 8px;font-size:16px">$1</h3>')
-    .replace(/^# (.+)$/gm,   '<h2 style="margin:24px 0 10px;font-size:18px">$1</h2>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/^- (.+)$/gm, '<li style="margin:4px 0">$1</li>')
-  html = html.replace(/(<li[^>]*>[\s\S]*?<\/li>\s*)+/g, m => `<ul style="margin:6px 0 12px;padding-left:20px">${m}</ul>`)
-  return html.split(/\n\n+/).map(p => p.startsWith('<') ? p : `<p style="margin:8px 0;line-height:1.6">${p}</p>`).join('')
 }
