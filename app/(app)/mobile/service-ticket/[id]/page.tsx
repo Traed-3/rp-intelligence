@@ -16,7 +16,7 @@ export default async function MobileServiceTicketPage({ params }: { params: Prom
   if (!data) notFound()
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-16">
+    <div className="min-h-screen p-4 pb-16">
       <div className="max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <Link href="/mobile/service-ticket" className="text-sm text-blue-600">← Tickets</Link>

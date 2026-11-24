@@ -44,7 +44,7 @@ export default async function StatusPage() {
   const isClockedIn = empStatus?.clock_status === 'clocked_in'
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="rp-title">Set Status</h1>

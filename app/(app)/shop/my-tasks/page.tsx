@@ -58,7 +58,7 @@ export default async function MyTasksPage() {
   const tickets = allTickets ?? []
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="rp-title">My Tasks</h1>

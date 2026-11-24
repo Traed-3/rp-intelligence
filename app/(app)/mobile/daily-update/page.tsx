@@ -20,7 +20,7 @@ export default async function MobileDailyUpdatePage() {
 
   if (!profile || !canWriteConstruction(profile as any)) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen p-6">
         <div className="max-w-sm mx-auto">
           <div className="mb-6 flex items-center justify-between">
             <h1 className="rp-title"><TitleIcon icon={CalendarCheck} tone="info" />Daily Update</h1>
@@ -48,7 +48,7 @@ export default async function MobileDailyUpdatePage() {
   }))
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="rp-title"><TitleIcon icon={CalendarCheck} tone="info" />Daily Update</h1>
