@@ -79,11 +79,13 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
                   'group relative flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-sm transition-colors',
                   isActive
                     ? 'bg-sidebar-accent text-foreground'
-                    : 'text-gray-600 hover:bg-sidebar-accent/70 hover:text-foreground active:bg-sidebar-accent'
+                    : 'text-gray-600 hover:bg-sidebar-accent hover:text-foreground focus-visible:bg-sidebar-accent focus-visible:text-foreground active:bg-sidebar-accent'
                 )}
               >
                 {isActive && <span aria-hidden className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-brand" />}
-                <item.icon className={cn('size-[18px] shrink-0 transition-colors', item.gold ? 'text-gold' : isActive ? 'text-brand' : 'text-gray-400 group-hover:text-gray-600')} strokeWidth={isActive ? 2.2 : 1.9} />
+                {/* Pointing at an entry (or tabbing to it) lights the row and turns its icon gold, so you can see what you are about
+                    to open (Trae, 11/24/26). Forms is gold only while it is the open page; the others turn blue. */}
+                <item.icon className={cn('size-[18px] shrink-0 transition-colors', isActive ? (item.gold ? 'text-gold' : 'text-brand') : 'text-gray-400 group-hover:text-gold group-focus-visible:text-gold')} strokeWidth={isActive ? 2.2 : 1.9} />
                 <span className="truncate">{item.label}</span>
               </Link>
             )
@@ -96,9 +98,9 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
           <p className="truncate px-2.5 text-xs text-gray-500" title={email}>{email}</p>
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-sm font-medium text-gray-600 transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-sm font-medium text-gray-600 transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:bg-sidebar-accent"
           >
-            <LogOut className="size-[18px] shrink-0 text-gray-400" strokeWidth={1.9} />
+            <LogOut className="size-[18px] shrink-0 text-gray-400 transition-colors group-hover:text-gold group-focus-visible:text-gold" strokeWidth={1.9} />
             Sign out
           </button>
         </div>
@@ -111,7 +113,7 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
           return (
             <Link key={item.href} href={item.href} aria-current={isActive ? 'page' : undefined} className={tabClass(isActive)}>
               {tabMark(isActive)}
-              <item.icon className={cn('size-[22px]', item.gold && 'text-gold')} strokeWidth={isActive ? 2.2 : 1.8} />
+              <item.icon className={cn('size-[22px]', isActive && item.gold && 'text-gold')} strokeWidth={isActive ? 2.2 : 1.8} />
               <span className={tabLabel}>{item.label}</span>
             </Link>
           )
