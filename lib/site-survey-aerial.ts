@@ -111,7 +111,7 @@ export async function scanAerial(jpeg: Buffer, spanM: number, data: SurveyData |
     { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: jpeg.toString('base64') } },
     { type: 'text', text: `The picture is ${spanM} m (${Math.round(spanM * 3.281)} ft) across and tall. The survey lists ${inv.dispensers.length || 'an unknown number of'} dispensers${inv.dispensers.length ? ` (${inv.dispensers.join(', ')})` : ''} and ${inv.tanks.length || 'an unknown number of'} underground tanks${inv.tanks.length ? ` (${inv.tanks.join(', ')})` : ''}. Record the site.` },
   ]
-  const call = (model: string) => client.messages.create({ model, max_tokens: 3000, system: SCAN_SYSTEM, tools: [SCAN_TOOL], tool_choice: { type: 'tool', name: 'record_site' }, messages: [{ role: 'user', content }] })
+  const call = (model: string) => client.messages.create({ model, max_tokens: 3000, system: [{ type: 'text', text: SCAN_SYSTEM, cache_control: { type: 'ephemeral' } }], tools: [SCAN_TOOL], tool_choice: { type: 'tool', name: 'record_site' }, messages: [{ role: 'user', content }] })
   let res: Anthropic.Message
   try { res = await call(MODEL) }
   catch (e) { if (/not_found|model/i.test((e as Error).message) && MODEL !== FALLBACK_MODEL) res = await call(FALLBACK_MODEL); else throw e }

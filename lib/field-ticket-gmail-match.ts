@@ -221,7 +221,7 @@ async function ocrTicket(bytes: Buffer, mimeType: string, subject: string): Prom
     { type: 'text', text: `Ticket email subject: ${subject}\n\nTranscribe this ticket with record_field_ticket.` },
   ]
   const client = new Anthropic()
-  const call = (model: string) => client.messages.create({ model, max_tokens: 2000, system: TICKET_SYSTEM, tools: [TICKET_TOOL], tool_choice: { type: 'tool', name: 'record_field_ticket' }, messages: [{ role: 'user', content }] })
+  const call = (model: string) => client.messages.create({ model, max_tokens: 2000, system: [{ type: 'text', text: TICKET_SYSTEM, cache_control: { type: 'ephemeral' } }], tools: [TICKET_TOOL], tool_choice: { type: 'tool', name: 'record_field_ticket' }, messages: [{ role: 'user', content }] })
   let response: Anthropic.Message
   try {
     try { response = await call(EXTRACT_MODEL) }

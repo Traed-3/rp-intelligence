@@ -391,7 +391,7 @@ export async function extractDocument(docId: string): Promise<{ ok: boolean; lin
   content.push({ type: 'text', text: `Email subject: ${doc.subject ?? ''}\nFrom: ${doc.sender ?? ''} <${doc.sender_email ?? ''}>\nInbox: ${doc.inbox}\n\nRecord this paperwork with record_document.` })
 
   const client = new Anthropic()
-  const call = (model: string) => client.messages.create({ model, max_tokens: 8000, system: SYSTEM, tools: [RECORD_TOOL], tool_choice: { type: 'tool', name: 'record_document' }, messages: [{ role: 'user', content }] })
+  const call = (model: string) => client.messages.create({ model, max_tokens: 8000, system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }], tools: [RECORD_TOOL], tool_choice: { type: 'tool', name: 'record_document' }, messages: [{ role: 'user', content }] })
   let model = EXTRACT_MODEL
   let response: Anthropic.Message
   try {
