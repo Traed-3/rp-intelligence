@@ -2,6 +2,7 @@
 // Nothing here returns a price: what we charge lives in Quotes & Invoices (tools/billing.ts), behind its own check.
 
 import { CON_STAGES, stageMeta } from '@/lib/construction'
+import { permitBucket, PERMIT_BUCKETS, type PermitBucket } from '@/lib/permits'
 import { type AssistantCtx, type ToolDef, out, str, term, today, addDays, siteVariants } from '../types'
 
 const STAGE_VALUES = CON_STAGES.map(s => s.value)
@@ -123,8 +124,8 @@ export const constructionTools: ToolDef[] = [
   },
   {
     name: 'permit_status', area: 'construction',
-    description: 'Permits on the permit tracker: by site number, or every permit not yet complete. Shows type (electrical, building...), status, permit #, who pulls it, issue and inspection dates.',
-    input_schema: { type: 'object', properties: { site_number: { type: 'string', description: 'Leave out for all open permits.' } } },
+    description: 'Permits on the permit tracker, sorted into the same piles as the Permits page: "waiting" (not in hand yet), "inspection" (in hand, final inspection still owed), "complete". By site number, or every permit not yet complete. Shows type (electrical, building...), status, permit #, who pulls it, issue and inspection dates.',
+    input_schema: { type: 'object', properties: { site_number: { type: 'string', description: 'Leave out for all permits not yet complete.' }, pile: { type: 'string', enum: ['waiting', 'inspection', 'complete'], description: 'Only this pile.' } } },
     async run(input, ctx) {
       let siteIds: string[] | null = null
       const forms = siteVariants(input.site_number)
@@ -141,11 +142,14 @@ export const constructionTools: ToolDef[] = [
       let permits = ctx.admin.from('con_permits')
         .select('project_id, permit_type, status, pulled_by, permit_number, date_submitted_to_jurisdiction, date_issued, inspection_date, notes')
         .eq('company_id', ctx.companyId).in('project_id', [...byId.keys()])
-      if (!siteIds) permits = permits.not('status', 'in', '(Complete,Rejected)').neq('requirement_status', 'Not Required')
-      const { data } = await permits.limit(80)
-      return out((data ?? []).map((p: any) => {
+      const pile = PERMIT_BUCKETS.some(b => b.key === input.pile) ? (input.pile as PermitBucket) : null
+      if (!siteIds && pile !== 'complete') permits = permits.neq('status', 'Complete')
+      if (!siteIds) permits = permits.neq('requirement_status', 'Not Required')
+      const { data } = await permits.limit(150)
+      const rows = (data ?? []).filter((p: any) => !pile || permitBucket(p.status) === pile).slice(0, 80)
+      return out(rows.map((p: any) => {
         const pr: any = byId.get(p.project_id)
-        return { site: pr?.con_permit_sites?.site_number, place: [pr?.con_permit_sites?.city, pr?.con_permit_sites?.state].filter(Boolean).join(', '), project: pr?.project_type, work_date: pr?.scheduled_work_date, permit_due: pr?.permit_due_date, type: p.permit_type, status: p.status, pulled_by: p.pulled_by, number: p.permit_number, submitted: p.date_submitted_to_jurisdiction, issued: p.date_issued, inspection: p.inspection_date, notes: p.notes ? String(p.notes).slice(0, 160) : null }
+        return { pile: PERMIT_BUCKETS.find(b => b.key === permitBucket(p.status))?.label, site: pr?.con_permit_sites?.site_number, place: [pr?.con_permit_sites?.city, pr?.con_permit_sites?.state].filter(Boolean).join(', '), project: pr?.project_type, work_date: pr?.scheduled_work_date, permit_due: pr?.permit_due_date, type: p.permit_type, status: p.status, pulled_by: p.pulled_by, number: p.permit_number, submitted: p.date_submitted_to_jurisdiction, issued: p.date_issued, inspection: p.inspection_date, notes: p.notes ? String(p.notes).slice(0, 160) : null }
       }))
     },
   },
