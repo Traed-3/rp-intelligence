@@ -83,7 +83,8 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
                 )}
               >
                 {isActive && <span aria-hidden className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-brand" />}
-                <item.icon className={cn('size-[18px] shrink-0 transition-colors', item.gold ? 'text-gold' : isActive ? 'text-brand' : 'text-gray-400 group-hover:text-gray-600')} strokeWidth={isActive ? 2.2 : 1.9} />
+                {/* Forms shows its gold only while it is the open page; otherwise it is grey like every other entry. */}
+                <item.icon className={cn('size-[18px] shrink-0 transition-colors', isActive ? (item.gold ? 'text-gold' : 'text-brand') : 'text-gray-400 group-hover:text-gray-600')} strokeWidth={isActive ? 2.2 : 1.9} />
                 <span className="truncate">{item.label}</span>
               </Link>
             )
@@ -111,7 +112,7 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
           return (
             <Link key={item.href} href={item.href} aria-current={isActive ? 'page' : undefined} className={tabClass(isActive)}>
               {tabMark(isActive)}
-              <item.icon className={cn('size-[22px]', item.gold && 'text-gold')} strokeWidth={isActive ? 2.2 : 1.8} />
+              <item.icon className={cn('size-[22px]', isActive && item.gold && 'text-gold')} strokeWidth={isActive ? 2.2 : 1.8} />
               <span className={tabLabel}>{item.label}</span>
             </Link>
           )
