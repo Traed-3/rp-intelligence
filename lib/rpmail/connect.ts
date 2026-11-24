@@ -27,7 +27,8 @@ export async function setEnabled(who: Me, on: boolean) {
 async function signOutMailbox(mailboxId: string) {
   const admin = createAdminClient()
   const { data: token } = await admin.rpc('rpmail_token_get', { p_mailbox: mailboxId })
-  if (token) {
+  const { data: kind } = await admin.from('rpmail_mailboxes').select('provider').eq('id', mailboxId).maybeSingle()
+  if (token && kind?.provider !== 'proton') {
     // Tell Google the sign-in is finished with. If Google cannot be reached the local copy is still removed.
     await fetch('https://oauth2.googleapis.com/revoke', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: token as string }) }).catch(() => null)
   }
