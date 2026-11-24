@@ -91,7 +91,8 @@ class Account:
             return self.connect()
 
     def give(self, m):
-        if self.pool.qsize() < 3:
+        # Kept open for the next job: signing in to Bridge takes a second or two, a read on an open connection a few ms.
+        if self.pool.qsize() < 6:
             self.pool.put(m)
         else:
             try: m.logout()
@@ -469,6 +470,11 @@ def main():
                 except Exception as e: log('refresh failed for', a.user[:3] + '…', type(e).__name__, str(e)[:80])
             time.sleep(60)
 
+    # Open a few Bridge connections up front, so the first jobs do not each wait for a sign-in.
+    for a in accounts.values():
+        for _ in range(3):
+            try: a.pool.put(a.connect())
+            except Exception as e: log('could not open a Bridge connection for', a.user[:3] + '…', type(e).__name__); break
     threading.Thread(target=sender, daemon=True).start()
     threading.Thread(target=keeper, daemon=True).start()
     while True:

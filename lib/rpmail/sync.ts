@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isRelayBox } from './relay'
 import { gmail, pace, pooled, b64url, headerMap, isHidden, NotConnected, Busy, type GMessage, type GPart } from './gmail'
 import { parseAddrs, decodeWords, htmlToText, topOf, asksForSomething, deadlineHint, findSite, findPo, isBulk } from './parse'
 import type { Mailbox, SyncState } from './access'
@@ -180,11 +181,13 @@ export async function syncMailbox(box: Mailbox, budgetMs = 18_000): Promise<Sync
       let todo = sync.todo
       while (todo.length && Date.now() - started < budgetMs) {
         await save({ sync: { ...sync, todo, busy: new Date().toISOString() } })
-        const batch = todo.slice(0, CHUNK)
+        // A Proton mailbox answers through the Mac Studio (about a second a message), so it loads in smaller rounds that fit the time limit.
+        const size = await isRelayBox(box.id) ? 12 : CHUNK
+        const batch = todo.slice(0, size)
         const r = await loadMessages(box, batch, sites, true)
         changed += r.stored
         // A message Google said "slow down" about goes back to the front; one that failed for any other reason is skipped, not retried forever.
-        todo = [...r.retry, ...todo.slice(CHUNK)]
+        todo = [...r.retry, ...todo.slice(size)]
         if (r.busy) { slowed = true; break }
       }
       sync = todo.length ? { ...sync, todo } : { total: sync.total, started: sync.started, full_done: new Date().toISOString() }
