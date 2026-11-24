@@ -28,8 +28,8 @@ export function GmailSyncPanel() {
   return (
     <div className="rp-card p-5 mb-2">
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2.5 rounded-lg bg-red-50 border border-red-100">
-          <Mail className="w-5 h-5 text-red-600" />
+        <div className="p-2.5 rounded-lg rp-icon-navy">
+          <Mail className="w-5 h-5" />
         </div>
         <div>
           <p className="font-semibold text-gray-900">Gmail Sync</p>

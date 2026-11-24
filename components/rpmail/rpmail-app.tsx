@@ -542,7 +542,7 @@ function Setup({ st, localUrl, onOn }: { st: State; localUrl: string | null; onO
       <h1 className="rp-title mb-4">RPMail</h1>
       <div className="rp-card p-6 space-y-3">
         <div className="flex items-center gap-3">
-          <span className="rounded-lg p-2 bg-primary/10 text-primary"><Mail className="size-6" /></span>
+          <span className="rounded-lg p-2 rp-icon-navy"><Mail className="size-6" /></span>
           <h2 className="font-semibold text-foreground">Your email, inside RP Intelligence</h2>
         </div>
         <p className="text-sm text-muted-foreground">RPMail is optional. Turn it on if you want your work email here: a dashboard, what is waiting on a reply, a daily summary, and reply or file without leaving the page.</p>

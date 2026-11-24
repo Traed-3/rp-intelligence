@@ -34,7 +34,7 @@ export default async function PretripListPage() {
             <form key={kind} action={createInspection}>
               <input type="hidden" name="kind" value={kind} />
               <button className="rp-card rp-card-link w-full p-4 flex items-center gap-3 text-left">
-                <span className="rounded-lg p-2 bg-gold-soft text-gold"><Icon className="w-5 h-5" /></span>
+                <span className="rounded-lg p-2 rp-icon-navy"><Icon className="w-5 h-5" /></span>
                 <span>
                   <span className="block font-semibold text-gray-900">New {kindLabel(kind).toLowerCase()} inspection</span>
                   <span className="block text-xs text-gray-500">{pretripItems(kind).length} lines · {kind === 'vehicle' ? 'outside, engine compartment, lights, gauges, tag' : 'tires, frame, jack, coupler, lights, tag'}</span>

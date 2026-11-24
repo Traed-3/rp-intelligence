@@ -54,7 +54,7 @@ export default function ReportsPage() {
             href={r.href}
             className="rp-card rp-card-link p-5 flex items-start gap-4"
           >
-            <div className={`p-2.5 rounded-lg border shrink-0 ${r.color}`}>
+            <div className="p-2.5 rounded-lg shrink-0 rp-icon-navy">
               <r.icon className="w-5 h-5" />
             </div>
             <div>

@@ -29,7 +29,7 @@ export default async function RpmailPage({ searchParams }: { searchParams: Promi
         </div>
         <div className="rp-card p-6">
           <div className="flex items-center gap-3 mb-4">
-            <span className="rounded-lg p-2 bg-primary/10 text-primary"><Mail className="w-6 h-6" /></span>
+            <span className="rounded-lg p-2 rp-icon-navy"><Mail className="w-6 h-6" /></span>
             <div>
               <h2 className="font-semibold text-gray-900">Open your RPMail</h2>
               <p className="text-sm text-gray-500">It opens in its own tab. This page is only on your login.</p>

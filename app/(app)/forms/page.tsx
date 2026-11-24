@@ -33,7 +33,7 @@ export default async function FormsPage() {
           const inner = (
             <>
               <div className="flex items-center gap-3 mb-2">
-                <span className={`rounded-lg p-2 ${t.href ? 'bg-gold-soft text-gold' : 'bg-gray-100 text-gray-400'}`}><Icon className="w-5 h-5" /></span>
+                <span className={`rounded-lg p-2 ${t.href ? 'rp-icon-navy' : 'bg-gray-100 text-gray-400'}`}><Icon className="w-5 h-5" /></span>
                 <h2 className={`font-semibold ${t.href ? 'text-gray-900' : 'text-gray-500'}`}>{t.title}</h2>
               </div>
               <p className="text-sm text-gray-500">{t.body}</p>
