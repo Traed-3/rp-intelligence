@@ -18,6 +18,7 @@ const PARTS: Part[] = [
     <><b>Dashboard</b> shows a box for each of your mailboxes, plus <b>My Plate</b>, <b>Your jobs</b> and <b>Needs you</b>.</>,
     <><b>Needs you</b> is mail from the last 30 days that asks you something and nobody has answered yet.</>,
     <>Right-click a mailbox box (or press its three dots) to open it, check for new mail, hide it, or move it earlier or later.</>,
+    <>Too much from one mailbox in your lists? In <b>Settings</b>, untick it under <b>Mailboxes in my lists</b>. It stays there to open; it just stops counting toward your Needs you, Your jobs, My Plate mail and morning summary.</>,
   ] },
   { id: 'read', title: 'Read mail', steps: [
     <>Press a mailbox name on the left. The tabs across the top are <b>Inbox</b>, <b>Needs you</b>, <b>Sent</b>, <b>Drafts</b>, <b>Filed</b>, <b>Snoozed</b> and <b>All</b>.</>,
@@ -53,6 +54,7 @@ const PARTS: Part[] = [
     <>Press <b>Settings</b> at the top of RPMail.</>,
     <>Set the name people see on your mail, a signature for each mailbox (with formatting), which mailbox new mail starts from, and how long you have to undo a send.</>,
     <>Pick your time zone, the page RPMail opens on, compact lists, and address groups (a name for several people you email together).</>,
+    <>Under <b>Mailboxes in my lists</b>, choose which mailboxes count toward your Needs you, Your jobs, the mail on your My Plate cards, and your morning summary.</>,
   ] },
   { id: 'phone', title: 'Notifications and your phone', steps: [
     <>Press <b>Notifications</b> at the top of RPMail to get a notice when new mail arrives. Pick which mailboxes, what kind of mail, and quiet hours.</>,

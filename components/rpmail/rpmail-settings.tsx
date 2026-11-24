@@ -67,6 +67,8 @@ export function RpmailSettings() {
           setDefault={() => void save({ default_from: b.id }, `New messages start from ${b.name}.`)} say={setNote} fail={setErr} />)}
       </Card>
 
+      <ListBoxes boxes={st.boxes} off={p.lists_off ?? []} save={(next, msg) => save({ lists_off: next }, msg)} />
+
       <Card title="Sending">
         <label className="flex flex-wrap items-center gap-2">Time to change your mind after pressing Send
           <select className="rp-input !w-auto" value={p.undo_secs ?? 10} onChange={e => void save({ undo_secs: Number(e.target.value) })}>
@@ -174,6 +176,36 @@ function Groups({ start, save }: { start: Group[]; save: (g: { name: string; add
         {dirty && <button className={btn('default')} onClick={() => void save(rows)}>Save groups</button>}
         {dirty && <span className="text-xs text-muted-foreground">Not saved yet. A group needs a name and at least one address that looks right; anything else is left out.</span>}
       </div>
+    </Card>
+  )
+}
+
+/** Which mailboxes count toward this person's own lists. Unticking one only changes their lists: they can still open
+ *  and read it, nobody else is affected, and notifications have their own per-mailbox switch. */
+function ListBoxes({ boxes, off, save }: { boxes: State['boxes']; off: string[]; save: (next: string[], msg: string) => Promise<void> }) {
+  const [busy, setBusy] = useState(false)
+  if (boxes.length < 2) return null
+  const toggle = async (id: string, name: string, on: boolean) => {
+    setBusy(true)
+    const next = on ? off.filter(x => x !== id) : [...new Set([...off, id])]
+    await save(next, on ? `${name} counts toward your lists again.` : `${name} is left out of your lists. You can still open it.`)
+    setBusy(false)
+  }
+  return (
+    <Card title="Mailboxes in my lists" hint="Pick which mailboxes count toward your Needs you and For you lists, the mail shown on your My Plate cards, and your morning summary. A mailbox you untick is still there to open and read; only your own lists change.">
+      <div className="space-y-2">
+        {boxes.map(b => {
+          const on = !off.includes(b.id)
+          return (
+            <label key={b.id} className="flex items-start gap-2.5">
+              <input type="checkbox" className="mt-0.5 size-4" checked={on} disabled={busy} onChange={e => void toggle(b.id, b.name, e.target.checked)} />
+              <span><span className="font-medium text-foreground">{b.name}</span> <span className="text-muted-foreground">{b.address}</span>
+                {b.kind === 'shared' && <span className="block text-xs text-muted-foreground">Shared mailbox</span>}</span>
+            </label>
+          )
+        })}
+      </div>
+      {off.length > 0 && <p className="text-xs text-muted-foreground">Left out: {boxes.filter(b => off.includes(b.id)).map(b => b.name).join(', ') || 'none'}. New-mail notifications are set separately under Notifications.</p>}
     </Card>
   )
 }

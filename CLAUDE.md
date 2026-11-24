@@ -703,7 +703,10 @@ is never changed from here). PER USER, NEVER PER ROLE.
   it must never throw). lib/rpmail/company.ts holds the company's own blocked-content rules (`rpmail_company.data.blocked`), checked by
   `contentGuard` right after the built-in pricing guard, which stays hard-coded and cannot be switched off.
   A person's own settings are lib/rpmail/prefs.ts (`rpmail_prefs.data`, validated on read AND write; extras.ts re-exports getPrefs/setPrefs):
-  sender name, default send mailbox, start page, density, time zone (`ZONES`), address groups. Times on the server go through `dayStartIn` /
+  sender name, default send mailbox, start page, density, time zone (`ZONES`), address groups, and `lists_off` (Trae, 11/24/26:
+  "Mailboxes in my lists" on /rpmail/settings): mailboxes the person left out of THEIR OWN lists. `listMailboxes()` in prefs.ts
+  applies it in overview.ts to Needs you, For you / Your jobs, the mail on My Plate cards and the morning summary (also
+  `ensureSummary`). The mailbox tiles, the mailbox's own Needs you view and access are unchanged; notifications keep `notify.off`. Times on the server go through `dayStartIn` /
   `inQuietHours` / `hourIn` with the person's `tz`. The page is /rpmail/settings (components/rpmail/rpmail-settings.tsx).
   Formatting (2026-11-23): the message box is components/rpmail/rich-editor.tsx (a contenteditable div driven by the browser's own editing
   commands; React is given NOTHING to draw inside it, the starting HTML is put in by hand once, or a re-draw wipes what is being typed).

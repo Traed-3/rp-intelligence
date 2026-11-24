@@ -4,6 +4,7 @@ import { myMailboxes, mailboxFor, personalAddress, ensurePersonalMailbox, isMail
 import { LIST_COLS, toItem, getSignature, type Item } from './mail-ops'
 import { subjectKey, AUTO_RE } from './parse'
 import { getPrefs } from './extras'
+import { listMailboxes } from './prefs'
 
 // RPMail: what the Dashboard shows. Everything is worked out from the index rows of the mailboxes this one person
 // may open, plus their own My Plate rows. Nobody else's mailbox or plate is ever read here.
@@ -228,7 +229,7 @@ async function buildSummary(who: Me, boxes: Mailbox[], day: string): Promise<Sum
     const real = mineRows.filter(r => !r.bulk)
     out.boxes.push({ id: b.id, name: b.name, received: mineRows.length, items: real.slice(0, 12).map(r => sumItem(r)), more: Math.max(0, real.length - 12) })
   }
-  const { data: need } = await admin.rpc('rpmail_needs', { p_profile: who.id, p_mailbox: null, p_limit: 60 })
+  const { data: need } = await admin.rpc('rpmail_needs', { p_profile: who.id, p_mailbox: null, p_limit: 120 })
   const cutoff = Date.now() - 2 * DAY
   for (const r of onlyAllowed((need ?? []) as Row[], boxes)) (Date.parse(r.date) >= cutoff ? out.needs : out.stale).push(sumItem(r))
   out.permits = rows.filter(r => !r.bulk && /\bpermit/i.test(r.subject ?? '')).slice(0, 30).map(r => sumItem(r))
@@ -274,26 +275,26 @@ export async function ensureSummary(who: Me, boxes: Mailbox[]): Promise<boolean>
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
   const { data: had } = await admin.from('rpmail_summaries').select('day').eq('profile_id', who.id).eq('day', today).maybeSingle()
   if (had) return false
-  await dailySummary(who, boxes, await doneSet(who))
+  await dailySummary(who, listMailboxes(boxes, await getPrefs(who)), await doneSet(who))
   const { data: now } = await admin.from('rpmail_summaries').select('day').eq('profile_id', who.id).eq('day', today).maybeSingle()
   return !!now
 }
 
 export async function overview(who: Me) {
-  const boxes = await myMailboxes(who)
+  const [boxes, prefs, done] = await Promise.all([myMailboxes(who), getPrefs(who), doneSet(who)])
+  // The mailbox tiles show every mailbox; the person's own lists only use the mailboxes they left ticked in Settings.
+  const counted = listMailboxes(boxes, prefs)
   const admin = createAdminClient()
-  const done = await doneSet(who)
-  const [infos, needsRes, foryou, plate, movesRes, summary, prefs] = await Promise.all([
+  const [infos, needsRes, foryou, plate, movesRes, summary] = await Promise.all([
     boxInfos(who, boxes),
-    admin.rpc('rpmail_needs', { p_profile: who.id, p_mailbox: null, p_limit: 80 }),
-    forYou(who, boxes, done),
-    plateList(who, boxes),
+    admin.rpc('rpmail_needs', { p_profile: who.id, p_mailbox: null, p_limit: 120 }),
+    forYou(who, counted, done),
+    plateList(who, counted),
     admin.from('rpmail_moves').select('id, mailbox_id, subject, from_place, to_place, undone, created_at').eq('profile_id', who.id).order('id', { ascending: false }).limit(12),
-    dailySummary(who, boxes, done),
-    getPrefs(who),
+    dailySummary(who, counted, done),
   ])
   return {
-    boxes: infos, prefs, needs: onlyAllowed((needsRes.data ?? []) as Row[], boxes).map(toItem), foryou, plate, summary,
+    boxes: infos, prefs, needs: onlyAllowed((needsRes.data ?? []) as Row[], counted).slice(0, 80).map(toItem), foryou, plate, summary,
     moves: (movesRes.data ?? []).map(m => ({ ...m, created_at: Date.parse(m.created_at as string) })), now: Date.now(),
   }
 }

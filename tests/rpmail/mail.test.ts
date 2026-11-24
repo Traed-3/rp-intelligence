@@ -277,6 +277,25 @@ describe('settings a person makes for themselves', () => {
     expect((await getPrefs(me)).groups).toEqual([{ name: 'Estimating team', addrs: ['pat@vendor.com', 'sam@x.io'] }])
   })
 
+  it('leaves the mailboxes a person unticked out of their own lists, and only their lists', async () => {
+    const office = world.gmail.add('office@gmail.com', { from: 'Sam Store <sam@store.com>', subject: 'Can someone call me about 34006?', body: 'Please call back.' }).id
+    await syncMailbox(await mailboxFor(me, other))
+    expect((await overview(me)).needs.map(n => n.id)).toContain(office)
+
+    await setPrefs(me, { lists_off: [other, 'not-an-id'] })
+    expect((await getPrefs(me)).lists_off).toEqual([other])                     // only real ids are kept
+    const o = await overview(me)
+    expect(o.needs.map(n => n.id)).not.toContain(office)                       // gone from Needs you
+    expect(o.needs.map(n => n.id)).toContain(m1)                               // the other mailboxes still count
+    expect(o.boxes.map(b => b.id)).toContain(other)                            // the mailbox itself is still there
+    expect((await listMessages(me, { mailbox: other, view: 'needs' })).messages.map(m => m.id)).toContain(office)   // and its own Needs you view
+
+    await setPrefs(me, { undo_secs: 5 })                                       // saving something else keeps the choice
+    expect((await getPrefs(me)).lists_off).toEqual([other])
+    await setPrefs(me, { lists_off: [] })
+    expect((await overview(me)).needs.map(n => n.id)).toContain(office)
+  })
+
   it('counts the days of a date filter by the person\'s own clock', async () => {
     const late = world.gmail.add('ann@gmail.com', { from: 'pat@vendor.com', subject: 'Late night', date: Date.parse('2026-11-12T06:00:00Z') }).id   // 1 AM Eastern on the 12th, 10 PM Pacific on the 11th
     await syncMailbox(await mailboxFor(me, box))

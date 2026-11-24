@@ -46,7 +46,12 @@ const templates: { id: string; name: string; body: string; html: string | null }
   { id: 't2', name: 'Plain thanks', body: 'Thanks, got it.', html: null },
 ]
 const box = () => ({ id: BOX, name: 'Ann', address: ME, kind: 'personal', crew_reads: false, connected: true, inbox: msgs.filter(m => m.inbox).length, unread: msgs.filter(m => m.unread).length, newest: now, needs: 0, last_sync_at: new Date().toISOString(), last_error: null, loading: null, signature: sig.text, signature_html: sig.html, can_send: true, can_delete: true })
-const state = () => ({ enabled: true, name: 'Ann Owner', role: 'owner', googleReady: true, personalAddress: ME, loginEmail: ME, boxes: [box()], note: null, prefs: { hidden: [], order: [], undo_secs: 0 } })
+// A made-up shared mailbox, so the "Mailboxes in my lists" choice on Settings has something to choose between.
+const OFFICE = '22222222-2222-4222-8222-222222222222'
+const office = () => ({ ...box(), id: OFFICE, name: 'Office', address: 'office@example.com', kind: 'shared', inbox: 4, unread: 1, signature: '', signature_html: null, can_delete: false })
+// Add ?off=1 to the address to start with the Office mailbox left out of the lists (to see the dashboard's note).
+const prefs: Record<string, unknown> = { hidden: [], order: [], undo_secs: 0, lists_off: location.search.includes('off=1') ? [OFFICE] : [] }
+const state = () => ({ enabled: true, name: 'Ann Owner', role: 'owner', googleReady: true, personalAddress: ME, loginEmail: ME, boxes: [box(), office()], note: null, prefs })
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
 
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -59,14 +64,14 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     // A plate item and a job line, so the dashboard's Done buttons can be seen.
     const plate = [{ id: 'p1', title: '41333 testing-failure repair: schedule + report', detail: 'Waiting on the report from Dave', kind: 'task', site_number: '41333', priority: 2, due_date: null, status: 'open', waiting_on: null, mail: null, mail_n: 0 }]
     const job = item(msgs.find(m => m.id === 'a3')!)
-    return json({ prefs: state().prefs, boxes: [box()], needs: [job], foryou: [{ ...job, why: 'Site 34006' }], plate: { items: plate, error: null }, summary: null, moves: [], now: Date.now() })
+    return json({ prefs, boxes: [box(), office()], needs: [job], foryou: [{ ...job, why: 'Site 34006' }], plate: { items: plate, error: null }, summary: null, moves: [], now: Date.now() })
   }
   if (op === 'sync') return json({ done: true })
   if (op === 'labels') return json({ labels: [], can_edit: true })
   if (op === 'templates') return json({ templates })
   if (op === 'template_save') { const k = keptWording(body.html, body.body, 20_000); templates.push({ id: 't' + (templates.length + 1), name: String(body.name), body: k.text, html: k.html }); sentLog.push({ template: body }); return json({ ok: true }) }
   if (op === 'signature') { const k = keptWording(body.html, body.text, 4000); sig.text = k.text; sig.html = k.html; sentLog.push({ signature: body }); return json({ ok: true, ...k }) }
-  if (op === 'prefs') return json({ prefs: { ...state().prefs, ...body } })
+  if (op === 'prefs') { Object.assign(prefs, body); return json({ prefs }) }
   if (op === 'contacts') return json({ contacts: [] })
   if (op === 'drafts') return json({ drafts: drafts.map(d => ({ id: d.id, thread_id: d.id, date: d.date, to: d.to, subject: d.subject, snippet: d.text.slice(0, 80) })) })
   if (op === 'draft_open') { const d = drafts.find(x => x.id === q.get('draft')); return d ? json({ draft: d.id, to: d.to, cc: '', subject: d.subject, html: d.html, reply: false, attachments: d.files }) : json({ error: 'That draft is no longer in Gmail.' }, 400) }
