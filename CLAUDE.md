@@ -835,6 +835,10 @@ the shop. Trae, 11/24/26: "I want it to encompass the entire app."
   too low" — the ticket reader (479 tickets failed 11/16–11/24), receipt photo reading and Ask RPS. Ask RPS now says so in
   plain words. After credit is added, re-queue the failed tickets:
   `update svc_work_order_documents set extract_status='pending' where extract_status='failed' and extract_error ilike '%credit balance%'`.
+  Done 11/24/26: credit added, 1,628 tickets and 676 receipts re-read (temporary pg_cron catch-up jobs, since removed), and the
+  expenses imported during the outage got their vendor / receipt date / total note filled in from the reads. The receipt reader
+  (lib/billing-inbox-sync.ts `preparePhoto`) now shrinks and re-saves photos as JPEG like the ticket reader, so a phone photo
+  over 10 MB or a JPEG named .png no longer fails.
 - Still to do (plan agreed 11/24/26): (2) more changes with the same preview/confirm rule — add a My Plate to-do (own, or
   for someone when canAssignPlate), add a note to a job, post a daily update; never the master schedule or service-call
   status. (3) Answers that type out as they come (streaming), voice input on the phone. (4) Hours / payroll questions for
