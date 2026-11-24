@@ -730,6 +730,14 @@ is never changed from here). PER USER, NEVER PER ROLE.
 - Looking at the screens with no mailbox: `node scripts/rpmail-tryout/build.mjs` builds the real page on made-up mail (answers in
   scripts/rpmail-tryout/entry.tsx); serve the output folder with any static server. Add made-up answers there when a new op needs showing.
 - Staff guide: Technical Help > Using RPMail, app/(app)/help/rpmail/page.tsx (`PARTS`). It quotes button names: update it when one changes.
+- PROTON (2026-11-24, Trae asked): Proton mailboxes (`rpmail_mailboxes.provider = 'proton'`) are answered by a helper on the Mac Studio,
+  `scripts/rpmail-relay/relay.py`, installed to `~/rpmail-relay` as LaunchAgent `com.trae.rpmail-relay` by `scripts/rpmail-relay/install.sh`.
+  It speaks Gmail-API shapes over Proton Bridge IMAP, so `gmail()` just hands a Proton mailbox's calls to `relayCall` (lib/rpmail/relay.ts):
+  the call is written to `rpmail_relay_jobs`, the helper long-polls POST /api/rpmail/relay (shared secret RPMAIL_RELAY_SECRET in Vercel and
+  the Mac Keychain item rpmail-relay/secret), answers in parts of up to 3 MB (`rpmail_relay_parts`), and the website deletes the job as soon
+  as it reads it. Ids: All Mail UIDVALIDITY + UID (16 hex). "Inbox" = INBOX + the box's `inbox_folders` from ~/rps-inbox/config.json
+  (Work Proton: Folders/RPS). Proton folders and labels show as Gmail labels. Writes (mark read, archive, trash, send, drafts) answer 501
+  until built. The helper only works while the Mac Studio is on and Proton Bridge is running.
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.

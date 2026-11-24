@@ -8,6 +8,7 @@ import { getPrefs, inQuietHours, hourIn, type NotifyPrefs } from './prefs'
 import { ensureSummary } from './overview'
 import { OUTBOX } from './compose-ops'
 import { cleanActivity } from './activity'
+import { cleanRelay } from './relay'
 
 // RPMail: the work that happens with nobody looking at the page. Called every few minutes by the scheduler
 // (/api/rpmail/cron). It checks every connected mailbox for new mail, tells the owners when one has been failing
@@ -54,6 +55,7 @@ export async function runBackground(budgetMs = 45_000): Promise<BackgroundResult
   if (left() > 8_000) out.summaries = await morningSummaries(left() - 4_000).catch(() => 0)
   if (left() > 3_000) out.cleaned = await cleanOutbox().catch(() => 0)
   await cleanActivity().catch(() => null)
+  await cleanRelay().catch(() => null)
   out.ms = Date.now() - started
   return out
 }

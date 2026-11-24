@@ -11,11 +11,12 @@ type Filter = (r: Row) => boolean
 const like = (v: unknown, pat: string) => new RegExp('^' + pat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.') + '$', 'i').test(String(v ?? ''))
 const cmp = (a: unknown, b: unknown) => (a == null && b == null ? 0 : a == null ? -1 : b == null ? 1 : a < b ? -1 : a > b ? 1 : 0)
 
-const SERIAL = new Set(['rpmail_moves', 'rpmail_sent', 'rpmail_snoozes', 'rpmail_activity'])
+const SERIAL = new Set(['rpmail_moves', 'rpmail_sent', 'rpmail_snoozes', 'rpmail_activity', 'rpmail_relay_jobs'])
 const UUID_PK = new Set(['rpmail_mailboxes', 'rpmail_templates', 'con_tasks', 'rpmail_rules'])
 const DEFAULTS: Record<string, Row> = {
   rpmail_mailboxes: { crew_reads: false, token_secret_id: null, scope: null, connected_at: null, history_id: null, sync: {}, last_sync_at: null, last_error: null, owner_id: null, failing_since: null, fail_alerted_at: null, notify_mark: null },
   rpmail_moves: { undone: false },
+  rpmail_relay_jobs: { status: 'new', params: {}, body: null, code: null, parts: null },
   rpmail_messages: { unread: false, in_inbox: false, sent: false, starred: false, has_att: false, bulk: false, asks: false, labels: [], quiet: false },
   rpmail_rules: { enabled: true, position: 0, match: {}, action: {} },
   rpmail_snoozes: { woke_at: null },

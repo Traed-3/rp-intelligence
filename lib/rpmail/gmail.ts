@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isRelayBox, relayCall } from './relay'
 
 // RPMail: Gmail API calls for one connected mailbox. Server only.
 // The Google sign-in (refresh token) lives in Supabase Vault and is read through rpmail_token_get, which only the
@@ -85,6 +86,8 @@ type Opts = { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; params?: Rec
 
 /** One Gmail call. Returns null for "not found". Waits and retries when Google says slow down. */
 export async function gmail<T = Record<string, unknown>>(mailboxId: string, path: string, opts: Opts = {}): Promise<T | null> {
+  // A Proton mailbox: the same question goes to the helper on the Mac Studio instead of to Google (lib/rpmail/relay.ts).
+  if (!opts.token && await isRelayBox(mailboxId)) return relayCall<T>(mailboxId, opts.method ?? 'GET', path, opts.params ?? {}, opts.body)
   const url = new URL(GMAIL_BASE + path)
   for (const [k, v] of Object.entries(opts.params ?? {})) for (const x of Array.isArray(v) ? v : [v]) url.searchParams.append(k, x)
   const tries = opts.tries ?? 6
