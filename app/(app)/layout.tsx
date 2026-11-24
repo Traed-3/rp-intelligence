@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import AppNav from '@/components/app-nav'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { AskRps } from '@/components/assistant/ask-rps'
+import { assistantSuggestions } from '@/lib/assistant/suggestions'
 import { hasComplianceGrant } from '@/lib/compliance-guard'
 import { isSurveyOnly, DEFAULT_NEW_USER_ROLE } from '@/lib/field-surveys'
 import { hasRpmail } from '@/lib/rpmail/has'
@@ -63,7 +64,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </main>
 
       {/* In-app AI assistant */}
-      {!surveyOnly && <AskRps />}
+      {!surveyOnly && <AskRps userId={user.id} suggestions={assistantSuggestions({ userId: user.id, role: profile?.role ?? DEFAULT_NEW_USER_ROLE, blockedModules, complianceGranted })} />}
     </div>
   )
 }
