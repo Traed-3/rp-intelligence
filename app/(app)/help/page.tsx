@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { FileText, PlayCircle, Smartphone, Mail } from 'lucide-react'
+import { FileText, PlayCircle, Smartphone, Mail, LifeBuoy } from 'lucide-react'
 import { HELP_GUIDES, HOME_SCREEN_GUIDE, RPMAIL_GUIDE } from '@/lib/help'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 // Technical Help: how-to guides and videos. Open to everyone who signs in (lib/role-access.ts lists /help for the
 // locked roles). New guides are added in lib/help.ts.
@@ -8,7 +9,7 @@ export default function HelpPage() {
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <div className="mb-5">
-        <h1 className="rp-title">Technical Help</h1>
+        <h1 className="rp-title"><TitleIcon icon={LifeBuoy} tone="info" />Technical Help</h1>
         <p className="text-sm text-gray-500 mt-0.5">How-to guides and short videos. Tap one to watch it or open the printable guide.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

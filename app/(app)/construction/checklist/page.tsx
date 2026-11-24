@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { ChecklistCheck } from '@/components/construction/checklist-check'
+import { ListChecks } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 type Item = {
   id: string; category: string | null; site: string | null; description: string | null
@@ -34,7 +36,7 @@ export default async function ChecklistPage({ searchParams }: { searchParams: Pr
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h1 className="rp-title">
+          <h1 className="rp-title"><TitleIcon icon={ListChecks} tone="success" />
             Checklist
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{doneCount} of {all.length} done</p>

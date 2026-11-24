@@ -17,6 +17,7 @@ import { buildStack, startOpen, shownOf, isForward, htmlHasQuote, splitPlainQuot
 import { PushToggle } from '@/app/(app)/settings/alerts/push-toggle'
 import { Compose, clearDraft, type ComposeStart, type Outgoing } from './compose'
 import { useAsk } from './ask'
+import { ClipboardList, HardHat, Newspaper, type LucideIcon } from 'lucide-react'
 
 // The built-in RPMail page: Dashboard (a tile per mailbox, My Plate, Your jobs, Needs you, Daily summary) and one
 // inbox per mailbox. Unread mail is bold everywhere. Opening a message never marks it read.
@@ -586,7 +587,7 @@ function Row({ m, selected, boxLabel, onDone, onOpen, onMenu, onStar, pick, labe
   return (
     <div onClick={() => onOpen(m)} onContextMenu={e => onMenu(e, m)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && onOpen(m)}
       draggable={drag || undefined} onDragStart={drag ? e => { e.dataTransfer.setData(DRAG, m.id); e.dataTransfer.effectAllowed = 'move' } : undefined}
-      className={cn('flex gap-2 px-3 border-b border-hairline cursor-pointer hover:bg-raised', compact ? 'py-1' : 'py-2', selected && 'bg-primary/10', bold ? 'text-foreground' : 'text-muted-foreground')}>
+      className={cn('flex gap-2 px-3 border-b border-hairline cursor-pointer hover:bg-raised', compact ? 'py-1' : 'py-2', selected && 'bg-primary/10', m.unread && 'shadow-[inset_3px_0_0_var(--info)]', bold ? 'text-foreground' : 'text-muted-foreground')}>
       {pick && <input type="checkbox" className="mt-1 size-4 shrink-0" aria-label="Select this conversation" checked={pick.on} onClick={e => e.stopPropagation()} onChange={pick.toggle} />}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
@@ -612,24 +613,35 @@ function Row({ m, selected, boxLabel, onDone, onOpen, onMenu, onStar, pick, labe
   )
 }
 
-function Section({ id, title, count, children, right }: { id?: string; title: string; count?: number; children: React.ReactNode; right?: React.ReactNode }) {
+function Section({ id, title, count, tone, children, right }: { id?: string; title: string; count?: number; tone?: Hue; children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <section id={id} className="rp-card overflow-hidden scroll-mt-4">
-      <div className="rp-card-head"><h2 className="rp-card-title">{title}{count !== undefined && <span className="ml-2 text-muted-foreground tabular-nums">{count}</span>}</h2>{right}</div>
+      <div className={cn('rp-card-head', tone && 'rp-accent')} data-tone={tone}><h2 className="rp-card-title">{title}{count !== undefined && <span className={cn('ml-2 tabular-nums', tone && count ? HUE_TEXT[tone] : 'text-muted-foreground')}>{count}</span>}</h2>{right}</div>
       {children}
     </section>
   )
 }
 const Empty = ({ children }: { children: React.ReactNode }) => <p className="px-4 py-5 text-sm text-muted-foreground">{children}</p>
 
-function Tile({ title, sub, nums, foot, bold, onClick, onMenu }: { title: string; sub: string; nums: [number | string, string][]; foot: string; bold?: boolean; onClick: () => void; onMenu?: (e: React.MouseEvent) => void }) {
+// Color by meaning (Trae, 11/24/26): red = hot, amber = waiting, green = done, blue = information.
+type Hue = 'info' | 'warning' | 'danger' | 'success'
+const HUE_TEXT: Record<Hue, string> = { info: 'text-info', warning: 'text-warning', danger: 'text-danger', success: 'text-success' }
+const HUE_TOP: Record<Hue, string> = { info: 'border-t-info', warning: 'border-t-warning', danger: 'border-t-danger', success: 'border-t-success' }
+const HUE_CHIP: Record<Hue, string> = { info: 'bg-info-soft text-info', warning: 'bg-warning-soft text-warning', danger: 'bg-danger-soft text-danger', success: 'bg-success-soft text-success' }
+
+function Tile({ title, sub, nums, foot, bold, tone = 'info', icon: Icon, onClick, onMenu }: { title: string; sub: string; nums: [number | string, string, Hue?][]; foot: string; bold?: boolean; tone?: Hue; icon?: LucideIcon; onClick: () => void; onMenu?: (e: React.MouseEvent) => void }) {
   return (
-    <button onClick={onClick} onContextMenu={onMenu} className="rp-card rp-card-link p-4 text-left relative">
+    <button onClick={onClick} onContextMenu={onMenu} className={cn('rp-card rp-card-link p-4 text-left relative border-t-[3px]', HUE_TOP[tone])}>
       {onMenu && <span role="button" tabIndex={0} aria-label={'Options for ' + title} title="Options (or right-click)" className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:bg-raised hover:text-foreground" onClick={onMenu} onKeyDown={e => { if (e.key === 'Enter') onMenu(e as unknown as React.MouseEvent) }}><MoreVertical className="size-4" /></span>}
-      <div className={cn('text-sm text-foreground truncate', onMenu && 'pr-6', bold ? 'font-bold' : 'font-semibold')}>{title}</div>
-      <div className="text-xs text-muted-foreground truncate">{sub}</div>
+      <div className={cn('flex items-center gap-2.5', onMenu && 'pr-6')}>
+        {Icon && <span className={cn('hidden sm:inline-flex size-8 shrink-0 items-center justify-center rounded-lg', HUE_CHIP[tone])} aria-hidden><Icon className="size-4" /></span>}
+        <div className="min-w-0">
+          <div className={cn('text-sm text-foreground truncate', bold ? 'font-bold' : 'font-semibold')}>{title}</div>
+          <div className="text-xs text-muted-foreground truncate">{sub}</div>
+        </div>
+      </div>
       <div className="mt-3 flex gap-5">
-        {nums.map(([n, l]) => <div key={l}><div className="rp-stat-value text-2xl">{n}</div><div className="rp-stat-label">{l}</div></div>)}
+        {nums.map(([n, l, h]) => <div key={l}><div className={cn('rp-stat-value text-2xl', h && n !== 0 && HUE_TEXT[h])}>{n}</div><div className="rp-stat-label">{l}</div></div>)}
       </div>
       <div className={cn('mt-3 text-xs truncate', bold ? 'font-bold text-foreground' : 'text-muted-foreground')}>{foot}</div>
     </button>
@@ -649,20 +661,20 @@ function Dash({ ov, boxes, hidden, onBoxMenu, putBack, boxName, rowProps, goBox,
     <div className="space-y-4">
       <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
         {boxes.filter(b => !hidden.has(b.id)).map(b => (
-          <Tile key={b.id} title={b.name} sub={b.address} bold={b.unread > 0} onClick={() => goBox(b.id)} onMenu={e => onBoxMenu(e, b)}
-            nums={b.connected ? [[b.inbox, 'in inbox'], [b.unread, 'unread'], [b.needs, 'need you']] : [['-', 'not connected']]}
+          <Tile key={b.id} title={b.name} sub={b.address} bold={b.unread > 0} tone={b.connected && !b.last_error ? 'info' : 'warning'} icon={Mail} onClick={() => goBox(b.id)} onMenu={e => onBoxMenu(e, b)}
+            nums={b.connected ? [[b.inbox, 'in inbox'], [b.unread, 'unread', 'info'], [b.needs, 'need you', 'warning']] : [['-', 'not connected']]}
             foot={!b.connected ? (b.last_error || 'Signed out. Open it to sign in with Google.') : b.loading ? `Loading mail: ${b.loading.total - b.loading.left} of ${b.loading.total}` : b.last_error ? b.last_error : 'Checked ' + ago(b.last_sync_at)} />
         ))}
-        <Tile title="My Plate" sub="What is on you" onClick={() => go('rp-plate')} nums={[[open.length, 'to do'], [P.length - open.length, 'waiting'], [P.filter(t => t.priority === 1).length, 'hot']]} foot={open[0]?.title ?? P[0]?.title ?? 'Nothing on your plate.'} />
-        <Tile title="Your jobs" sub="Mail tied to your work" bold={waitingJobs > 0} onClick={() => go('rp-jobs')} nums={[[waitingJobs, 'waiting on a reply'], [ov.foryou.length, 'last 14 days']]}
+        <Tile title="My Plate" sub="What is on you" tone="success" icon={ClipboardList} onClick={() => go('rp-plate')} nums={[[open.length, 'to do', 'info'], [P.length - open.length, 'waiting', 'warning'], [P.filter(t => t.priority === 1).length, 'hot', 'danger']]} foot={open[0]?.title ?? P[0]?.title ?? 'Nothing on your plate.'} />
+        <Tile title="Your jobs" sub="Mail tied to your work" bold={waitingJobs > 0} tone="info" icon={HardHat} onClick={() => go('rp-jobs')} nums={[[waitingJobs, 'waiting on a reply', 'warning'], [ov.foryou.length, 'last 14 days', 'info']]}
           foot={ov.foryou[0] ? 'Newest: ' + (ov.foryou[0].from_name || ov.foryou[0].from_addr) + ' · ' + when(ov.foryou[0].date) : 'Nothing right now.'} />
-        <Tile title="Needs you" sub="Mail waiting on a reply" bold={ov.needs.some(m => m.unread)} onClick={() => go('rp-needs')} nums={[[ov.needs.length, 'waiting'], [ov.needs.filter(m => m.unread).length, 'unread']]}
+        <Tile title="Needs you" sub="Mail waiting on a reply" bold={ov.needs.some(m => m.unread)} tone="warning" icon={Reply} onClick={() => go('rp-needs')} nums={[[ov.needs.length, 'waiting', 'warning'], [ov.needs.filter(m => m.unread).length, 'unread', 'info']]}
           foot={ov.needs[0] ? 'Newest: ' + (ov.needs[0].from_name || ov.needs[0].from_addr) + ' · ' + when(ov.needs[0].date) : 'Nothing waiting on you.'} />
-        <Tile title="Daily summary" sub={ov.summary ? 'Made ' + when(ov.summary.created) : 'Made each morning after 6'} onClick={() => go('rp-sum')}
-          nums={[[s ? s.boxes.reduce((n, b) => n + b.received, 0) : 0, 'received'], [s ? s.deadlines.length : 0, 'deadlines']]} foot={s ? `${s.needs.length} new need a reply, ${s.stale.length} older` : 'Not made yet.'} />
+        <Tile title="Daily summary" sub={ov.summary ? 'Made ' + when(ov.summary.created) : 'Made each morning after 6'} tone="info" icon={Newspaper} onClick={() => go('rp-sum')}
+          nums={[[s ? s.boxes.reduce((n, b) => n + b.received, 0) : 0, 'received', 'info'], [s ? s.deadlines.length : 0, 'deadlines', 'danger']]} foot={s ? `${s.needs.length} new need a reply, ${s.stale.length} older` : 'Not made yet.'} />
       </div>
 
-      <Section id="rp-plate" title="My Plate" count={P.length} right={<Link href="/my" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">Open My Plate <ExternalLink className="size-3" /></Link>}>
+      <Section id="rp-plate" title="My Plate" count={P.length} tone="success" right={<Link href="/my" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">Open My Plate <ExternalLink className="size-3" /></Link>}>
         {ov.plate.error && <Empty>{ov.plate.error}</Empty>}
         {!ov.plate.error && !P.length && <Empty>Nothing on your plate right now.</Empty>}
         {P.map(t => (
@@ -683,26 +695,26 @@ function Dash({ ov, boxes, hidden, onBoxMenu, putBack, boxName, rowProps, goBox,
         ))}
       </Section>
 
-      <Section id="rp-jobs" title="Your jobs" count={ov.foryou.length}>
+      <Section id="rp-jobs" title="Your jobs" count={ov.foryou.length} tone="info">
         {!ov.foryou.length && <Empty>No mail about your jobs in the last 14 days.</Empty>}
         {ov.foryou.map(m => <Row key={m.mailbox_id + m.id} m={m} boxLabel={many ? boxName(m.mailbox_id) : undefined} onDone={() => markDone(m)} {...rowProps} />)}
       </Section>
 
-      <Section id="rp-needs" title="Needs you" count={ov.needs.length}>
+      <Section id="rp-needs" title="Needs you" count={ov.needs.length} tone="warning">
         {!ov.needs.length && <Empty>Nothing is waiting on you.</Empty>}
         {ov.needs.map(m => <Row key={m.mailbox_id + m.id} m={m} boxLabel={many ? boxName(m.mailbox_id) : undefined} onDone={() => markDone(m)} {...rowProps} />)}
       </Section>
 
-      <Section id="rp-sum" title="Daily summary" right={ov.summary && <span className="text-xs text-muted-foreground">Since {new Date(ov.summary.data.since).toLocaleString('en-US', { weekday: 'short', hour: 'numeric' })}</span>}>
+      <Section id="rp-sum" title="Daily summary" tone="info" right={ov.summary && <span className="text-xs text-muted-foreground">Since {new Date(ov.summary.data.since).toLocaleString('en-US', { weekday: 'short', hour: 'numeric' })}</span>}>
         {!s && <Empty>Your first summary is made the first time you open RPMail after 6 in the morning, once your mail has loaded.</Empty>}
         {s && (
           <div className="p-4 grid gap-4 md:grid-cols-2">
-            <SumList title="New and needs a reply" items={s.needs} empty="Nothing new is waiting on you." rowProps={rowProps} markDone={markDone} />
-            <SumList title="Still waiting (older than 2 days)" items={s.stale} empty="Nothing older is waiting." rowProps={rowProps} markDone={markDone} />
-            <SumList title="Deadlines mentioned" items={s.deadlines} empty="No deadlines mentioned." rowProps={rowProps} markDone={markDone} />
-            <SumList title="Permits" items={s.permits} empty="No permit mail." rowProps={rowProps} markDone={markDone} />
-            <SumList title="PO numbers" items={s.pos} empty="No PO numbers." rowProps={rowProps} markDone={markDone} />
-            {s.boxes.map(b => <SumList key={b.id} title={`${b.name}: ${b.received} received`} items={b.items} more={b.more} empty="Nothing from people." rowProps={rowProps} markDone={markDone} />)}
+            <SumList tone="warning" title="New and needs a reply" items={s.needs} empty="Nothing new is waiting on you." rowProps={rowProps} markDone={markDone} />
+            <SumList tone="warning" title="Still waiting (older than 2 days)" items={s.stale} empty="Nothing older is waiting." rowProps={rowProps} markDone={markDone} />
+            <SumList tone="danger" title="Deadlines mentioned" items={s.deadlines} empty="No deadlines mentioned." rowProps={rowProps} markDone={markDone} />
+            <SumList tone="info" title="Permits" items={s.permits} empty="No permit mail." rowProps={rowProps} markDone={markDone} />
+            <SumList tone="success" title="PO numbers" items={s.pos} empty="No PO numbers." rowProps={rowProps} markDone={markDone} />
+            {s.boxes.map(b => <SumList key={b.id} tone="info" title={`${b.name}: ${b.received} received`} items={b.items} more={b.more} empty="Nothing from people." rowProps={rowProps} markDone={markDone} />)}
           </div>
         )}
       </Section>
@@ -729,10 +741,10 @@ function Dash({ ov, boxes, hidden, onBoxMenu, putBack, boxName, rowProps, goBox,
   )
 }
 
-function SumList({ title, items, empty, more, rowProps, markDone }: { title: string; items: SumItem[]; empty: string; more?: number; rowProps: RowProps; markDone: (it: { mailbox_id: string; id: string }) => void }) {
+function SumList({ title, items, empty, more, tone, rowProps, markDone }: { title: string; items: SumItem[]; empty: string; more?: number; tone?: Hue; rowProps: RowProps; markDone: (it: { mailbox_id: string; id: string }) => void }) {
   return (
     <div>
-      <h3 className="rp-label mb-1.5">{title}</h3>
+      <h3 className={cn('rp-label mb-1.5', tone && HUE_TEXT[tone])}>{title}</h3>
       {!items.length && <p className="text-xs text-muted-foreground">{empty}</p>}
       <ul className="space-y-1">
         {items.map(i => (
@@ -777,7 +789,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProp
   const narrowed = !!(filter.from || filter.after || filter.before)
   return (
     <div className="rp-card overflow-hidden">
-      <div className="rp-card-head">
+      <div className="rp-card-head rp-accent" data-tone="info">
         <div className="min-w-0">
           <h2 className="rp-card-title truncate">{box.name}</h2>
           <p className="text-xs text-muted-foreground truncate">{box.address} · {box.loading ? `loading mail: ${box.loading.total - box.loading.left} of ${box.loading.total}` : 'checked ' + ago(box.last_sync_at)}{box.crew_reads ? ' · the crew reads this mailbox: no pricing' : ''}{!box.can_send ? ' · you can read here, not send or delete' : !box.can_delete ? ' · you can read and send here, not delete' : ''}</p>

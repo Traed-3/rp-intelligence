@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { RPMAIL_GUIDE } from '@/lib/help'
+import { Mail } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 // Technical Help > Using RPMail. Plain steps for staff, in the words the screens use. Open to everyone who signs in,
 // like the rest of /help. Keep it in step with components/rpmail when a button or label changes.
@@ -70,7 +72,7 @@ export default function RpmailHelpPage() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="rp-title">{RPMAIL_GUIDE.title}</h1>
+          <h1 className="rp-title"><TitleIcon icon={Mail} tone="info" />{RPMAIL_GUIDE.title}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{RPMAIL_GUIDE.summary}</p>
         </div>
         <Link href="/help" className="text-sm text-muted-foreground hover:text-foreground print:hidden">← Technical Help</Link>

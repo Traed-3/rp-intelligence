@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server'
 import { AssetForm } from '@/components/assets/asset-form'
 import { updateAsset } from '../../actions'
 import { redirect } from 'next/navigation'
+import { Truck } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function EditAssetPage({
   params,
@@ -59,7 +61,7 @@ export default async function EditAssetPage({
         <Link href={`/assets/${id}`} className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to {asset.unit_number}
         </Link>
-        <h1 className="rp-title mt-2">
+        <h1 className="rp-title mt-2"><TitleIcon icon={Truck} tone="info" />
           Edit {asset.unit_number}
         </h1>
       </div>

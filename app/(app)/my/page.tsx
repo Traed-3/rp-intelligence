@@ -128,10 +128,10 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
           <p className="rp-subtitle">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })} · top card is the next thing to do</p>
         </div>
         <div className="flex flex-wrap gap-2 font-mono text-xs">
-          <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{openCount}</b> your move</span>
-          <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{plate.waiting.length}</b> waiting</span>
+          <span className="px-2 py-1 rounded border border-info/25 bg-info-soft text-info"><b className="tabular-nums">{openCount}</b> your move</span>
+          <span className="px-2 py-1 rounded border border-warning/25 bg-warning-soft text-warning"><b className="tabular-nums">{plate.waiting.length}</b> waiting</span>
           {overCount > 0 && <span className="px-2 py-1 rounded border border-red-200 bg-red-50 text-red-700"><b className="tabular-nums">{overCount}</b> overdue</span>}
-          <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{plate.doneToday.length}</b> done today</span>
+          <span className="px-2 py-1 rounded border border-success/25 bg-success-soft text-success"><b className="tabular-nums">{plate.doneToday.length}</b> done today</span>
         </div>
       </header>
 
@@ -168,7 +168,7 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
             {plate.next.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} partner={partner} />)}
           </Lane>
 
-          <Lane title="Waiting on" hint="we sent it, no answer yet · longest wait first" count={plate.waiting.length} empty="Nobody owes you anything right now.">
+          <Lane tone="warning" title="Waiting on" hint="we sent it, no answer yet · longest wait first" count={plate.waiting.length} empty="Nobody owes you anything right now.">
             {plate.waiting.map(t => <TaskCard key={t.id} t={t} today={today} urls={ticketUrls} partner={partner} waiting />)}
           </Lane>
 
@@ -250,21 +250,21 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
   )
 }
 
-function LaneHeading({ title, count, hint }: { title: string; count?: number; hint?: string }) {
+function LaneHeading({ title, count, hint, tone }: { title: string; count?: number; hint?: string; tone?: 'warning' }) {
   return (
     <h2 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-lg font-bold uppercase tracking-wide text-blue-700">
       {title}
-      {count !== undefined && <span className="rounded-md bg-blue-50 px-2 text-sm tabular-nums">{count}</span>}
+      {count !== undefined && <span className={`rounded-md px-2 text-sm tabular-nums ${tone === 'warning' ? 'bg-warning-soft text-warning' : 'bg-blue-50'}`}>{count}</span>}
       {hint && <small className="text-xs font-medium normal-case tracking-normal text-muted-foreground">{hint}</small>}
     </h2>
   )
 }
 
 /** A lane: blue heading with its count, then a stack of cards with space between them. */
-function Lane({ title, hint, count, empty, children }: { title: string; hint: string; count: number; empty: string; children: React.ReactNode }) {
+function Lane({ title, hint, count, empty, tone, children }: { title: string; hint: string; count: number; empty: string; tone?: 'warning'; children: React.ReactNode }) {
   return (
     <section className="space-y-2.5">
-      <LaneHeading title={title} count={count} hint={hint} />
+      <LaneHeading title={title} count={count} hint={hint} tone={tone} />
       {count === 0 ? <p className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">{empty}</p> : <ul className="flex flex-col gap-2.5">{children}</ul>}
     </section>
   )

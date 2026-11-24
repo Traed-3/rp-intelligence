@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { AssetForm } from '@/components/assets/asset-form'
 import { createAsset } from '../actions'
 import { redirect } from 'next/navigation'
+import { Truck } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function NewAssetPage() {
   const supabase = await createClient()
@@ -32,7 +34,7 @@ export default async function NewAssetPage() {
         <Link href="/assets" className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to Assets
         </Link>
-        <h1 className="rp-title mt-2">Add New Asset</h1>
+        <h1 className="rp-title mt-2"><TitleIcon icon={Truck} tone="info" />Add New Asset</h1>
       </div>
 
       <div className="rp-card p-6">

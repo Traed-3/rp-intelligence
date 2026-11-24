@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { canWriteConstruction } from '@/lib/construction'
 import { DailyUpdateForm, type JobOption } from '@/components/construction/daily-update-form'
 import { addDailyUpdateForPickedJob } from '@/app/(app)/construction/actions'
+import { CalendarCheck } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 // Stages where a crew is realistically standing on the site today.
 const ACTIVE_STAGES = ['scheduled', 'in_progress', 'return_needed', 'on_hold']
@@ -21,7 +23,7 @@ export default async function MobileDailyUpdatePage() {
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-sm mx-auto">
           <div className="mb-6 flex items-center justify-between">
-            <h1 className="rp-title">Daily Update</h1>
+            <h1 className="rp-title"><TitleIcon icon={CalendarCheck} tone="info" />Daily Update</h1>
             <Link href="/mobile" className="text-sm text-blue-600">← Home</Link>
           </div>
           <p className="rp-card p-5 text-sm text-gray-500">
@@ -49,7 +51,7 @@ export default async function MobileDailyUpdatePage() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="rp-title">Daily Update</h1>
+          <h1 className="rp-title"><TitleIcon icon={CalendarCheck} tone="info" />Daily Update</h1>
           <Link href="/mobile" className="text-sm text-blue-600">← Home</Link>
         </div>
 

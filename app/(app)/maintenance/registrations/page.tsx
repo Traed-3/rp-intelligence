@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { DueBadge } from '@/components/maintenance/due-badge'
 import { calcDateDue, sortByUrgency } from '@/lib/maintenance'
+import { FileBadge } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function RegistrationsPage() {
   const supabase = await createClient()
@@ -35,7 +37,7 @@ export default async function RegistrationsPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/maintenance" className="text-sm text-gray-500 hover:text-gray-700">← Maintenance</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="rp-title">Registrations</h1>
+        <h1 className="rp-title"><TitleIcon icon={FileBadge} tone="warning" />Registrations</h1>
       </div>
 
       <div className="rp-card overflow-hidden">

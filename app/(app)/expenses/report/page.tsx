@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { submitterLabel } from '@/lib/receipt-submitter'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { Download } from 'lucide-react'
+import { Download, ChartColumn } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 import { buttonVariants } from '@/components/ui/button'
 import { FilterChip } from '@/components/ui/filter-chip'
 import { PageHeader } from '@/components/ui/page-header'
@@ -128,6 +129,7 @@ export default async function ExpenseReportPage({
       <PageHeader
         crumbs={[{ label: 'Expenses', href: '/expenses' }, { label: 'Spending report' }]}
         title="Spending Report"
+        icon={<TitleIcon icon={ChartColumn} tone="success" />}
         description={label}
         actions={
           <a href={`/api/reports/expenses-csv?start=${startIso}&end=${today.toISOString().split('T')[0]}`} className={buttonVariants({ variant: 'outline' })}>

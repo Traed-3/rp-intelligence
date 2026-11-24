@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { Button } from '@/components/ui/button'
 import { Plus, Building2 } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function CustomersPage() {
   const { company_id, canWrite } = await requireConstruction()
@@ -19,7 +20,7 @@ export default async function CustomersPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="rp-title">
+          <h1 className="rp-title"><TitleIcon icon={Building2} tone="info" />
             Customers
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{customers?.length ?? 0} customer{customers?.length !== 1 ? 's' : ''}</p>

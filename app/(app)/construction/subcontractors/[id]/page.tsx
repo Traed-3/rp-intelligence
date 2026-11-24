@@ -5,6 +5,8 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { SubcontractorForm, type SubcontractorRecord } from '@/components/construction/subcontractor-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { saveSubcontractor, deleteSubcontractor } from '../../actions'
+import { Users } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function SubcontractorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -23,7 +25,7 @@ export default async function SubcontractorDetailPage({ params }: { params: Prom
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-5">
         <Link href="/construction/subcontractors" className="text-sm text-gray-500 hover:text-gray-700">← Subcontractors</Link>
-        <h1 className="rp-title mt-2">{sub.name}</h1>
+        <h1 className="rp-title mt-2"><TitleIcon icon={Users} tone="info" />{sub.name}</h1>
       </div>
 
       <div className="rp-card p-5 mb-5">

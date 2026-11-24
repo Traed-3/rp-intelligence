@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Download, FileText } from 'lucide-react'
+import { Download, FileText, LifeBuoy } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { HELP_BUCKET, helpGuideBySlug } from '@/lib/help'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,7 @@ export default async function HelpGuidePage({ params }: { params: Promise<{ slug
     <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="rp-title">{guide.title}</h1>
+          <h1 className="rp-title"><TitleIcon icon={LifeBuoy} tone="info" />{guide.title}</h1>
           <p className="text-sm text-gray-500 mt-0.5">{guide.summary}</p>
         </div>
         <Link href="/help" className="text-sm text-gray-500 hover:text-gray-700">← Technical Help</Link>

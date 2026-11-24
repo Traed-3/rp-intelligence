@@ -31,7 +31,7 @@ export default async function SurveyEditorPage({ params }: { params: Promise<{ i
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="rp-title">{surveyTitle(sv)} <span className="text-base font-normal text-gray-500">· {surveyTypeLabel(sv.survey_type)}</span></h1>
-          <p className="text-xs text-gray-500 mt-0.5">{sv.survey_date} · {sv.tech_name ?? 'tech'} · <span className="uppercase font-semibold">{sv.status}</span></p>
+          <p className="text-xs text-gray-500 mt-0.5">{sv.survey_date} · {sv.tech_name ?? 'tech'} · <span className={`uppercase font-semibold ${sv.status === 'complete' ? 'text-success' : sv.status === 'draft' ? 'text-warning' : 'text-info'}`}>{sv.status}</span></p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <a href={`/api/construction/surveys/${id}/pdf`} target="_blank" rel="noopener" className="px-3 py-1.5 rounded-lg border border-gray-300 bg-card hover:bg-gray-50">Preview PDF</a>

@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { Plus, FileText } from 'lucide-react'
 import { ClickableRow } from '@/components/clickable-row'
 import { money, fmtDate } from '@/lib/billing'
 import { QuoteStatusBadge, InvoiceStatusBadge } from '@/components/construction/badges'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export type DocRow = { id: string; number: string | null; date: string | null; status: string; total: number | null; store_label: string | null; department: string | null; customer: string | null; isChangeOrder?: boolean }
 
@@ -14,7 +15,7 @@ export function DocList({ kind, rows, status, department, canWrite, statuses }: 
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="rp-title">{isQ ? 'Quotes' : 'Invoices'}</h1>
+          <h1 className="rp-title"><TitleIcon icon={FileText} tone="info" />{isQ ? 'Quotes' : 'Invoices'}</h1>
           <p className="text-sm text-gray-500 mt-0.5">{rows.length} {isQ ? 'quote' : 'invoice'}{rows.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-2">
