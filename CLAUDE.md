@@ -756,6 +756,21 @@ is never changed from here). PER USER, NEVER PER ROLE.
   with `body_of`. Helper checks: `python3 -I scripts/rpmail-relay/test_relay.py` (stand-in Bridge, no real mail).
   After changing relay.py: `cp scripts/rpmail-relay/relay.py ~/rpmail-relay/ && launchctl kickstart -k gui/$(id -u)/com.trae.rpmail-relay`.
   The helper only works while the Mac Studio is on and Proton Bridge is running.
+- SCHEDULE SEND (2026-11-24, Trae: "Yes, build it"): lib/rpmail/schedule.ts. Schedule in the message box (compose.tsx `laterChoices`,
+  `whenText`) -> op `schedule` -> `scheduleMail` -> `sendMail(..., schedule: true)` runs EVERY send check (confirm, addresses, maySend,
+  pricing + blocked-content rules), then saves the message as a draft in that mailbox (Gmail Drafts / Proton Drafts) and returns its id;
+  table `rpmail_scheduled` (migration rpmail_schedule.sql) only holds draft id, send_at, to, subject, status
+  waiting|sending|sent|failed|cancelled. The message text is NEVER stored in RP Intelligence. pg_cron `rpmail-scheduled` every minute ->
+  /api/rpmail/cron?part=scheduled -> `sendDue` (also at the start of each 5-minute round): claims a row (waiting -> sending in one step),
+  `meById` (still active + RPMail on), then `sendScheduled` in mail-ops.ts re-checks mailbox access, maySend, that the draft is still
+  there, and the pricing / blocked-content rules on the draft AS IT IS NOW, then drafts/send with `tries: 1`. Never repeated by itself:
+  a row stuck in `sending` 10+ minutes is marked failed ("look in Sent"); `Unconfirmed` (Proton send not confirmed in time) and any
+  unexpected Gmail error are failed, never retried. NotConnected / Busy are retried each minute for 2 hours. Failed = the person is told
+  (notifications row type rpmail_schedule_failed, push, email to their login address); the draft stays in Drafts. Sending, saving or
+  scheduling a reopened draft cancels its waiting schedule (`unschedule` in sendMail). Ops: GET `scheduled`, POST `schedule`,
+  `schedule_cancel`, `schedule_now` (needs confirmed: true). UI: Scheduled tab per mailbox (`ScheduledList` in rpmail-app.tsx), drafts
+  list / opened draft show `scheduled_at`. At most 50 waiting per person; a time 1 minute to 180 days ahead. A Proton scheduled draft
+  sent after the helper restarted goes from Proton's stored copy, which has Proton's own thread headers.
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.

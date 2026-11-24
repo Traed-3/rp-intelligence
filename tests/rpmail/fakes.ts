@@ -11,7 +11,7 @@ type Filter = (r: Row) => boolean
 const like = (v: unknown, pat: string) => new RegExp('^' + pat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.') + '$', 'i').test(String(v ?? ''))
 const cmp = (a: unknown, b: unknown) => (a == null && b == null ? 0 : a == null ? -1 : b == null ? 1 : a < b ? -1 : a > b ? 1 : 0)
 
-const SERIAL = new Set(['rpmail_moves', 'rpmail_sent', 'rpmail_snoozes', 'rpmail_activity', 'rpmail_relay_jobs'])
+const SERIAL = new Set(['rpmail_moves', 'rpmail_sent', 'rpmail_snoozes', 'rpmail_activity', 'rpmail_relay_jobs', 'rpmail_scheduled'])
 const UUID_PK = new Set(['rpmail_mailboxes', 'rpmail_templates', 'con_tasks', 'rpmail_rules'])
 const DEFAULTS: Record<string, Row> = {
   rpmail_mailboxes: { crew_reads: false, token_secret_id: null, scope: null, connected_at: null, history_id: null, sync: {}, last_sync_at: null, last_error: null, owner_id: null, failing_since: null, fail_alerted_at: null, notify_mark: null },
@@ -20,6 +20,7 @@ const DEFAULTS: Record<string, Row> = {
   rpmail_messages: { unread: false, in_inbox: false, sent: false, starred: false, has_att: false, bulk: false, asks: false, labels: [], quiet: false },
   rpmail_rules: { enabled: true, position: 0, match: {}, action: {} },
   rpmail_snoozes: { woke_at: null },
+  rpmail_scheduled: { status: 'waiting', tries: 0, claimed_at: null, sent_at: null, gmail_id: null, error: null, thread_id: null },
 }
 
 class Query implements PromiseLike<{ data: unknown; error: { message: string } | null; count?: number }> {
@@ -268,8 +269,18 @@ export class FakeGmail {
     }
     if (path === 'messages/send' || path === 'drafts') {
       const msg = (path === 'drafts' ? (body?.message as Record<string, unknown>) : body) ?? {}
-      this.sent.push({ account, raw: Buffer.from(String(msg.raw), 'base64url').toString('utf8'), threadId: msg.threadId as string | undefined, draft: path === 'drafts' })
-      if (path === 'drafts') return ok({ id: 'draft1' })
+      const raw = Buffer.from(String(msg.raw), 'base64url').toString('utf8')
+      this.sent.push({ account, raw, threadId: msg.threadId as string | undefined, draft: path === 'drafts' })
+      if (path === 'drafts') {
+        // Kept as a real draft (as Gmail does), so it can be opened, listed and sent later.
+        const head = (n: string) => raw.split(/\r\n\r\n/)[0].match(new RegExp('^' + n + ': (.*)$', 'mi'))?.[1] ?? ''
+        const plain = raw.match(/Content-Type: text\/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([A-Za-z0-9+/=\r\n]+?)(?:\r\n--|\r\n$)/)
+        const d = this.addDraft(account, { subject: head('Subject'), to: head('To'), ...(head('Cc') ? { cc: head('Cc') } : {}), body: plain ? Buffer.from(plain[1].replace(/\r\n/g, ''), 'base64').toString('utf8') : '',
+          ...(msg.threadId ? { threadId: msg.threadId as string } : {}) })
+        const kept = (this.drafts.get(account) ?? []).find(x => x.id === d.id)!
+        kept.raw = raw
+        return ok({ id: d.id, message: { id: d.msg.id, threadId: d.msg.threadId } })
+      }
       const made = this.add(account, { from: account, to: 'someone@example.com', subject: 'sent', labelIds: ['SENT'], threadId: msg.threadId as string | undefined })
       return ok({ id: made.id, threadId: made.threadId })
     }

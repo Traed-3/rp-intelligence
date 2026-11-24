@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Paperclip, Send, X, FileText, Trash2 } from 'lucide-react'
+import { Paperclip, Send, X, FileText, Trash2, Clock } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -13,6 +13,7 @@ import { cleanRich, sameWords, textToHtml, withoutEnding } from '@/lib/rpmail/ri
 
 // New message, reply, reply all, forward, and the signature editor.
 // Send always asks first ("Send this to ... from ...?"), and then waits a few seconds so it can be undone.
+// Schedule asks for a time and then the same question with the time in it; the message waits in Drafts and goes out then.
 // Nothing goes out any other way. What is typed is kept in this browser until it is sent, saved or discarded.
 // The message is written in a box with formatting (rich-editor.tsx): `html` is what is in the box, `body` the same words as plain text.
 
@@ -31,7 +32,7 @@ type Att = { path: string; name: string; size: number }
 type Tpl = { id: string; name: string; body: string; html?: string | null }
 type Saved = { to: string; cc: string; subject: string; body: string; html?: string; from: string; files: Att[]; pics?: Att[]; keep?: number[]; at: number }
 type DraftFile = { i: number; name: string; size: number }
-type Opened = { draft: string; to: string; cc: string; subject: string; html: string; reply: boolean; attachments: DraftFile[] }
+type Opened = { draft: string; to: string; cc: string; subject: string; html: string; reply: boolean; attachments: DraftFile[]; scheduled_at?: number | null }
 const lab = 'rp-label block mb-1'
 const OUTBOX = 'rpmail-outbox'
 const MAX = 20_000_000
@@ -65,6 +66,23 @@ async function fitPicture(file: File): Promise<File> {
   const blob = await new Promise<Blob | null>(res => c.toBlob(res, 'image/jpeg', 0.85))
   return blob && blob.size < file.size ? named(blob, 'image/jpeg') : named(file, file.type)
 }
+
+/** When a scheduled message goes out, the way people say it: "Wed, Nov 25, 8:00 AM". */
+export const whenText = (t: number) => new Date(t).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+/** The quick choices for Schedule, from now: this afternoon (in the morning only), tomorrow morning and afternoon, Monday morning. */
+export function laterChoices(now = new Date()): { label: string; at: number }[] {
+  const at = (days: number, hour: number) => { const d = new Date(now); d.setDate(d.getDate() + days); d.setHours(hour, 0, 0, 0); return d.getTime() }
+  const out: { label: string; at: number }[] = []
+  if (now.getHours() < 11) out.push({ label: 'This afternoon', at: at(0, 13) })
+  out.push({ label: 'Tomorrow morning', at: at(1, 8) }, { label: 'Tomorrow afternoon', at: at(1, 13) })
+  const toMonday = (8 - now.getDay()) % 7 || 7
+  if (toMonday > 1) out.push({ label: 'Monday morning', at: at(toMonday, 8) })
+  return out
+}
+/** The value a date-and-time box takes for a moment, in this computer's time. */
+const localInput = (t: number) => { const d = new Date(t - new Date(t).getTimezoneOffset() * 60_000); return d.toISOString().slice(0, 16) }
+const isProton = (addr?: string) => /@(proton\.me|pm\.me|protonmail\.com)$/i.test(addr ?? '')
 
 const mb = (n: number) => n > 1_048_576 ? (n / 1_048_576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'
 
@@ -108,6 +126,10 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
   const [draftFiles, setDraftFiles] = useState<DraftFile[]>([])
   const [keep, setKeep] = useState<number[] | null>(kept?.keep ?? null)
   const [isReply, setIsReply] = useState(false)
+  // Schedule: null = not scheduling; { at: null } = picking a time; { at } = asking "send this ... at ...?". `from` = when Schedule was pressed.
+  const [sched, setSched] = useState<{ at: number | null; from: number } | null>(null)
+  const [pick, setPick] = useState('')
+  const [scheduledAt, setScheduledAt] = useState<number | null>(null)
   const box = boxes.find(b => b.id === from)
   const isMail = start.mode !== 'signature'
   const [ask, asking] = useAsk()
@@ -119,7 +141,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
       api<Opened>('draft_open', undefined, { mailbox: start.mailbox, draft: start.draft })
         .then(d => {
           if (!live) return
-          setDraftFiles(d.attachments); setIsReply(d.reply)
+          setDraftFiles(d.attachments); setIsReply(d.reply); setScheduledAt(d.scheduled_at ?? null)
           setKeep(k => k ?? d.attachments.map(a => a.i))
           if (!kept) { const c = cleanRich(d.html); setTo(d.to); setCc(d.cc); setSubject(d.subject); setHtml(c.html); setBody(c.text) }
           setLoading(false)
@@ -230,6 +252,19 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
     setBusy(false)
   }
 
+  // Schedule: every check a send gets happens now; the message then waits in Drafts in the From mailbox until the time.
+  const schedule = async (at: number) => {
+    setErr('')
+    if (uploading) { setErr('A file is still uploading. Give it a moment.'); return }
+    setBusy(true)
+    try {
+      const r = await api<{ send_at: number; from: string }>('schedule', { ...payload(false), send_at: at })
+      clearDraft(start)
+      onDone(`Scheduled for ${whenText(r.send_at)} from ${r.from}. It waits in Drafts until then: open Scheduled in that mailbox to send it sooner or cancel it.`)
+    } catch (e) { setErr((e as Error).message); setSched(null) }
+    setBusy(false)
+  }
+
   const insertTpl = (t: Tpl) => editor.current?.insert(t.html || textToHtml(t.body))
   const saveTpl = async () => {
     // A template keeps the wording and its formatting, without the signature that sits under it. Pictures are not kept.
@@ -261,6 +296,9 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
         <div className="rp-card-head"><h2 className="rp-card-title">{title}</h2><button onClick={onClose} aria-label="Close" title="Close (what you typed is kept)"><X className="size-5" /></button></div>
         <div className="p-4 space-y-3">
           {loading && <p className="text-sm text-muted-foreground">Getting the message ready...</p>}
+          {scheduledAt && !loading && (
+            <p className="rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-xs text-foreground"><Clock className="inline size-3.5" /> This draft is scheduled to go out {whenText(scheduledAt)}. Sending it, saving it or scheduling it again here replaces that.</p>
+          )}
           {restored && !loading && (
             <p className="rounded-md border border-info/30 bg-info-soft px-3 py-2 text-xs text-foreground">Picked up where you left off. <button className="underline" onClick={() => { discard() }}>Throw it away</button> <button className="underline ml-2" onClick={() => setRestored(false)}>OK</button></p>
           )}
@@ -331,7 +369,31 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
             )}
           </>)}
           {err && <p className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{err}</p>}
-          {!loading && (confirm ? (
+          {!loading && isMail && sched && (sched.at === null ? (
+            <div className="rounded-md border border-border bg-raised p-3 space-y-2.5">
+              <p className="text-sm font-medium text-foreground">When should it go out?</p>
+              <div className="flex flex-wrap gap-2">
+                {laterChoices(new Date(sched.from)).map(c => <button key={c.label} className={buttonVariants({ variant: 'outline', size: 'sm' })} onClick={() => setSched({ ...sched, at: c.at })}>{c.label}<span className="text-muted-foreground">{whenText(c.at)}</span></button>)}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-foreground">
+                <label htmlFor="rp-when">Or pick a day and time</label>
+                <input id="rp-when" type="datetime-local" className="rp-input !w-auto" min={localInput(sched.from + 120_000)} value={pick} onChange={e => setPick(e.target.value)} />
+                <button className={buttonVariants({ variant: 'outline', size: 'sm' })} disabled={!pick} onClick={() => { const t = new Date(pick).getTime(); if (Number.isFinite(t)) setSched({ ...sched, at: t }) }}>Use this time</button>
+              </div>
+              <button className={buttonVariants({ variant: 'ghost', size: 'sm' })} onClick={() => setSched(null)}>Back</button>
+            </div>
+          ) : (
+            <div className="rounded-md border border-border bg-raised p-3 space-y-2">
+              <p className="text-sm text-foreground">Send this to <b>{[to, cc].filter(Boolean).join(', ')}</b> from <b>{box?.address}</b>{carrying ? <> with <b>{carrying}</b></> : null} on <b>{whenText(sched.at)}</b>?</p>
+              <p className="text-xs text-muted-foreground">It waits in Drafts and goes out within about a minute of that time, even with this page closed.{isProton(box?.address) ? ' For a Proton mailbox the Mac Studio has to be on then.' : ''} To send it sooner or stop it, open Scheduled in the mailbox.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button className={buttonVariants({ variant: 'default' })} disabled={busy || uploading > 0} onClick={() => void schedule(sched.at!)}><Clock />Yes, schedule it</button>
+                <button className={buttonVariants({ variant: 'outline' })} disabled={busy} onClick={() => setSched({ at: null, from: Date.now() })}>Change the time</button>
+                <button className={buttonVariants({ variant: 'ghost' })} disabled={busy} onClick={() => setSched(null)}>Back</button>
+              </div>
+            </div>
+          ))}
+          {!loading && !sched && (confirm ? (
             <div className="rounded-md border border-border bg-raised p-3 space-y-2">
               <p className="text-sm text-foreground">Send this to <b>{[to, cc].filter(Boolean).join(', ')}</b> from <b>{box?.address}</b>{carrying ? <> with <b>{carrying}</b></> : null}?</p>
               <div className="flex flex-wrap items-center gap-2">
@@ -350,6 +412,7 @@ export function Compose({ start, boxes, groups, undoSecs, setUndoSecs, onClose, 
                 ? <button className={buttonVariants({ variant: 'default' })} disabled={busy} onClick={() => void go(false)}>Save signature</button>
                 : <>
                     <button className={buttonVariants({ variant: 'default' })} disabled={busy || !to.trim()} onClick={() => { setErr(''); setConfirm(true) }}><Send />Send</button>
+                    <button className={buttonVariants({ variant: 'outline' })} disabled={busy || !to.trim()} title="Pick a time for it to go out" onClick={() => { setErr(''); setPick(''); setSched({ at: null, from: Date.now() }) }}><Clock />Schedule</button>
                     <button className={buttonVariants({ variant: 'outline' })} disabled={busy || uploading > 0} onClick={() => void go(true)}>Save to Gmail Drafts</button>
                   </>}
               <button className={buttonVariants({ variant: 'ghost' })} disabled={busy} onClick={onClose}>{isMail ? 'Close (keeps it)' : 'Cancel'}</button>

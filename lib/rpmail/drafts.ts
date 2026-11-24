@@ -1,3 +1,4 @@
+import { createAdminClient } from '@/lib/supabase/admin'
 import { gmail, pooled, headerMap, b64url, UserError, type GMessage } from './gmail'
 import { mailboxFor, type Me, type Mailbox } from './access'
 import { walkParts, bodyText } from './sync'
@@ -27,10 +28,19 @@ export async function draftList(who: Me, p: Record<string, string>) {
     return { id: x.id, thread_id: x.message!.threadId, date: Number(x.message!.internalDate ?? 0), to: parseAddrs(decodeWords(h['to'] ?? '')).map(a => a.addr).join(', '),
       subject: decodeWords(h['subject'] ?? ''), snippet: (x.message!.snippet ?? '').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').slice(0, 200) }
   }).sort((a, b) => b.date - a.date)
-  return { drafts }
+  // A draft this person scheduled says when it goes out (only their own schedule: someone else's is not shown).
+  const when = await scheduledFor(who, box.id, drafts.map(d => d.id))
+  return { drafts: drafts.map(d => ({ ...d, scheduled_at: when.get(d.id) ?? null })) }
 }
 
-async function getDraft(box: Mailbox, id: string): Promise<GMessage> {
+/** draft id -> when it is scheduled to go out, for the drafts this person scheduled in this mailbox. */
+async function scheduledFor(who: Me, mailboxId: string, ids: string[]): Promise<Map<string, number>> {
+  if (!ids.length) return new Map()
+  const { data } = await createAdminClient().from('rpmail_scheduled').select('draft_id, send_at').eq('profile_id', who.id).eq('mailbox_id', mailboxId).eq('status', 'waiting').in('draft_id', ids)
+  return new Map((data ?? []).map(r => [r.draft_id as string, Date.parse(r.send_at as string)]))
+}
+
+export async function getDraft(box: Mailbox, id: string): Promise<GMessage> {
   const d = await gmail<GDraft>(box.id, 'drafts/' + id, { params: { format: 'full' } })
   if (!d?.message) throw new UserError('That draft is no longer in Gmail. It may have been sent or deleted somewhere else.')
   return d.message
@@ -55,7 +65,9 @@ export async function draftOpen(who: Me, p: Record<string, string>) {
   // Formatting written in Gmail is kept as far as RPMail's own allows (bold, italic, underline, lists, links); the rest is plain words.
   const rich = html ? cleanRich(html) : null
   const startHtml = rich && hasFormatting(rich.html) ? rich.html : textToHtml(bodyText(plain, html).replace(/\s+$/, ''))
+  const scheduled_at = (await scheduledFor(who, box.id, [draftId(p.draft)])).get(draftId(p.draft)) ?? null
   return {
+    scheduled_at,
     draft: draftId(p.draft), to: parseAddrs(decodeWords(h['to'] ?? '')).map(a => a.addr).join(', '), cc: parseAddrs(decodeWords(h['cc'] ?? '')).map(a => a.addr).join(', '),
     subject: decodeWords(h['subject'] ?? ''), html: startHtml, reply: !!h['in-reply-to'],
     attachments: files.map((f, i) => ({ i, name: f.name, size: f.size, inline: f.inline, has: !!f.attachmentId })).filter(f => !f.inline && f.has).map(({ i, name, size }) => ({ i, name, size })),

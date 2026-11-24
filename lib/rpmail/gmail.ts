@@ -79,6 +79,8 @@ export async function pace(mailboxId: string, perSecond = 18): Promise<void> {
 }
 /** Google saying "slow down" rather than "no". */
 export class Busy extends Error {}
+/** A send that may or may not have gone out (the Mac Studio did not confirm in time). Never tried again by itself. */
+export class Unconfirmed extends Busy {}
 
 type Opts = { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; params?: Record<string, string | string[]>; body?: unknown; token?: string
   /** How many times to ask before giving up (6 unless said). 1 = ask once, for a call that has a fall-back. */

@@ -45,6 +45,19 @@ export async function me(): Promise<Me | null> {
     enabled: !!u?.enabled, mailAddress: u?.mail_address ?? null }
 }
 
+/**
+ * A person by id, for work done with nobody signed in (a scheduled send). Null unless they are still active and still
+ * have RPMail turned on, the same as signing in would require. Every mailbox check after this is the usual one.
+ */
+export async function meById(id: string): Promise<Me | null> {
+  const admin = createAdminClient()
+  const { data: p } = await admin.from('profiles').select('id, company_id, role, full_name, email, is_active').eq('id', id).maybeSingle()
+  if (!p || p.is_active === false) return null
+  const { data: u } = await admin.from('rpmail_users').select('enabled, mail_address').eq('profile_id', id).maybeSingle()
+  if (!u?.enabled) return null
+  return { id: p.id, company_id: p.company_id, role: p.role ?? '', name: p.full_name ?? '', email: (p.email ?? '').toLowerCase(), enabled: true, mailAddress: u.mail_address ?? null }
+}
+
 /** The signed-in person, with RPMail turned on. Throws otherwise. */
 export async function requireMe(): Promise<Me> {
   const m = await me()

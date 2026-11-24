@@ -13,6 +13,7 @@ import { setSnooze } from '@/lib/rpmail/snooze'
 import { activityList, activityCsv } from '@/lib/rpmail/activity'
 import { contentSave } from '@/lib/rpmail/company'
 import { attachPrepare, attachRemove, contacts, templateList, templateSave, templateDelete, attachView } from '@/lib/rpmail/compose-ops'
+import { scheduleMail, scheduledList, scheduleCancel, scheduleNow } from '@/lib/rpmail/schedule'
 import { setEnabled, disconnect, oauthStart, adminState, adminSetUser, adminSaveShared, adminDeleteShared, adminGrant } from '@/lib/rpmail/connect'
 
 // RPMail API. One address per action: /api/rpmail/<op>.
@@ -41,6 +42,7 @@ const GETS: Record<string, { any?: boolean; run: (who: Me, q: Q, req: NextReques
   rules: { run: (who, q) => ruleList(who, q) },
   draft_prep: { run: (who, q) => draftPrep(who, q) },
   drafts: { run: (who, q) => draftList(who, q) },
+  scheduled: { run: (who, q) => scheduledList(who, q) },
   draft_open: { run: (who, q) => draftOpen(who, q) },
   connect: { any: true, run: async (who, q, req) => NextResponse.redirect(await oauthStart(who, q.mailbox, req.nextUrl.origin)) },
   admin_state: { any: true, run: who => adminState(who) },
@@ -75,6 +77,9 @@ const POSTS: Record<string, { any?: boolean; run: (who: Me, b: B) => Promise<unk
   snooze: { run: (who, b) => setSnooze(who, b) },
   signature: { run: (who, b) => setSignature(who, b) },
   send: { run: (who, b) => sendMail(who, b) },
+  schedule: { run: (who, b) => scheduleMail(who, b) },
+  schedule_cancel: { run: (who, b) => scheduleCancel(who, b) },
+  schedule_now: { run: (who, b) => scheduleNow(who, b) },
   plate_done: { run: (who, b) => plateDone(who, b) },
   plate_add: { run: (who, b) => plateAdd(who, b) },
   admin_user: { any: true, run: (who, b) => adminSetUser(who, b) },

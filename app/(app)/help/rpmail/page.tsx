@@ -32,7 +32,13 @@ const PARTS: Part[] = [
     <>Use the bar over the message for <b>bold</b>, <i>italic</i>, underline, lists and links (or Ctrl / Cmd with B, I, U, K).</>,
     <>To put a picture in the text, paste it or press the picture button. To attach a file, press <b>Attach files</b> or drag it onto the box.</>,
     <>Press <b>Send</b>, check who it is going to, then <b>Yes, send</b>. For a few seconds a bar lets you <b>Undo</b>.</>,
-  ], note: <>Mail never goes out by itself: only when you press Send and confirm. Pricing can never go to or from a mailbox the crew reads; RPMail stops the send and tells you why.</> },
+  ], note: <>Mail never goes out by itself: only when you press Send (or Schedule) and confirm. Pricing can never go to or from a mailbox the crew reads; RPMail stops the send and tells you why.</> },
+  { id: 'schedule', title: 'Send it later', steps: [
+    <>Write the message, then press <b>Schedule</b> instead of Send.</>,
+    <>Pick <b>Tomorrow morning</b>, <b>Tomorrow afternoon</b> or <b>Monday morning</b>, or pick any day and time and press <b>Use this time</b>.</>,
+    <>Check who it is going to and when, then press <b>Yes, schedule it</b>. It waits in your Drafts and goes out within about a minute of that time, even with RPMail closed.</>,
+    <>To change your mind, open the mailbox and press <b>Scheduled</b>: <b>Send now</b>, <b>Edit</b> (opens the draft) or <b>Stop it</b> (it stays in Drafts).</>,
+  ], note: <>Just before it goes out, RPMail checks again that you can still send from that mailbox and that it carries no pricing to a crew mailbox. If anything stops it, it stays in Drafts and you get a notice, so it never goes out unchecked or twice.</> },
   { id: 'drafts', title: 'Drafts', steps: [
     <>Press <b>Save to Gmail Drafts</b> to keep a message for later. It is in Gmail Drafts, so you can finish it in Gmail too.</>,
     <>To finish it in RPMail, open the mailbox and press <b>Drafts</b>, then the draft. Send it, or save it again.</>,

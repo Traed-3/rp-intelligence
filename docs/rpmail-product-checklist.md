@@ -34,11 +34,10 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 Nothing here needs money. In rough order of how much a person would notice:
 
 1. A pass on real mail for stages 3 and 5, formatting and the conversation view (needs a mailbox connected; ask Trae before reconnecting the test one). Until then the screens can be looked at with made-up mail: `node scripts/rpmail-tryout/build.mjs`.
-6. Schedule send: Trae's say-so first (mail would leave after the person has walked away).
 7. Out-of-office: needs one more Google permission, so each person presses Sign in again once. Empty Trash stays set aside (it needs full-mailbox permission, and Gmail empties Trash itself after 30 days).
 9. Two-step sign-in for RP Intelligence (the whole site, not only RPMail).
 
-Done from this list: conversation view, pictures inside the text, signatures and templates that keep their formatting, the rough edges, reopening Gmail drafts, the staff how-to (2026-11-23). Still plain: a picture (a logo) in a signature.
+Done from this list: conversation view, pictures inside the text, signatures and templates that keep their formatting, the rough edges, reopening Gmail drafts, the staff how-to (2026-11-23). Schedule send (2026-11-24, Trae: "Yes, build it"). Still plain: a picture (a logo) in a signature.
 
 Proton (2026-11-24): reads since the morning; changes and sending added the same day. What only works while the Mac Studio is on
 and Proton Bridge is open: all of it. Not built for Proton: renaming or deleting a Proton *folder* from RPMail (labels can be), and
@@ -76,7 +75,7 @@ Proton's Trash (RPMail never deletes for good).
 | Drag-and-drop files, paste images | Done | Files dragged onto the message box are attached. A pasted picture, or one chosen with the Picture button, goes inside the text where the cursor is (PNG, JPEG, GIF, WebP; a large photo is scaled down to 1600 across first; up to 20 in one message, counted toward the 20 MB). Any other pasted file is attached. |
 | Drafts saved automatically | Partly | What is typed (and what is attached) is kept in that browser and comes back when the same message is opened again. It does not follow the person to another device, but a draft saved to Gmail Drafts (from RPMail or from Gmail) can be reopened from the Drafts tab of the mailbox, finished, and sent or saved again in place. |
 | Undo send | Done | After the confirm step a bar counts down with Undo and Send now. The person picks none / 5 / 10 / 20 / 30 seconds. The tab must stay open for those seconds (the browser warns if it is closed). |
-| Schedule send | Missing | Stage 4 (needs the scheduled job; it will only ever send what the person scheduled). |
+| Schedule send | Done | Schedule in the message box: Tomorrow morning / afternoon, Monday morning, or any day and time, then a confirm with the time in it. Every send check runs then; the message waits in Drafts in that mailbox (its words and files stay in the mailbox, not in RP Intelligence) and the every-minute job sends it, after checking again: the person still has RPMail and the mailbox, may send from it, the draft is still there, and the pricing and blocked-content rules pass on what is in it now. Scheduled tab per mailbox: Send now, Edit, Stop it; a scheduled draft says so in Drafts. Never sent twice: a send that started and was not heard from is marked not sent ("look in Sent"). Mac Studio off (Proton) or Gmail busy: tried each minute for two hours, then not sent and the person told (bell, phone, email). Automated tests only; not yet seen going out on a real mailbox. |
 | Reply, reply all | Done | |
 | Forward with attachments | Done | Up to 20 MB. |
 | Address book fill-in as you type, from mail history | Done | To and Cc offer people from the person's own mailboxes; people they have written to come first. |
