@@ -439,6 +439,9 @@
   .rp-title-chip svg { width: 1.25rem; height: 1.25rem; }
   h1:has(> .rp-title-chip) { display: flex; align-items: center; gap: 0.625rem; }
   /* A thin colored bar down the left of a card header or row. */
+  /* Navy chip with a gold icon (Trae, 11/24/26): Quotes & Invoices, Inventory, Expenses, Technical Help, Training. Same in both themes. */
+  .rp-icon-navy { background: var(--sidebar-navy); color: #f0b43a; }
+  .rp-title-chip[data-tone="navy"] { background: var(--sidebar-navy); color: #f0b43a; border-color: var(--sidebar-navy); }
   .rp-accent { box-shadow: inset 3px 0 0 var(--tone, var(--info)); }
 
   /* Empty state: one helpful line */

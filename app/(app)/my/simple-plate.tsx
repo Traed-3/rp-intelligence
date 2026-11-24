@@ -12,10 +12,11 @@ export async function ClockButton({ profileId }: { profileId: string }) {
   const { data } = await createAdminClient().from('employee_statuses').select('clock_status').eq('profile_id', profileId).maybeSingle()
   const clockedIn = data?.clock_status === 'clocked_in'
   return (
-    <Link href="/shop/clock" className={`mb-5 flex items-center justify-between w-full rounded-xl px-5 py-3.5 text-white font-bold shadow-sm ${clockedIn ? 'bg-red-500 hover:bg-red-600' : 'bg-green-600 hover:bg-green-700'}`}>
-      <span>{clockedIn ? '🔴 Clock Out' : '🟢 Clock In'}</span>
-      <span className="text-sm font-medium opacity-90">{clockedIn ? 'You are clocked in' : 'You are clocked out'} →</span>
-    </Link>
+    <div className="mb-3 flex justify-end">
+      <Link href="/shop/clock" title={clockedIn ? 'You are clocked in' : 'You are clocked out'} className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white shadow-sm ${clockedIn ? 'bg-red-500 hover:bg-red-600' : 'bg-green-600 hover:bg-green-700'}`}>
+        {clockedIn ? 'Clock Out' : 'Clock In'}
+      </Link>
+    </div>
   )
 }
 

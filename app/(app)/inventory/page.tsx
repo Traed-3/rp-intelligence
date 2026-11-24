@@ -39,7 +39,7 @@ export default async function InventoryHubPage() {
           const inner = (
             <div className={`h-full rounded-2xl border p-5 shadow-sm ${t.live ? 'bg-card border-gray-200 hover:border-blue-300 hover:shadow' : 'bg-gray-50 border-dashed border-gray-300'}`}>
               <div className="flex items-start gap-3">
-                <span className={`inline-flex w-10 h-10 items-center justify-center rounded-xl ${t.live ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'}`}><Icon className="w-5 h-5" /></span>
+                <span className={`inline-flex w-10 h-10 items-center justify-center rounded-xl ${t.live ? 'rp-icon-navy' : 'bg-gray-100 text-gray-400'}`}><Icon className="w-5 h-5" /></span>
                 <div className="min-w-0">
                   <div className="font-semibold text-gray-900">{t.title}</div>
                   <div className="text-sm text-gray-500 mt-0.5">{t.body}</div>

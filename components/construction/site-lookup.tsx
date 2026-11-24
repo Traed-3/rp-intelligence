@@ -88,7 +88,7 @@ export function SiteLookup({ sites }: { sites: LookupSite[] }) {
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <div className="flex flex-wrap items-baseline gap-x-2.5 min-w-0">
                   <span className="text-xl font-bold text-gray-900 tabular-nums">{s.site_number}</span>
-                  {s.brand && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">{s.brand}</span>}
+                  {s.brand && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gold-soft text-gold border border-gold/30">{s.brand}</span>}
                   {s.customer && s.customer !== s.brand && <span className="text-xs text-gray-400">{s.customer}</span>}
                 </div>
                 <div className="flex items-center gap-4 shrink-0">
