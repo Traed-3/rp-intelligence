@@ -3,6 +3,7 @@
 
 import { CON_STAGES, stageMeta } from '@/lib/construction'
 import { permitBucket, PERMIT_BUCKETS, type PermitBucket } from '@/lib/permits'
+import { canSeeSiteDetails } from '../access'
 import { type AssistantCtx, type ToolDef, out, str, term, today, addDays, siteVariants } from '../types'
 
 const STAGE_VALUES = CON_STAGES.map(s => s.value)
@@ -170,30 +171,35 @@ export const constructionTools: ToolDef[] = [
   },
   {
     name: 'find_site', area: 'sites',
-    description: 'Look up a store/site by number, street, city or brand (7-Eleven, Sunoco, Wawa, Sheetz...): address, brand, store phone and the equipment on file (dispensers, tanks, STPs, buckets).',
+    description: 'Look up a store/site by number, street, city or brand (7-Eleven, Sunoco, Wawa, Sheetz...): site number, brand and address. People with Construction access also get the store phone, notes and the equipment on file (dispensers, tanks, STPs, buckets).',
     input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
     async run(input, ctx) {
       const q = term(input.query, 40)
       if (!q) return 'Give me a site number, street, city or brand.'
       const forms = siteVariants(q)
-      const cols = 'site_number, store_brand, address, city, state, zip, dispenser_count, dispenser_type, tank_count, tank_type, stp_count, stp_type, fill_spill_bucket_count, fill_spill_bucket_type, vapor_bucket_count, vapor_bucket_type, notes'
+      // Field techs reach this through the site search their forms use, so they get only what that search returns.
+      const full = canSeeSiteDetails(ctx)
+      const cols = full
+        ? 'site_number, store_brand, address, city, state, zip, dispenser_count, dispenser_type, tank_count, tank_type, stp_count, stp_type, fill_spill_bucket_count, fill_spill_bucket_type, vapor_bucket_count, vapor_bucket_type, notes'
+        : 'site_number, store_brand, address, city, state, zip'
       let { data } = await ctx.admin.from('con_sites').select(cols).eq('company_id', ctx.companyId).in('site_number', forms).limit(5)
       if (!data?.length) {
         const r = await ctx.admin.from('con_sites').select(cols).eq('company_id', ctx.companyId)
           .or(`site_number.ilike.%${q}%,address.ilike.%${q}%,city.ilike.%${q}%,store_brand.ilike.%${q}%`).order('site_number').limit(12)
         data = r.data
       }
-      const nums = [...new Set((data ?? []).map(s => s.site_number))]
-      const { data: phones } = nums.length
-        ? await ctx.admin.from('con_permit_sites').select('site_number, store_phone').eq('company_id', ctx.companyId).in('site_number', nums)
-        : { data: [] as any[] }
-      const phone = new Map((phones ?? []).map((p: any) => [p.site_number, p.store_phone]))
-      if (!data?.length) {
+      const rows = (data ?? []) as unknown as Record<string, unknown>[]
+      if (!full) return out(rows)
+      if (!rows.length) {
+        // The permit tracker keeps its own site list (construction only).
         const { data: permitSites } = await ctx.admin.from('con_permit_sites').select('site_number, brand, address, city, state, zip, store_phone')
           .eq('company_id', ctx.companyId).or(`site_number.ilike.%${q}%,address.ilike.%${q}%,city.ilike.%${q}%`).limit(10)
         return out(permitSites ?? [])
       }
-      return out(data.map(s => ({ ...s, store_phone: phone.get(s.site_number) ?? null, notes: s.notes ? String(s.notes).slice(0, 200) : null })))
+      const nums = [...new Set(rows.map(s => String(s.site_number)))]
+      const { data: phones } = await ctx.admin.from('con_permit_sites').select('site_number, store_phone').eq('company_id', ctx.companyId).in('site_number', nums)
+      const phone = new Map((phones ?? []).map(p => [p.site_number, p.store_phone]))
+      return out(rows.map(s => ({ ...s, store_phone: phone.get(String(s.site_number)) ?? null, notes: s.notes ? String(s.notes).slice(0, 200) : null })))
     },
   },
 ]

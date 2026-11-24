@@ -8,7 +8,7 @@
 // Settings → Users, or the DQF access list.
 // ============================================================
 
-import { roleMayVisit, noAccountingOrHr, isLockedRole, canAssignPlate } from '@/lib/role-access'
+import { roleMayVisit, noAccountingOrHr, isLockedRole, isFieldRole, canAssignPlate } from '@/lib/role-access'
 import { canReadConstruction } from '@/lib/construction'
 import { BILLING_READ_ROLES } from '@/lib/billing'
 import { canReadCompliance } from '@/lib/compliance'
@@ -52,8 +52,10 @@ export function canUseArea(who: AssistantWho, area: AssistantArea): boolean {
     case 'construction':
       return canReadConstruction(gate) && roleMayVisit(role, '/construction') && !blocked(who, 'construction')
     case 'sites':
-      // Site Lookup is a construction page; techs also look sites up from the site survey form.
-      return canUseArea(who, 'construction') || roleMayVisit(role, '/api/construction/sites/search')
+      // Site Lookup is a construction page. Field techs also find sites from their forms (the site search), so they
+      // get the same few fields that search gives them (see canSeeSiteDetails). A Construction block stops both.
+      return canUseArea(who, 'construction')
+        || (isFieldRole(role) && roleMayVisit(role, '/api/construction/sites/search') && !blocked(who, 'construction'))
     case 'service':
       return roleMayVisit(role, '/service') && !blocked(who, 'service_dispatch')
     case 'billing':
@@ -72,6 +74,9 @@ export function canUseArea(who: AssistantWho, area: AssistantArea): boolean {
       return roleMayVisit(role, '/my')
   }
 }
+
+/** Everything on file about a site (equipment, notes, store phone) = Site Lookup page; otherwise number, brand, address. */
+export const canSeeSiteDetails = (who: AssistantWho) => canUseArea(who, 'construction')
 
 /** Sell prices and markups: never for techs, mechanics or shop employees (the parts page hides them the same way). */
 export const canSeeSellPrices = (who: AssistantWho) => !noAccountingOrHr(who.role)

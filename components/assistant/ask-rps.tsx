@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, Fragment } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Sparkles, X, Send, FileText, RotateCcw } from 'lucide-react'
+import { safeAppPath } from '@/lib/assistant/links'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 
@@ -23,14 +24,14 @@ function loadSaved(userId: string): { open: boolean; messages: Msg[] } {
   } catch { return { open: false, messages: [] } }
 }
 
-/** Page paths in an answer (`/construction/jobs/...`) become links into the app. Everything else stays plain text. */
+/** Page paths in an answer (`/construction/jobs/...`) become links into the app; anything else, plain text. */
 function AnswerText({ text, onNavigate }: { text: string; onNavigate: () => void }) {
   const parts = text.split(/(`[^`\n]{1,200}`)/g)
   return (
     <>
       {parts.map((part, i) => {
-        const m = part.match(/^`(\/[A-Za-z0-9/_\-?=&.%]*)`$/)
-        if (m) return <Link key={i} href={m[1]} onClick={onNavigate} className="font-medium text-blue-600 underline underline-offset-2 break-all">{m[1]}</Link>
+        const path = /^`[^`]+`$/.test(part) ? safeAppPath(part.slice(1, -1)) : null
+        if (path) return <Link key={i} href={path} onClick={onNavigate} className="font-medium text-blue-600 underline underline-offset-2 break-all">{path}</Link>
         if (/^`[^`]+`$/.test(part)) return <code key={i} className="rounded bg-gray-100 px-1 text-[0.85em]">{part.slice(1, -1)}</code>
         return <Fragment key={i}>{part}</Fragment>
       })}

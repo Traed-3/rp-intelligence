@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { canUseArea, areasFor, canSeeSellPrices, ALL_AREAS, type AssistantWho, type AssistantArea } from '@/lib/assistant/access'
+import { canUseArea, areasFor, canSeeSellPrices, canSeeSiteDetails, ALL_AREAS, type AssistantWho, type AssistantArea } from '@/lib/assistant/access'
 import { ALL_TOOLS, toolsFor, runTool } from '@/lib/assistant/registry'
-import { roleMayVisit } from '@/lib/role-access'
+import { roleMayVisit, isFieldRole } from '@/lib/role-access'
+import { safeAppPath } from '@/lib/assistant/links'
 import { assistantSuggestions } from '@/lib/assistant/suggestions'
 import { appGuide } from '@/lib/assistant/knowledge'
 import type { AssistantCtx } from '@/lib/assistant/types'
@@ -56,10 +57,26 @@ describe('Ask RPS areas follow the page rules', () => {
       expect(canUseArea(who(role), 'inventory')).toBe(true)
       expect(canUseArea(who(role), 'construction')).toBe(false)
     }
-    // Site lookup follows the site search the forms use (open to field roles in lib/role-access.ts), never the shop.
-    for (const role of ['service_tech', 'construction_tech', 'mechanic'])
+    // Site lookup follows the site search the forms use (open to field roles in lib/role-access.ts), never the shop,
+    // and field roles only get the fields that search returns.
+    for (const role of ['service_tech', 'construction_tech', 'mechanic']) {
       expect(canUseArea(who(role), 'sites')).toBe(roleMayVisit(role, '/api/construction/sites/search'))
+      expect(canSeeSiteDetails(who(role))).toBe(false)
+      expect(canUseArea(who(role, { blockedModules: ['construction'] }), 'sites')).toBe(false)
+    }
     expect(canUseArea(who('shop_employee'), 'sites')).toBe(false)
+  })
+
+  it('Site Lookup is for Construction access; other office roles do not get it', () => {
+    for (const role of ROLES) {
+      const w = who(role)
+      if (canUseArea(w, 'sites') && !isFieldRole(role)) {
+        expect(canUseArea(w, 'construction'), role).toBe(true)
+        expect(canSeeSiteDetails(w), role).toBe(true)
+      }
+    }
+    for (const role of ['office_staff', 'parts_manager', 'shop_manager']) expect(canUseArea(who(role), 'sites'), role).toBe(false)
+    expect(canUseArea(who('owner', { blockedModules: ['construction'] }), 'sites')).toBe(false)
   })
 
   it('owners see everything', () => {
@@ -128,5 +145,15 @@ describe('Ask RPS tools', () => {
     expect(guide).not.toContain('CONSTRUCTION (')
     expect(appGuide(who('owner'))).toContain('QUOTES & INVOICES')
     expect(assistantSuggestions(who('owner')).length).toBeLessThanOrEqual(5)
+  })
+})
+
+describe('links in answers', () => {
+  it('only ever link to a page inside the app', () => {
+    for (const ok of ['/construction/jobs/f0fe7fb3-9f92-409c-9453-c3d63c9ee1f2', '/my', '/service/tickets/log', '/help/home-screen', '/expenses?month=2026-10'])
+      expect(safeAppPath(ok), ok).toBe(ok)
+    for (const bad of ['//evil.example/x', '/\\evil.example', '/\\/evil.example', '//', '/', 'https://evil.example', 'javascript:alert(1)',
+      '/my//evil.example', '/%2f%2fevil.example', '/../etc', '/unknown-section/x', '/construction/../../x', ' //evil.example', '/@evil.example'])
+      expect(safeAppPath(bad), bad).toBeNull()
   })
 })
