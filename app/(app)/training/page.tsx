@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { PlayCircle } from 'lucide-react'
+import { PlayCircle, GraduationCap } from 'lucide-react'
 import { TRAINING_VIDEOS } from '@/lib/training'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 // Training: company training videos. Open to everyone who signs in (lib/role-access.ts lists /training for the
 // locked roles). New videos are added in lib/training.ts.
@@ -8,7 +9,7 @@ export default function TrainingPage() {
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <div className="mb-5">
-        <h1 className="rp-title">Training</h1>
+        <h1 className="rp-title"><TitleIcon icon={GraduationCap} tone="info" />Training</h1>
         <p className="text-sm text-gray-500 mt-0.5">Company training videos. Tap one to watch it.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

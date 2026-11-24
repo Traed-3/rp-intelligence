@@ -3,6 +3,8 @@ import { ClickableRow } from '@/components/clickable-row'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireInventory } from '@/lib/inventory-guard'
 import { LOCATION_KINDS } from '@/lib/inventory'
+import { Boxes } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 const th = 'text-left px-4 py-3 font-medium text-gray-500'
 
@@ -24,7 +26,7 @@ export default async function StockOverviewPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="rp-title">Stock on hand</h1>
+          <h1 className="rp-title"><TitleIcon icon={Boxes} tone="info" />Stock on hand</h1>
           <p className="text-sm text-gray-500 mt-0.5">Every shelf and truck. Open one to set min/max, count it, or adjust.</p>
         </div>
         <div className="flex items-center gap-3">

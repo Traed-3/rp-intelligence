@@ -5,7 +5,8 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { CON_STAGES, stageMeta, fmtDate, safeSearchTerm } from '@/lib/construction'
 import { StageBadge, ConPriorityBadge } from '@/components/construction/badges'
 import { Button } from '@/components/ui/button'
-import { Plus, LayoutGrid, List } from 'lucide-react'
+import { Plus, LayoutGrid, List, HardHat } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 type SearchParams = {
   view?: string; stage?: string; customer?: string; brand?: string
@@ -69,7 +70,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
     <div className={view === 'kanban' ? 'p-6' : 'p-6 max-w-7xl mx-auto'}>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="rp-title">
+          <h1 className="rp-title"><TitleIcon icon={HardHat} tone="info" />
             Jobs
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{list.length} job{list.length !== 1 ? 's' : ''}{view === 'table' && sp.stage ? ` · ${stageMeta(sp.stage).label}` : ''}</p>

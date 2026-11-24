@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { fmtDate, projectNotificationStatus } from '@/lib/construction'
 import { PrintButton } from '@/components/construction/print-button'
+import { BellRing } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 const norm = (s: string | null | undefined) =>
   (s ?? '').toUpperCase().split('(')[0].split('/')[0].replace(/[^A-Z0-9]/g, '')
@@ -61,7 +63,7 @@ export default async function NotificationFormPage({ params }: { params: Promise
       <div className="rp-card p-8 print:border-0 print:shadow-none">
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="rp-title">Project Notification</h1>
+            <h1 className="rp-title"><TitleIcon icon={BellRing} tone="info" />Project Notification</h1>
             <p className="text-sm text-gray-500">RPS — Rappahannock Petroleum</p>
           </div>
           <div className="text-right text-xs text-gray-500">

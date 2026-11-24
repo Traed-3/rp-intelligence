@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { ClickableRow } from '@/components/clickable-row'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
-import { MapPin } from 'lucide-react'
+import { MapPin, Landmark } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 const th = 'text-left px-4 py-3 font-medium text-gray-500'
 
@@ -33,7 +34,7 @@ export default async function JurisdictionsPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="rp-title">
+          <h1 className="rp-title"><TitleIcon icon={Landmark} tone="info" />
             Jurisdictions
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{list.length} issuing offices · the reusable cheat sheet</p>

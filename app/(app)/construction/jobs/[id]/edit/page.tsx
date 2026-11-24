@@ -5,6 +5,8 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { JobForm } from '@/components/construction/job-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { saveJob, deleteJob } from '../../../actions'
+import { HardHat } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function EditJobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -24,7 +26,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-6">
         <Link href={`/construction/jobs/${id}`} className="text-sm text-gray-500 hover:text-gray-700">← Back to Job</Link>
-        <h1 className="rp-title mt-2">Edit Job</h1>
+        <h1 className="rp-title mt-2"><TitleIcon icon={HardHat} tone="info" />Edit Job</h1>
       </div>
       <div className="rp-card p-6">
         <JobForm action={saveJob.bind(null, id)} job={job} customers={customers ?? []} sites={sites ?? []} managers={managers ?? []} />

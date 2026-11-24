@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { canWriteServiceTickets, ticketStatusMeta, BRANDS } from '@/lib/service-tickets'
 import { createServiceTicket } from '@/app/(app)/service/tickets/actions'
+import { Wrench } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 const OPEN_WO = ['dispatched', 'new', 'on_site', 'in_progress', 'waiting_parts', 'rtn_needed']
 
@@ -35,7 +37,7 @@ export default async function MobileServiceTicketsPage() {
     <div className="min-h-screen bg-gray-50 p-5">
       <div className="max-w-sm mx-auto space-y-5">
         <div className="flex items-center justify-between">
-          <h1 className="rp-title">Service Tickets</h1>
+          <h1 className="rp-title"><TitleIcon icon={Wrench} tone="info" />Service Tickets</h1>
           <Link href="/mobile" className="text-sm text-blue-600">← Home</Link>
         </div>
 

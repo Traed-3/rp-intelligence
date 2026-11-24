@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCompliance } from '@/lib/compliance-guard'
 import { loadFiles } from '@/lib/compliance-data'
 import { HEALTH_STYLE, fmtDate } from '@/lib/compliance'
+import { Grid3x3 } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 const TABS = [
   { value: 'certification', label: 'Certifications' },
@@ -26,7 +28,7 @@ export default async function MatrixPage({ searchParams }: { searchParams: Promi
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
       <Link href="/compliance" className="text-sm text-gray-500 hover:text-gray-700">← DQF &amp; Certifications</Link>
-      <h1 className="rp-title mt-2 mb-4">Matrix</h1>
+      <h1 className="rp-title mt-2 mb-4"><TitleIcon icon={Grid3x3} tone="info" />Matrix</h1>
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {TABS.map(t => (
           <Link key={t.value} href={`/compliance/matrix?cat=${t.value}`}

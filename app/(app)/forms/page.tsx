@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ClipboardCheck, ClipboardList, Droplets, Receipt, ShieldCheck, Truck, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { requireFieldSurveys } from '@/lib/construction-guard'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,7 @@ export default async function FormsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <div className="mb-5">
-        <h1 className="rp-title">Forms</h1>
+        <h1 className="rp-title"><TitleIcon icon={ClipboardList} tone="info" />Forms</h1>
         <p className="text-sm text-gray-500 mt-0.5">Field forms for service and construction techs. Fill them out on the phone at the site.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

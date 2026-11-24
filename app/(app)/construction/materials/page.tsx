@@ -6,6 +6,8 @@ import { MaterialStatusSelect } from '@/components/construction/material-status-
 import { MaterialForm } from '@/components/construction/material-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { setMaterialStatus, deleteMaterial, saveMaterial } from '../actions'
+import { Package } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function MaterialsPage({ searchParams }: { searchParams: Promise<{ job?: string }> }) {
   const { job = '' } = await searchParams
@@ -32,7 +34,7 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="rp-title">
+          <h1 className="rp-title"><TitleIcon icon={Package} tone="info" />
             Materials
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{materials?.length ?? 0} item{materials?.length !== 1 ? 's' : ''}</p>

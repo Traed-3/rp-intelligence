@@ -47,9 +47,9 @@ export async function SimplePlate({ profile }: { profile: { id: string; company_
           <p className="rp-subtitle">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })} · what is on you</p>
         </div>
         <div className="flex flex-wrap gap-2 font-mono text-xs">
-          <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{open.length}</b> to do</span>
-          {plate.waiting.length > 0 && <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{plate.waiting.length}</b> waiting</span>}
-          <span className="px-2 py-1 rounded border border-border bg-card"><b className="tabular-nums">{plate.doneToday.length}</b> done today</span>
+          <span className="px-2 py-1 rounded border border-info/25 bg-info-soft text-info"><b className="tabular-nums">{open.length}</b> to do</span>
+          {plate.waiting.length > 0 && <span className="px-2 py-1 rounded border border-warning/25 bg-warning-soft text-warning"><b className="tabular-nums">{plate.waiting.length}</b> waiting</span>}
+          <span className="px-2 py-1 rounded border border-success/25 bg-success-soft text-success"><b className="tabular-nums">{plate.doneToday.length}</b> done today</span>
         </div>
       </header>
 
@@ -61,7 +61,7 @@ export async function SimplePlate({ profile }: { profile: { id: string; company_
       </section>
 
       <section className="mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{people.length ? 'Add a task' : 'Add to my plate'}</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-info mb-2">{people.length ? 'Add a task' : 'Add to my plate'}</h2>
         <form action={addTask} className="rounded-lg border border-border border-l-[6px] border-l-blue-700 bg-card p-3 space-y-2">
           <input name="title" required placeholder="What needs doing" className={inp} />
           <div className="grid grid-cols-2 gap-2">
@@ -83,7 +83,7 @@ export async function SimplePlate({ profile }: { profile: { id: string; company_
 
       {plate.doneToday.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Done today</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-success">Done today</h2>
           {plate.doneToday.map(t => (
             <div key={t.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm">
               <span className="flex-1 min-w-0 truncate text-muted-foreground line-through">{t.title}</span>

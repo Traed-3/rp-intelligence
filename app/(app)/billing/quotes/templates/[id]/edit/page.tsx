@@ -5,6 +5,8 @@ import { requireBilling } from '@/lib/billing-guard'
 import { QuoteTemplateForm } from '@/components/billing/quote-template-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { saveQuoteTemplate, deleteQuoteTemplate } from '../../../../actions'
+import { FileText } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function EditQuoteTemplatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -18,7 +20,7 @@ export default async function EditQuoteTemplatePage({ params }: { params: Promis
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-6">
         <Link href="/billing/quotes/templates" className="text-sm text-gray-500 hover:text-gray-700">← Templates</Link>
-        <h1 className="rp-title mt-2">Edit Template</h1>
+        <h1 className="rp-title mt-2"><TitleIcon icon={FileText} tone="info" />Edit Template</h1>
       </div>
       <div className="rp-card p-6">
         <QuoteTemplateForm action={saveQuoteTemplate.bind(null, id)} template={template} />

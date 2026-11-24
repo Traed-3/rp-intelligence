@@ -6,7 +6,8 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { Button } from '@/components/ui/button'
 import { SiteForm } from '@/components/construction/site-form'
 import { saveSite } from '../../actions'
-import { Pencil, MapPin } from 'lucide-react'
+import { Pencil, MapPin, Building2 } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -28,7 +29,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         <Link href="/construction/customers" className="text-sm text-gray-500 hover:text-gray-700">← Back to Customers</Link>
         <div className="flex items-start justify-between mt-2">
           <div>
-            <h1 className="rp-title">{customer.name}</h1>
+            <h1 className="rp-title"><TitleIcon icon={Building2} tone="info" />{customer.name}</h1>
             <div className="text-sm text-gray-500 mt-1 space-y-0.5">
               {customer.billing_contact && <div>Contact: {customer.billing_contact}</div>}
               {customer.email && <div>{customer.email}</div>}

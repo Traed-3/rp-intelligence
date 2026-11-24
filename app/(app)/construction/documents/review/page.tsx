@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { ReviewRow } from '@/components/construction/review-row'
-import { Inbox, ArrowLeft } from 'lucide-react'
+import { Inbox, ArrowLeft, FileSearch } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 // Company-wide triage queue for documents the importer (or an upload) couldn't
 // confidently file. Pick a category and File to clear each one.
@@ -58,7 +59,7 @@ export default async function DocReviewPage() {
       </Link>
 
       <div className="mb-6">
-        <h1 className="rp-title">
+        <h1 className="rp-title"><TitleIcon icon={FileSearch} tone="warning" />
           Document Review
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">Files the importer wasn&apos;t sure about. Pick a category and File each one.</p>

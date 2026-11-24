@@ -410,6 +410,19 @@
   .rp-stage-complete { --c: var(--stage-complete); }
   .rp-stage-overspill-program { --c: var(--stage-overspill-program); }
 
+  /* Color accents (Trae, 11/24/26: every page gets at least one touch of color). A tone sets --tone / --tone-soft;
+     red = overdue or hot, amber = waiting, green = done, blue = information. */
+  :where([data-tone="info"])    { --tone: var(--info);    --tone-soft: var(--info-soft); }
+  :where([data-tone="success"]) { --tone: var(--success); --tone-soft: var(--success-soft); }
+  :where([data-tone="warning"]) { --tone: var(--warning); --tone-soft: var(--warning-soft); }
+  :where([data-tone="danger"])  { --tone: var(--danger);  --tone-soft: var(--danger-soft); }
+  /* Colored icon chip in front of a page title (components/ui/title-icon.tsx). */
+  .rp-title-chip { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.25rem; height: 2.25rem; border-radius: 0.75rem; background: var(--tone-soft, var(--info-soft)); color: var(--tone, var(--info)); border: 1px solid color-mix(in oklab, var(--tone, var(--info)) 25%, transparent); }
+  .rp-title-chip svg { width: 1.25rem; height: 1.25rem; }
+  h1:has(> .rp-title-chip) { display: flex; align-items: center; gap: 0.625rem; }
+  /* A thin colored bar down the left of a card header or row. */
+  .rp-accent { box-shadow: inset 3px 0 0 var(--tone, var(--info)); }
+
   /* Empty state: one helpful line */
   .rp-empty { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; padding: 2.5rem 1.25rem; border: 1px dashed var(--border); border-radius: var(--radius-xl); background: color-mix(in oklab, var(--card) 60%, transparent); color: var(--muted-foreground); font-size: 0.875rem; }
 

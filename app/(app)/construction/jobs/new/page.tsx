@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { JobForm } from '@/components/construction/job-form'
 import { saveJob } from '../../actions'
+import { HardHat } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function NewJobPage() {
   const { company_id, canWrite } = await requireConstruction()
@@ -20,7 +22,7 @@ export default async function NewJobPage() {
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-6">
         <Link href="/construction/jobs" className="text-sm text-gray-500 hover:text-gray-700">← Back to Jobs</Link>
-        <h1 className="rp-title mt-2">New Job</h1>
+        <h1 className="rp-title mt-2"><TitleIcon icon={HardHat} tone="info" />New Job</h1>
       </div>
       <div className="rp-card p-6">
         <JobForm action={saveJob.bind(null, null)} customers={customers ?? []} sites={sites ?? []} managers={managers ?? []} />
