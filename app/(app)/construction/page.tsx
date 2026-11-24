@@ -83,7 +83,7 @@ export default async function ConstructionDashboard() {
   const tiles = [
     { href: '/construction/jobs', label: 'Jobs', icon: HardHat, value: allJobs.length },
     { href: '/construction/sites', label: 'Site Lookup', icon: Search },
-    { href: '/construction/permits', label: 'Permits', icon: FileCheck2, value: permitGraph.enriched.filter(p => p.requirement_status === 'Required').length, sub: 'tracked' },
+    { href: '/construction/permits', label: 'Permits', icon: FileCheck2, value: permitGraph.enriched.filter(p => p.requirement_status === 'Required' && p.status !== 'Complete').length, sub: 'open' },
     { href: '/billing/quotes', label: 'Quotes', icon: FileText },
     { href: '/billing/invoices', label: 'Invoices', icon: Receipt, value: money(invoicedThisYear), sub: `invoiced ${thisYear}` },
     { href: '/construction/materials', label: 'Materials', icon: Package, value: neededMaterials?.length ?? 0, sub: 'to order/receive' },

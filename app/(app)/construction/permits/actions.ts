@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation'
 import { canWriteConstruction } from '@/lib/construction'
 import {
   PERMIT_STATUS_VALUES, REQUIREMENT_STATUSES, isInHandOrLater,
-  defaultPulledBy, computeReadyToWork,
+  defaultPulledBy, computeReadyToWork, iso,
 } from '@/lib/permits'
 import { findOrCreateJobForPermitSite, linkProjectToChosenJob } from '@/lib/permit-job-link'
 
@@ -60,12 +60,15 @@ export async function updatePermitStatus(permitId: string, newStatus: string): P
   const admin = createAdminClient()
 
   const { data: permit } = await admin.from('con_permits')
-    .select('id, project_id, permit_type, status')
+    .select('id, project_id, permit_type, status, date_completed')
     .eq('id', permitId).eq('company_id', profile.company_id).single()
   if (!permit) return
   if (permit.status === newStatus) return
 
-  await admin.from('con_permits').update({ status: newStatus }).eq('id', permitId).eq('company_id', profile.company_id)
+  // Marking a permit Complete stamps today's date as the completion date (unless one is already set).
+  const patch: { status: string; date_completed?: string } = { status: newStatus }
+  if (newStatus === 'Complete' && !permit.date_completed) patch.date_completed = iso(new Date())
+  await admin.from('con_permits').update(patch).eq('id', permitId).eq('company_id', profile.company_id)
   await logEvent(admin, profile, permitId, permit.status, newStatus, null)
 
   // AUTO-RESOLVE: electrical reaching Permit In-Hand (or later) proves the
@@ -141,7 +144,7 @@ export async function createPermitProject(_state: ActionState, formData: FormDat
 
   // find or create the site
   let { data: site } = await admin.from('con_permit_sites')
-    .select('id, jurisdiction_id').eq('company_id', profile.company_id).eq('site_number', siteNumber).maybeSingle()
+    .select('id, jurisdiction_id, state').eq('company_id', profile.company_id).eq('site_number', siteNumber).maybeSingle()
   if (!site) {
     const jid = str(formData.get('jurisdiction_id'))
     const ins = await admin.from('con_permit_sites').insert({
@@ -153,7 +156,7 @@ export async function createPermitProject(_state: ActionState, formData: FormDat
       state: str(formData.get('state')),
       brand: str(formData.get('brand')),
       jurisdiction_id: jid,
-    }).select('id, jurisdiction_id').single()
+    }).select('id, jurisdiction_id, state').single()
     if (ins.error) return { error: ins.error.message }
     site = ins.data
   }
@@ -173,7 +176,7 @@ export async function createPermitProject(_state: ActionState, formData: FormDat
   // permits are added manually on the rare occasions a jurisdiction wants them.
   await admin.from('con_permits').insert({
     company_id: profile.company_id, project_id: projectId, permit_key: `${siteNumber}-ELEC`,
-    permit_type: 'Electrical', pulled_by: defaultPulledBy('Electrical'), requirement_status: 'Required', status: 'Not Started',
+    permit_type: 'Electrical', pulled_by: defaultPulledBy('Electrical', site?.state), requirement_status: 'Required', status: 'Not Started',
   })
 
   // "If we have a permit, it's a project" — auto-link (or auto-create) the

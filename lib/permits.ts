@@ -29,15 +29,38 @@ export function isInHandOrLater(status: string) {
   return IN_HAND_OR_LATER.includes(status)
 }
 
+// ── Dashboard buckets ──
+// Every permit lands in exactly one of three piles on the Permits dashboard.
+//   waiting    — not in hand yet (not started, with Hash, at the jurisdiction, on hold, rejected)
+//   inspection — permit is in hand, the final inspection is still owed
+//   complete   — final passed / closed out. Nothing left to do, so no alerts.
+export type PermitBucket = 'waiting' | 'inspection' | 'complete'
+export const PERMIT_BUCKETS: readonly { key: PermitBucket; label: string; blurb: string }[] = [
+  { key: 'waiting',    label: 'Waiting / In progress',  blurb: 'Not in hand yet' },
+  { key: 'inspection', label: 'Need final inspection',  blurb: 'Permit in hand, final still owed' },
+  { key: 'complete',   label: 'Completed',              blurb: 'Final passed, closed out' },
+]
+export function permitBucket(status: string): PermitBucket {
+  if (status === 'Complete') return 'complete'
+  if (status === 'Permit In-Hand' || status === 'Inspection Scheduled') return 'inspection'
+  return 'waiting'
+}
+export function isPermitComplete(status: string) {
+  return status === 'Complete'
+}
+
 export const PERMIT_TYPES = ['Electrical', 'Building', 'Mechanical', 'Plumbing', 'Fire', 'Zoning', 'Other'] as const
-export const PULLED_BY = ['Hash Construction', 'RPS', 'Engineering Firm'] as const
+export const PULLED_BY = ['Hash Construction', 'J&J Electric', 'RPS', 'Engineering Firm'] as const
 export const REQUIREMENT_STATUSES = ['Unknown', 'Required', 'Not Required'] as const
-export const PROJECT_TYPES = ['Dispenser Replacement', 'STP Circuit Repair', 'Tank Replacement', 'MUL Conversion'] as const
+export const PROJECT_TYPES = ['Dispenser Replacement', 'STP Circuit Repair', 'Tank Replacement', 'MUL Conversion', 'Product Line / UDC Replacement'] as const
 export const REQUEST_TYPES = ['Non-PE Stamped', 'PE Stamped'] as const
 
-// Who pulls a permit, by type. Electrical is Hash; everything else is RPS.
-export function defaultPulledBy(permitType: string): string {
-  return permitType === 'Electrical' ? 'Hash Construction' : 'RPS'
+// Who pulls a permit, by type (and state). Electrical is Hash in VA and
+// J&J Electric in MD/WV (Hash's license is VA only); everything else is RPS.
+export function defaultPulledBy(permitType: string, state?: string | null): string {
+  if (permitType !== 'Electrical') return 'RPS'
+  const st = (state ?? '').toUpperCase()
+  return st === 'MD' || st === 'WV' ? 'J&J Electric' : 'Hash Construction'
 }
 
 // The 28-day rule: permit due date is always the work date minus 28 days.
