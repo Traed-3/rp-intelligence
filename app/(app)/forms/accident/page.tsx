@@ -31,7 +31,7 @@ export default async function AccidentListPage() {
 
       <form action={createReport} className="mb-5">
         <button className="rp-card rp-card-link w-full sm:w-auto p-4 flex items-center gap-3 text-left">
-          <span className="rounded-lg p-2 bg-primary/10 text-primary"><TriangleAlert className="w-5 h-5" /></span>
+          <span className="rounded-lg p-2 bg-gold-soft text-gold"><TriangleAlert className="w-5 h-5" /></span>
           <span>
             <span className="block font-semibold text-gray-900">New accident report</span>
             <span className="block text-xs text-gray-500">What happened, other vehicle, property, police, injuries, photos, signature</span>
