@@ -20,7 +20,7 @@ export async function BillingInboxPanel({ companyId }: { companyId: string }) {
   return (
     <div className="rp-card p-5 mb-2">
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100"><Inbox className="w-5 h-5 text-blue-600" /></div>
+        <div className="p-2.5 rounded-lg rp-icon-navy"><Inbox className="w-5 h-5" /></div>
         <div>
           <p className="font-semibold text-gray-900">Billing inboxes</p>
           <p className="text-sm text-gray-500">Packing slips, vendor invoices and receipts → <Link href="/inventory/receive/queue" className="text-blue-600">Receive queue</Link>. {connected}/{inboxes.length} connected · {queued ?? 0} waiting · {total ?? 0} filed. Syncs every 15 minutes.</p>

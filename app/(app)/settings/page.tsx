@@ -46,8 +46,8 @@ export default async function SettingsPage() {
             href={l.href}
             className="rp-card rp-card-link flex items-center gap-4 p-5"
           >
-            <div className="p-2.5 rounded-lg bg-gold-soft border border-gold/25">
-              <l.icon className="w-5 h-5 text-gold" />
+            <div className="p-2.5 rounded-lg rp-icon-navy">
+              <l.icon className="w-5 h-5" />
             </div>
             <div>
               <p className="font-semibold text-gray-900">{l.title}</p>

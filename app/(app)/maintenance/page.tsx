@@ -273,7 +273,7 @@ export default async function MaintenancePage({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {tiles.map((t) => (
           <Link key={t.href} href={t.href} className="rp-card rp-card-link p-4">
-            <t.icon className="w-5 h-5 text-blue-600 mb-2" />
+            <span className="inline-flex rounded-lg p-2 rp-icon-navy mb-2"><t.icon className="w-5 h-5" /></span>
             <p className="text-sm font-semibold text-gray-900">{t.label}</p>
             {'sub' in t && t.sub && <p className="text-xs text-gray-400 mt-0.5">{t.sub}</p>}
           </Link>

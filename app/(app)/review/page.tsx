@@ -38,9 +38,6 @@ export default async function ReviewPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-1">
-        <div className="p-2 rounded-lg bg-amber-50 border border-amber-100">
-          <Inbox className="w-5 h-5 text-amber-600" />
-        </div>
         <h1 className="rp-title"><TitleIcon icon={Inbox} tone="gold" />Email Review</h1>
       </div>
       <p className="text-sm text-gray-500 mb-6 ml-1">
