@@ -40,7 +40,7 @@ export default async function ReviewPage() {
         <div className="p-2 rounded-lg bg-amber-50 border border-amber-100">
           <Inbox className="w-5 h-5 text-amber-600" />
         </div>
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Email Review</h1>
+        <h1 className="rp-title">Email Review</h1>
       </div>
       <p className="text-sm text-gray-500 mb-6 ml-1">
         Emails whose unit number didn’t match an asset land here first — nothing is added until you decide.
@@ -48,7 +48,7 @@ export default async function ReviewPage() {
       </p>
 
       {(pending ?? []).length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+        <div className="rp-card p-12 text-center">
           <p className="text-gray-400 text-sm">Nothing to review. 🎉 Every email matched an asset.</p>
         </div>
       ) : (

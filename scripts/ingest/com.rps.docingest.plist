@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.rps.docingest</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/rpsstudio2/Developer/rps-maintenance/scripts/ingest/scheduled-run.sh</string>
+    </array>
+
+    <!-- Fire every 15 minutes; launchd will not start a second copy while one is running. -->
+    <key>StartInterval</key>
+    <integer>900</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Give the batch room; a full 500-upload batch is ~6-9 min. -->
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/rpsstudio2/Library/Application Support/RPS Construction Ingest/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/rpsstudio2/Library/Application Support/RPS Construction Ingest/launchd.err.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/rpsstudio2/Developer/rps-maintenance</string>
+</dict>
+</plist>

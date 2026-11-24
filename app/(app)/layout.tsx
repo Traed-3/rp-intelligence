@@ -4,6 +4,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import AppNav from '@/components/app-nav'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { AskRps } from '@/components/assistant/ask-rps'
+import { assistantSuggestions } from '@/lib/assistant/suggestions'
+import { hasComplianceGrant } from '@/lib/compliance-guard'
+import { isSurveyOnly, DEFAULT_NEW_USER_ROLE } from '@/lib/field-surveys'
+import { hasRpmail } from '@/lib/rpmail/has'
+import { loadUiPrefs } from '@/lib/ui-prefs'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -12,44 +17,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const admin = createAdminClient()
 
-  // Fetch profile; create it on the fly if missing (belt-and-suspenders in
-  // case the callback's ensureProfile server action didn't complete)
-  let { data: profile } = await admin
+  // Only people added in Settings → Users have a profile; proxy.ts signs anyone else out before this runs.
+  const { data: profile } = await admin
     .from('profiles')
     .select('id, company_id, role')
     .eq('id', user.id)
     .single()
-
-  if (!profile) {
-    const { data: company } = await admin
-      .from('companies').select('id').eq('slug', 'rps').single()
-    const fullName =
-      user.user_metadata?.full_name ??
-      user.user_metadata?.name ??
-      user.email?.split('@')[0] ??
-      'Unknown'
-    let role = 'viewer'
-    if (company?.id) {
-      const { count } = await admin
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('company_id', company.id)
-        .eq('role', 'owner')
-      if ((count ?? 0) === 0) role = 'owner'
-    }
-    const { data: created } = await admin.from('profiles').insert({
-      id: user.id,
-      company_id: company?.id ?? null,
-      full_name: fullName,
-      email: user.email!,
-      role,
-    }).select('id, company_id, role').single()
-    profile = created
-  }
+  if (!profile) redirect('/login?denied=1')
 
   // Notifications — skip if we still have no profile (should never happen)
+  const surveyOnly = isSurveyOnly(profile?.role)   // Field Survey Only login: no bell, no Ask RPS, slim nav
   let filteredNotifications: any[] = []
-  if (profile?.company_id) {
+  if (profile?.company_id && !surveyOnly) {
     const { data } = await admin
       .from('notifications')
       .select('id, type, title, message, link, is_read, created_at')
@@ -62,24 +41,30 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const unreadCount = filteredNotifications.filter(n => !n.is_read).length
 
+  const { data: blocks } = await admin.from('profile_module_blocks').select('module').eq('profile_id', user.id)
+  const blockedModules = (blocks ?? []).map(b => b.module)
+  const complianceGranted = await hasComplianceGrant(admin, profile?.company_id, user.id)
+  const rpmail = await hasRpmail(admin, user.id)   // RPMail is per user: turned on by the person, or their own linked one
+  const prefs = await loadUiPrefs(admin, user.id)   // the person's own menu order / hidden entries / phone tabs
+
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <AppNav email={user.email ?? ''} role={profile?.role ?? 'viewer'} userId={user.id} />
+    <div className="flex min-h-screen bg-surface">
+      <AppNav email={user.email ?? ''} role={profile?.role ?? DEFAULT_NEW_USER_ROLE} userId={user.id} blockedModules={blockedModules} complianceGranted={complianceGranted} prefs={prefs} hasRpmail={!!rpmail} />
 
       {/* Notification bell — top right on desktop */}
-      <div className="fixed top-3 right-4 z-20 hidden md:block">
+      {!surveyOnly && <div className="fixed top-3.5 right-4 z-20 hidden md:block print:hidden">
         <NotificationBell
           initialNotifications={(filteredNotifications ?? []) as any[]}
           unreadCount={unreadCount}
         />
-      </div>
+      </div>}
 
-      <main className="flex-1 pb-16 md:pb-0 overflow-y-auto">
+      <main className="rp-main flex-1 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0 overflow-y-auto overflow-x-hidden">
         {children}
       </main>
 
       {/* In-app AI assistant */}
-      <AskRps />
+      {!surveyOnly && <AskRps userId={user.id} suggestions={assistantSuggestions({ userId: user.id, role: profile?.role ?? DEFAULT_NEW_USER_ROLE, blockedModules, complianceGranted })} />}
     </div>
   )
 }

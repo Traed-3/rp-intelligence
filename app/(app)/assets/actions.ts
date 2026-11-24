@@ -196,5 +196,5 @@ export async function deleteAsset(id: string): Promise<void> {
   revalidatePath('/maintenance/tires')
   revalidatePath('/maintenance/inspections')
   revalidatePath('/maintenance/registrations')
-  revalidatePath('/dashboard')
+  revalidatePath('/dashboard'); revalidatePath('/maintenance')
 }

@@ -28,12 +28,14 @@ export function MaterialForm({
   jobId,
   jobs,
   material,
+  vendors,
   compact = false,
 }: {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>
   jobId?: string
   jobs?: { id: string; site_number: string | null; work_order_number: string | null }[]
   material?: MaterialRecord
+  vendors?: string[]
   compact?: boolean
 }) {
   const [state, formAction, isPending] = useActionState(action, null)
@@ -85,7 +87,10 @@ export function MaterialForm({
         </div>
         <div>
           <label className={lbl}>Vendor</label>
-          <input name="vendor" className={inp} defaultValue={m?.vendor ?? ''} />
+          <input name="vendor" className={inp} list="material-vendors" autoComplete="off" defaultValue={m?.vendor ?? ''} placeholder={vendors?.length ? 'Select or type a vendor' : ''} />
+          <datalist id="material-vendors">
+            {(vendors ?? []).map(v => <option key={v} value={v} />)}
+          </datalist>
         </div>
         {!compact && (
           <>

@@ -49,7 +49,7 @@ export default async function TimeEntriesPage({
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6 gap-4">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Time Entries</h1>
+          <h1 className="rp-title">Time Entries</h1>
           <p className="text-sm text-gray-500 mt-0.5">Last 30 days</p>
         </div>
         <div className="flex gap-2">
@@ -58,7 +58,7 @@ export default async function TimeEntriesPage({
               {pendingCount} Pending Approval
             </Link>
           )}
-          <Link href="/reports/payroll" className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+          <Link href="/reports/payroll" className="px-4 py-2 rounded-lg border border-gray-300 bg-card text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
             Payroll Report →
           </Link>
         </div>
@@ -77,8 +77,8 @@ export default async function TimeEntriesPage({
               href={`/time?approved=${f.value}${empFilter ? `&employee=${empFilter}` : ''}`}
               className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
                 (approvedFilter ?? '') === f.value
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'
               }`}
             >
               {f.label}
@@ -87,17 +87,17 @@ export default async function TimeEntriesPage({
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                {isManager && <th className="text-left px-4 py-2.5 font-medium text-gray-500">Employee</th>}
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Date</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Clock In</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Clock Out</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-500">Hours</th>
-                <th className="text-center px-4 py-2.5 font-medium text-gray-500">Status</th>
+                {isManager && <th className="text-left px-4 py-2.5">Employee</th>}
+                <th className="text-left px-4 py-2.5">Date</th>
+                <th className="text-left px-4 py-2.5">Clock In</th>
+                <th className="text-left px-4 py-2.5">Clock Out</th>
+                <th className="text-right px-4 py-2.5">Hours</th>
+                <th className="text-center px-4 py-2.5">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">

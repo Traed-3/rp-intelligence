@@ -73,7 +73,7 @@ export function LaborTimer({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+    <div className="rp-card p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-gray-900">Labor Time</h2>
         <span className="text-sm font-semibold text-gray-700">
@@ -106,7 +106,7 @@ export function LaborTimer({
           <button
             onClick={handleStart}
             disabled={isPending}
-            className="flex-1 py-3 rounded-xl text-base font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+            className="flex-1 py-3 rounded-xl text-base font-bold bg-green-600 text-white hover:bg-green-600/90 disabled:opacity-50 transition-colors"
           >
             {isPending ? '…' : '🟢 Clock In to Ticket'}
           </button>
@@ -123,7 +123,7 @@ export function LaborTimer({
             <button
               onClick={handleStop}
               disabled={isPending}
-              className="px-4 py-2 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-600/90 disabled:opacity-50 transition-colors"
             >
               {isPending ? '…' : '🔴 Clock Out from Ticket'}
             </button>
@@ -139,13 +139,13 @@ export function LaborTimer({
         <p className="text-sm text-gray-400">No time logged yet.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="rp-table w-full text-xs">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left py-1.5 pr-3 font-medium text-gray-500">Employee</th>
-                <th className="text-left py-1.5 pr-3 font-medium text-gray-500">Start</th>
-                <th className="text-left py-1.5 pr-3 font-medium text-gray-500">End</th>
-                <th className="text-right py-1.5 font-medium text-gray-500">Duration</th>
+                <th className="text-left py-1.5 pr-3">Employee</th>
+                <th className="text-left py-1.5 pr-3">Start</th>
+                <th className="text-left py-1.5 pr-3">End</th>
+                <th className="text-right py-1.5">Duration</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">

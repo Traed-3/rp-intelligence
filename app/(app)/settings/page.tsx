@@ -2,10 +2,12 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { Users, Building2, CreditCard, BookOpen, Bell, Inbox } from 'lucide-react'
+import { Users, Building2, CreditCard, BookOpen, Bell, Inbox, SlidersHorizontal, Mail } from 'lucide-react'
 import { GmailSyncPanel } from './gmail-sync-panel'
+import { BillingInboxPanel } from './billing-inbox-panel'
 
 const LINKS = [
+  { href: '/settings/personalize',     icon: SlidersHorizontal, title: 'Personalize',        desc: 'Your own dashboard cards, side menu and phone buttons. Every user has this page.' },
   { href: '/review',                   icon: Inbox,       title: 'Email Review',           desc: "Resolve emails that didn't match an asset — suggested matches, assign, or create." },
   { href: '/settings/alerts',          icon: Bell,        title: 'Alerts & Notifications', desc: 'Choose which alerts you receive and how — in-app, email, text, or push.' },
   { href: '/settings/users',           icon: Users,       title: 'User Management',        desc: 'Change employee roles, activate or deactivate accounts.' },
@@ -20,27 +22,28 @@ export default async function SettingsPage() {
   const admin = createAdminClient()
 
   const { data: profile } = await admin
-    .from('profiles').select('role').eq('id', user!.id).single()
+    .from('profiles').select('role, company_id').eq('id', user!.id).single()
 
   if (!['owner', 'manager'].includes(profile?.role ?? '')) {
-    redirect('/dashboard')
+    redirect('/settings/personalize')   // everyone else gets their own layout page
   }
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Settings</h1>
+        <h1 className="rp-title">Settings</h1>
         <p className="text-sm text-gray-500 mt-0.5">Manage your RPS platform.</p>
       </div>
 
       <GmailSyncPanel />
+      <BillingInboxPanel companyId={profile!.company_id} />
 
       <div className="space-y-3 mt-6">
-        {LINKS.map(l => (
+        {[...LINKS, ...(profile?.role === 'owner' ? [{ href: '/settings/rpmail', icon: Mail, title: 'RPMail', desc: 'Who has RPMail, which shared mailboxes each person gets, and connecting the shared mailboxes.' }] : [])].map(l => (
           <Link
             key={l.href}
             href={l.href}
-            className="flex items-center gap-4 bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:border-gray-400 hover:shadow-sm transition-all"
+            className="rp-card rp-card-link flex items-center gap-4 p-5"
           >
             <div className="p-2.5 rounded-lg bg-gray-100 border border-gray-200">
               <l.icon className="w-5 h-5 text-gray-600" />

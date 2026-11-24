@@ -1,27 +1,33 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Barlow_Condensed, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import { PWARegister } from '@/components/pwa-register'
+import { themeScript } from '@/components/ui/theme-toggle'
 
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
-const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
+// The Action Board's type: condensed caps for headings, Plex for reading, Plex Mono for site numbers and counts.
+const displayFont = Barlow_Condensed({ variable: '--font-barlow', subsets: ['latin'], weight: ['600', '700'] })
+const bodyFont = IBM_Plex_Sans({ variable: '--font-plex-sans', subsets: ['latin'], weight: ['400', '500', '600', '700'] })
+const monoFont = IBM_Plex_Mono({ variable: '--font-plex-mono', subsets: ['latin'], weight: ['400', '500', '600'] })
 
 export const metadata: Metadata = {
-  title: 'RPS Maintenance',
-  description: 'RPS Fleet & Shop Operations Platform',
+  title: 'RP Intelligence',
+  description: 'RP Intelligence — Rappahannock Petroleum operations platform',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'RPS',
+    title: 'RP Intel',
   },
   formatDetection: { telephone: false },
   icons: {
-    apple: '/apple-touch-icon.png',
+    apple: '/apple-touch-icon-v2.png',
   },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#2563eb',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#111827' },
+  ],
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -30,8 +36,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="en" suppressHydrationWarning className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
+        {/* Sets light/dark before first paint so there is no flash. */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <PWARegister />
         {children}
       </body>

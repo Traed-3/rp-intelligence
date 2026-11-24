@@ -6,9 +6,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import {
   canWriteConstruction,
-  computeDocumentTotals,
-  type LineItemInput,
+  CON_DOC_CATEGORY_VALUES,
 } from '@/lib/construction'
+import { classifySite } from '@/lib/site-number'
 
 export type ActionState = { error: string } | null
 
@@ -29,7 +29,7 @@ async function getProfile() {
   if (!user) return null
   const admin = createAdminClient()
   const { data } = await admin
-    .from('profiles').select('id, company_id, role').eq('id', user.id).single()
+    .from('profiles').select('id, company_id, role, full_name').eq('id', user.id).single()
   return data
 }
 
@@ -101,6 +101,15 @@ export async function saveSite(id: string | null, _state: ActionState, formData:
     state:           str(formData.get('state')),
     zip:             str(formData.get('zip')),
     dispenser_count: num(formData.get('dispenser_count')),
+    dispenser_type:  str(formData.get('dispenser_type')),
+    tank_count:      num(formData.get('tank_count')),
+    tank_type:       str(formData.get('tank_type')),
+    stp_count:       num(formData.get('stp_count')),
+    stp_type:        str(formData.get('stp_type')),
+    fill_spill_bucket_count: num(formData.get('fill_spill_bucket_count')),
+    fill_spill_bucket_type:  str(formData.get('fill_spill_bucket_type')),
+    vapor_bucket_count:      num(formData.get('vapor_bucket_count')),
+    vapor_bucket_type:       str(formData.get('vapor_bucket_type')),
     notes:           str(formData.get('notes')),
   }
 
@@ -137,6 +146,8 @@ function jobFields(formData: FormData) {
     site_number:         str(formData.get('site_number')),
     customer_id:         str(formData.get('customer_id')),
     work_order_number:   str(formData.get('work_order_number')),
+    po_number:           str(formData.get('po_number')),
+    master_sync_hold:    formData.get('master_sync_hold') === 'on',
     stage:               str(formData.get('stage')) ?? 'survey',
     status_detail:       str(formData.get('status_detail')),
     scope_of_work:       str(formData.get('scope_of_work')),
@@ -183,6 +194,14 @@ export async function changeJobStage(id: string, stage: string): Promise<void> {
   if (!profile || !canWriteConstruction(profile)) return
   const admin = createAdminClient()
   await admin.from('con_jobs').update({ stage }).eq('id', id).eq('company_id', profile.company_id)
+  // The con_jobs_stage_history trigger just wrote a row with no actor — patch
+  // it with who made the change (see supabase/migrations/con_job_stage_history.sql).
+  const { data: latest } = await admin.from('con_job_stage_history')
+    .select('id').eq('job_id', id).order('changed_at', { ascending: false }).limit(1).maybeSingle()
+  if (latest) {
+    await admin.from('con_job_stage_history').update({ changed_by: profile.id, changed_by_name: profile.full_name })
+      .eq('id', latest.id)
+  }
   revalidatePath('/construction/jobs')
   revalidatePath('/construction')
   revalidatePath(`/construction/jobs/${id}`)
@@ -198,282 +217,6 @@ export async function deleteJob(id: string): Promise<void> {
   revalidatePath('/construction/jobs')
   revalidatePath('/construction')
   redirect('/construction/jobs')
-}
-
-// ============================================================
-// QUOTES & INVOICES — shared line-item parsing + recompute
-// ============================================================
-type LineRow = LineItemInput
-
-/** Pull the line-item array out of a JSON field on the form. */
-function parseLines(formData: FormData): LineRow[] {
-  const raw = formData.get('line_items')
-  if (!raw) return []
-  try {
-    const arr = JSON.parse(raw as string) as any[]
-    return arr
-      .map((r, i): LineRow => ({
-        section: r.section === 'additional' ? 'additional' : 'basic',
-        line_no: typeof r.line_no === 'number' ? r.line_no : i + 1,
-        description: r.description?.toString().trim() || null,
-        quantity: r.quantity != null && r.quantity !== '' ? Number(r.quantity) : null,
-        unit_cost: r.unit_cost != null && r.unit_cost !== '' ? Number(r.unit_cost) : null,
-        labor_hours: r.labor_hours != null && r.labor_hours !== '' ? Number(r.labor_hours) : null,
-        labor_rate: r.labor_rate != null && r.labor_rate !== '' ? Number(r.labor_rate) : null,
-        item_type: r.item_type?.toString().trim() || null,
-        is_stock: !!r.is_stock,
-      }))
-      // drop fully empty rows
-      .filter(r => r.description || r.quantity || r.unit_cost || r.labor_hours)
-  } catch {
-    return []
-  }
-}
-
-function docHeaderFields(formData: FormData) {
-  // percents arrive as whole numbers (6 = 6%); store as decimals
-  const poPctRaw = num(formData.get('profit_overhead_percent')) ?? 0
-  const taxPctRaw = num(formData.get('sales_tax_percent')) ?? 0
-  return {
-    job_id:              str(formData.get('job_id')),
-    customer_id:         str(formData.get('customer_id')),
-    project_description: str(formData.get('project_description')),
-    store_label:         str(formData.get('store_label')),
-    facility_address:    str(formData.get('facility_address')),
-    city_state_zip:      str(formData.get('city_state_zip')),
-    profit_overhead_percent: poPctRaw / 100,
-    sales_tax_percent:       taxPctRaw / 100,
-  }
-}
-
-export async function saveQuote(id: string | null, _state: ActionState, formData: FormData): Promise<ActionState> {
-  const profile = await getProfile()
-  if (!profile) return { error: 'Not authenticated.' }
-  if (!canWriteConstruction(profile)) return { error: 'You do not have permission to edit quotes.' }
-
-  const admin = createAdminClient()
-  const header = docHeaderFields(formData)
-  const lines = parseLines(formData)
-  const { totals, lines: computed } = computeDocumentTotals(lines, header.profit_overhead_percent, header.sales_tax_percent)
-
-  const row = {
-    ...header,
-    company_id:    profile.company_id,
-    attn:          str(formData.get('attn')),
-    customer_email: str(formData.get('customer_email')),
-    proposal_date: str(formData.get('proposal_date')),
-    status:        str(formData.get('status')) ?? 'draft',
-    prepared_by:   str(formData.get('prepared_by')) ?? 'Starsky Dodson, Construction Manager',
-    sent_date:     str(formData.get('sent_date')),
-    decision_date: str(formData.get('decision_date')),
-    ...totals,
-  }
-
-  let quoteId = id
-  if (id) {
-    const { error } = await admin.from('con_quotes').update(row).eq('id', id).eq('company_id', profile.company_id)
-    if (error) return { error: error.message }
-    await admin.from('con_quote_line_items').delete().eq('quote_id', id)
-  } else {
-    const { data, error } = await admin.from('con_quotes').insert(row).select('id').single()
-    if (error) return { error: error.message }
-    quoteId = data!.id
-  }
-
-  if (computed.length) {
-    const { error: liErr } = await admin.from('con_quote_line_items').insert(
-      computed.map((l, i) => ({
-        quote_id: quoteId,
-        section: l.section,
-        line_no: l.line_no ?? i + 1,
-        description: l.description,
-        quantity: l.quantity,
-        unit_cost: l.unit_cost,
-        material_total: l.material_total,
-        labor_hours: l.labor_hours,
-        labor_rate: l.labor_rate,
-        total_labor: l.total_labor,
-        total_material_labor: l.total_material_labor,
-        item_type: l.item_type,
-        is_stock: l.is_stock ?? false,
-      }))
-    )
-    if (liErr) return { error: liErr.message }
-  }
-
-  revalidatePath('/construction/quotes')
-  if (row.job_id) revalidatePath(`/construction/jobs/${row.job_id}`)
-  redirect(`/construction/quotes/${quoteId}`)
-}
-
-export async function setQuoteStatus(id: string, status: string): Promise<void> {
-  const profile = await getProfile()
-  if (!profile || !canWriteConstruction(profile)) return
-  const admin = createAdminClient()
-  const updates: Record<string, unknown> = { status }
-  if (status === 'sent') updates.sent_date = new Date().toISOString().split('T')[0]
-  if (status === 'approved' || status === 'rejected') updates.decision_date = new Date().toISOString().split('T')[0]
-  await admin.from('con_quotes').update(updates).eq('id', id).eq('company_id', profile.company_id)
-  revalidatePath('/construction/quotes')
-  revalidatePath(`/construction/quotes/${id}`)
-}
-
-export async function deleteQuote(id: string): Promise<void> {
-  const profile = await getProfile()
-  if (!profile || !canWriteConstruction(profile)) return
-  const admin = createAdminClient()
-  await admin.from('con_quotes').delete().eq('id', id).eq('company_id', profile.company_id)
-  revalidatePath('/construction/quotes')
-  redirect('/construction/quotes')
-}
-
-/** Copy an existing quote (header + line items) into a new draft invoice. */
-export async function convertQuoteToInvoice(quoteId: string): Promise<void> {
-  const profile = await getProfile()
-  if (!profile || !canWriteConstruction(profile)) return
-  const admin = createAdminClient()
-
-  const { data: q } = await admin.from('con_quotes').select('*').eq('id', quoteId).eq('company_id', profile.company_id).single()
-  if (!q) return
-  const { data: items } = await admin.from('con_quote_line_items').select('*').eq('quote_id', quoteId)
-
-  const { data: inv, error } = await admin.from('con_invoices').insert({
-    company_id: profile.company_id,
-    job_id: q.job_id,
-    quote_id: q.id,
-    invoice_date: new Date().toISOString().split('T')[0],
-    customer_id: q.customer_id,
-    attn: q.attn,
-    store_label: q.store_label,
-    facility_address: q.facility_address,
-    city_state_zip: q.city_state_zip,
-    project_description: q.project_description,
-    profit_overhead_percent: q.profit_overhead_percent,
-    sales_tax_percent: q.sales_tax_percent,
-    basic_subtotal_material: q.basic_subtotal_material,
-    basic_subtotal_labor: q.basic_subtotal_labor,
-    basic_total: q.basic_total,
-    additional_subtotal_material: q.additional_subtotal_material,
-    additional_subtotal_labor: q.additional_subtotal_labor,
-    additional_total: q.additional_total,
-    grand_total: q.grand_total,
-    profit_overhead_amount: q.profit_overhead_amount,
-    tax_amount: q.tax_amount,
-    invoice_grand_total: q.final_total,
-    prepared_by: q.prepared_by,
-    status: 'draft',
-  }).select('id').single()
-  if (error || !inv) return
-
-  if (items?.length) {
-    await admin.from('con_invoice_line_items').insert(
-      items.map(it => ({
-        invoice_id: inv.id,
-        section: it.section,
-        line_no: it.line_no,
-        description: it.description,
-        quantity: it.quantity,
-        unit_cost: it.unit_cost,
-        material_total: it.material_total,
-        labor_hours: it.labor_hours,
-        labor_rate: it.labor_rate,
-        total_labor: it.total_labor,
-        total_material_labor: it.total_material_labor,
-        item_type: it.item_type,
-        is_stock: it.is_stock,
-      }))
-    )
-  }
-
-  revalidatePath('/construction/invoices')
-  redirect(`/construction/invoices/${inv.id}`)
-}
-
-export async function saveInvoice(id: string | null, _state: ActionState, formData: FormData): Promise<ActionState> {
-  const profile = await getProfile()
-  if (!profile) return { error: 'Not authenticated.' }
-  if (!canWriteConstruction(profile)) return { error: 'You do not have permission to edit invoices.' }
-
-  const admin = createAdminClient()
-  const header = docHeaderFields(formData)
-  const lines = parseLines(formData)
-  const { totals, lines: computed } = computeDocumentTotals(lines, header.profit_overhead_percent, header.sales_tax_percent)
-
-  const { final_total, ...totalsRest } = totals
-  const row = {
-    ...header,
-    company_id:   profile.company_id,
-    quote_id:     str(formData.get('quote_id')),
-    invoice_date: str(formData.get('invoice_date')),
-    csr_number:   str(formData.get('csr_number')),
-    po_number:    str(formData.get('po_number')),
-    attn:         str(formData.get('attn')),
-    status:       str(formData.get('status')) ?? 'draft',
-    prepared_by:  str(formData.get('prepared_by')) ?? 'Starsky Dodson, Construction Manager',
-    sent_date:    str(formData.get('sent_date')),
-    due_date:     str(formData.get('due_date')),
-    paid_date:    str(formData.get('paid_date')),
-    ...totalsRest,
-    invoice_grand_total: final_total,
-  }
-
-  let invoiceId = id
-  if (id) {
-    const { error } = await admin.from('con_invoices').update(row).eq('id', id).eq('company_id', profile.company_id)
-    if (error) return { error: error.message }
-    await admin.from('con_invoice_line_items').delete().eq('invoice_id', id)
-  } else {
-    const { data, error } = await admin.from('con_invoices').insert(row).select('id').single()
-    if (error) return { error: error.message }
-    invoiceId = data!.id
-  }
-
-  if (computed.length) {
-    const { error: liErr } = await admin.from('con_invoice_line_items').insert(
-      computed.map((l, i) => ({
-        invoice_id: invoiceId,
-        section: l.section,
-        line_no: l.line_no ?? i + 1,
-        description: l.description,
-        quantity: l.quantity,
-        unit_cost: l.unit_cost,
-        material_total: l.material_total,
-        labor_hours: l.labor_hours,
-        labor_rate: l.labor_rate,
-        total_labor: l.total_labor,
-        total_material_labor: l.total_material_labor,
-        item_type: l.item_type,
-        is_stock: l.is_stock ?? false,
-      }))
-    )
-    if (liErr) return { error: liErr.message }
-  }
-
-  revalidatePath('/construction/invoices')
-  if (row.job_id) revalidatePath(`/construction/jobs/${row.job_id}`)
-  redirect(`/construction/invoices/${invoiceId}`)
-}
-
-export async function setInvoiceStatus(id: string, status: string): Promise<void> {
-  const profile = await getProfile()
-  if (!profile || !canWriteConstruction(profile)) return
-  const admin = createAdminClient()
-  const today = new Date().toISOString().split('T')[0]
-  const updates: Record<string, unknown> = { status }
-  if (status === 'sent') updates.sent_date = today
-  if (status === 'paid') updates.paid_date = today
-  await admin.from('con_invoices').update(updates).eq('id', id).eq('company_id', profile.company_id)
-  revalidatePath('/construction/invoices')
-  revalidatePath(`/construction/invoices/${id}`)
-}
-
-export async function deleteInvoice(id: string): Promise<void> {
-  const profile = await getProfile()
-  if (!profile || !canWriteConstruction(profile)) return
-  const admin = createAdminClient()
-  await admin.from('con_invoices').delete().eq('id', id).eq('company_id', profile.company_id)
-  revalidatePath('/construction/invoices')
-  redirect('/construction/invoices')
 }
 
 // ============================================================
@@ -554,10 +297,14 @@ export async function saveScheduleEntry(id: string | null, _state: ActionState, 
   const crewRaw = str(formData.get('crew'))
   const crew = crewRaw ? crewRaw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean) : null
 
+  const entryTypeRaw = str(formData.get('entry_type'))
+  const entry_type = ['job', 'time_off', 'note'].includes(entryTypeRaw ?? '') ? entryTypeRaw : 'job'
+
   const admin = createAdminClient()
   const fields = {
     schedule_date,
-    job_id:           str(formData.get('job_id')),
+    entry_type,
+    job_id:           entry_type === 'job' ? str(formData.get('job_id')) : null,
     site_number:      str(formData.get('site_number')),
     task_description: str(formData.get('task_description')),
     crew,
@@ -591,6 +338,156 @@ export async function deleteScheduleEntry(id: string): Promise<void> {
   const admin = createAdminClient()
   await admin.from('con_schedule_entries').delete().eq('id', id).eq('company_id', profile.company_id)
   revalidatePath('/construction/schedule')
+}
+
+export async function toggleChecklistItem(id: string, done: boolean): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+  await admin.from('con_checklist_items').update({ done }).eq('id', id).eq('company_id', profile.company_id)
+  revalidatePath('/construction/checklist')
+}
+
+// ── Subcontractors ──────────────────────────────────────────
+export async function saveSubcontractor(id: string | null, _state: ActionState, formData: FormData): Promise<ActionState> {
+  const profile = await getProfile()
+  if (!profile) return { error: 'Not authenticated.' }
+  if (!canWriteConstruction(profile)) return { error: 'You do not have permission to edit subcontractors.' }
+
+  const name = str(formData.get('name'))
+  if (!name) return { error: 'Name is required.' }
+
+  const admin = createAdminClient()
+  const fields = {
+    name,
+    trade:        str(formData.get('trade')),
+    contact_name: str(formData.get('contact_name')),
+    phone:        str(formData.get('phone')),
+    email:        str(formData.get('email')),
+    notes:        str(formData.get('notes')),
+    is_active:    formData.get('is_active') != null,
+  }
+  if (id) {
+    const { error } = await admin.from('con_subcontractors').update(fields).eq('id', id).eq('company_id', profile.company_id)
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await admin.from('con_subcontractors').insert({ ...fields, company_id: profile.company_id })
+    if (error) return { error: error.message }
+  }
+  revalidatePath('/construction/subcontractors')
+  redirect('/construction/subcontractors')
+}
+
+export async function deleteSubcontractor(id: string): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+  await admin.from('con_subcontractors').delete().eq('id', id).eq('company_id', profile.company_id)
+  revalidatePath('/construction/subcontractors')
+  redirect('/construction/subcontractors')
+}
+
+export async function assignSubcontractor(jobId: string, _state: ActionState, formData: FormData): Promise<ActionState> {
+  const profile = await getProfile()
+  if (!profile) return { error: 'Not authenticated.' }
+  if (!canWriteConstruction(profile)) return { error: 'You do not have permission to assign subcontractors.' }
+  const subId = str(formData.get('subcontractor_id'))
+  if (!subId) return { error: 'Pick a subcontractor.' }
+  const admin = createAdminClient()
+  const { error } = await admin.from('con_job_subcontractors').upsert(
+    { company_id: profile.company_id, job_id: jobId, subcontractor_id: subId, role: str(formData.get('role')) },
+    { onConflict: 'job_id,subcontractor_id' },
+  )
+  if (error) return { error: error.message }
+  revalidatePath(`/construction/jobs/${jobId}`)
+  return null
+}
+
+export async function unassignSubcontractor(id: string): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+  await admin.from('con_job_subcontractors').delete().eq('id', id).eq('company_id', profile.company_id)
+  revalidatePath('/construction/jobs/[id]', 'page')
+}
+
+// ── Vendors ─────────────────────────────────────────────────
+export async function saveVendor(id: string | null, _state: ActionState, formData: FormData): Promise<ActionState> {
+  const profile = await getProfile()
+  if (!profile) return { error: 'Not authenticated.' }
+  if (!canWriteConstruction(profile)) return { error: 'You do not have permission to edit vendors.' }
+
+  const name = str(formData.get('name'))
+  if (!name) return { error: 'Name is required.' }
+
+  const admin = createAdminClient()
+  const fields = {
+    name,
+    category:       str(formData.get('category')),
+    contact_name:   str(formData.get('contact_name')),
+    phone:          str(formData.get('phone')),
+    email:          str(formData.get('email')),
+    account_number: str(formData.get('account_number')),
+    notes:          str(formData.get('notes')),
+    is_active:      formData.get('is_active') != null,
+  }
+  if (id) {
+    const { error } = await admin.from('con_vendors').update(fields).eq('id', id).eq('company_id', profile.company_id)
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await admin.from('con_vendors').insert({ ...fields, company_id: profile.company_id })
+    if (error) return { error: error.message }
+  }
+  revalidatePath('/construction/vendors')
+  redirect('/construction/vendors')
+}
+
+export async function deleteVendor(id: string): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+  await admin.from('con_vendors').delete().eq('id', id).eq('company_id', profile.company_id)
+  revalidatePath('/construction/vendors')
+  redirect('/construction/vendors')
+}
+
+// ── Project Notification (brand pre-start notice) ───────────────
+function todayYmd(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export async function markNotificationSent(jobId: string): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+  await admin.from('con_jobs')
+    .update({ notification_sent_at: todayYmd(), notification_sent_by: profile.id, notification_waived: false })
+    .eq('id', jobId).eq('company_id', profile.company_id)
+  revalidatePath('/construction')
+  revalidatePath('/construction/jobs/[id]', 'page')
+}
+
+export async function clearNotificationSent(jobId: string): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+  await admin.from('con_jobs')
+    .update({ notification_sent_at: null, notification_sent_by: null })
+    .eq('id', jobId).eq('company_id', profile.company_id)
+  revalidatePath('/construction')
+  revalidatePath('/construction/jobs/[id]', 'page')
+}
+
+export async function setNotificationWaived(jobId: string, waived: boolean): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+  await admin.from('con_jobs')
+    .update({ notification_waived: waived })
+    .eq('id', jobId).eq('company_id', profile.company_id)
+  revalidatePath('/construction')
+  revalidatePath('/construction/jobs/[id]', 'page')
 }
 
 // ============================================================
@@ -682,6 +579,191 @@ export async function deleteJobLabor(id: string): Promise<void> {
 }
 
 // ============================================================
+// DAILY UPDATES (Phase 2) — ticket + techs/initials/hours -> man-hours
+// ============================================================
+export async function addDailyUpdate(jobId: string, _state: ActionState, formData: FormData): Promise<ActionState> {
+  const profile = await getProfile()
+  if (!profile) return { error: 'Not authenticated.' }
+  if (!canWriteConstruction(profile)) return { error: 'No permission.' }
+
+  const workDescription = str(formData.get('work_description'))
+  // Tech rows arrive as parallel arrays: tech_name[], initials[], hours[]
+  const names = formData.getAll('tech_name').map((v) => (v as string)?.trim())
+  const inits = formData.getAll('initials').map((v) => (v as string)?.trim())
+  const hrs = formData.getAll('hours').map((v) => num(v))
+  const techs = names
+    .map((name, i) => ({ tech_name: name, initials: inits[i] || null, hours: hrs[i] ?? 0 }))
+    .filter((t) => t.tech_name)
+
+  if (!workDescription && techs.length === 0) {
+    return { error: 'Add a work description or at least one tech.' }
+  }
+
+  const admin = createAdminClient()
+
+  // The update row comes first so every file we file in the doc center can point
+  // back at it — that link is what lets an update show its own gallery.
+  const { data: du, error } = await admin.from('con_daily_updates').insert({
+    company_id: profile.company_id,
+    job_id: jobId,
+    // A blank date used to hit the NOT NULL constraint and lose the whole update; default to today (Eastern).
+    work_date: str(formData.get('work_date')) ?? new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }),
+    work_description: workDescription || '',
+    notes: str(formData.get('notes')),
+    submitted_by: profile.id,
+  }).select('id').single()
+  if (error) return { error: error.message }
+
+  // Upload a file to storage and file it in the doc center against this update.
+  const fileIt = async (f: File, category: string, docType: string) => {
+    const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80)
+    const path = `${profile.company_id}/${jobId}/daily/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`
+    const buf = Buffer.from(await f.arrayBuffer())
+    const { error: upErr } = await admin.storage.from('construction-docs')
+      .upload(path, buf, { contentType: f.type || 'application/octet-stream', upsert: true })
+    if (upErr) return { path: null as string | null, docId: null as string | null, error: upErr.message }
+    const { data: doc } = await admin.from('con_documents').insert({
+      company_id: profile.company_id, job_id: jobId, daily_update_id: du.id,
+      file_name: f.name, original_filename: f.name,
+      storage_path: path, category, doc_type: docType,
+      uploaded_by: profile.id, review_status: 'filed',
+    }).select('id').single()
+    return { path, docId: doc?.id ?? null, error: null as string | null }
+  }
+
+  const ticket = formData.get('ticket') as File | null
+  if (ticket && typeof ticket === 'object' && ticket.size > 0) {
+    const r = await fileIt(ticket, 'daily_updates', 'daily_ticket')
+    if (r.error) return { error: `Ticket upload failed: ${r.error}` }
+    await admin.from('con_daily_updates')
+      .update({ ticket_storage_path: r.path, ticket_document_id: r.docId })
+      .eq('id', du.id)
+  }
+
+  const photos = formData.getAll('photos').filter(
+    (f): f is File => typeof f === 'object' && f !== null && (f as File).size > 0,
+  )
+  for (const photo of photos) {
+    const r = await fileIt(photo, 'photos', 'photo')
+    if (r.error) return { error: `Photo upload failed: ${r.error}` }
+  }
+
+  if (techs.length > 0) {
+    const { error: tErr } = await admin.from('con_daily_update_techs').insert(
+      techs.map((t) => ({ company_id: profile.company_id, daily_update_id: du.id, ...t })),
+    )
+    if (tErr) return { error: tErr.message }
+  }
+
+  revalidatePath(`/construction/jobs/${jobId}`)
+  return null
+}
+
+// ── Disposables (Phase 2, increment 2) ──────────────────────
+// Rows arrive as parallel arrays, the same shape the tech rows use. Only
+// items the crew actually put a number against are stored, so a form with
+// three entries doesn't persist twenty empty ones.
+export async function addDisposablesForm(state: ActionState, formData: FormData): Promise<ActionState> {
+  const profile = await getProfile()
+  if (!profile) return { error: 'Not authenticated.' }
+  if (!canWriteConstruction(profile)) return { error: 'No permission.' }
+
+  const jobId = str(formData.get('job_id'))
+  if (!jobId) return { error: 'Missing job.' }
+
+  const codes  = formData.getAll('item_code').map((v) => v as string)
+  const labels = formData.getAll('item_label').map((v) => v as string)
+  const amts   = formData.getAll('item_amount').map((v) => num(v))
+  const ords   = formData.getAll('item_ordered').map((v) => num(v))
+
+  const items = codes
+    .map((code, i) => ({ code, label: labels[i] ?? code, amount: amts[i] ?? null, ordered: ords[i] ?? null }))
+    .filter((r) => r.amount !== null || r.ordered !== null)
+
+  const xLabels = formData.getAll('extra_label').map((v) => (v as string)?.trim())
+  const xAmts   = formData.getAll('extra_amount').map((v) => num(v))
+  const xOrds   = formData.getAll('extra_ordered').map((v) => num(v))
+  xLabels.forEach((label, i) => {
+    if (label) items.push({ code: 'DSP-OTHER', label, amount: xAmts[i] ?? null, ordered: xOrds[i] ?? null })
+  })
+
+  const formNames  = formData.getAll('form_name').map((v) => v as string)
+  const formCopies = formData.getAll('form_copies').map((v) => num(v))
+  const forms = formNames
+    .map((name, i) => ({ name, copies: formCopies[i] ?? null }))
+    .filter((f) => f.copies !== null)
+
+  if (items.length === 0 && forms.length === 0) {
+    return { error: 'Enter a count against at least one item or form.' }
+  }
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('con_disposables_forms').insert({
+    company_id: profile.company_id,
+    job_id: jobId,
+    tech_name: str(formData.get('tech_name')),
+    truck: str(formData.get('truck')),
+    form_date: str(formData.get('form_date')) || undefined,
+    items,
+    forms,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath(`/construction/jobs/${jobId}`)
+  return null
+}
+
+export async function deleteDisposablesForm(id: string): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+  const { data } = await admin.from('con_disposables_forms')
+    .select('job_id').eq('id', id).eq('company_id', profile.company_id).single()
+  await admin.from('con_disposables_forms').delete().eq('id', id).eq('company_id', profile.company_id)
+  if (data?.job_id) revalidatePath(`/construction/jobs/${data.job_id}`)
+}
+
+/** Crew-facing variant: the job comes from the form's dropdown, not the URL. */
+export async function addDailyUpdateForPickedJob(state: ActionState, formData: FormData): Promise<ActionState> {
+  const jobId = str(formData.get('job_id'))
+  if (!jobId) return { error: 'Pick a job first.' }
+  return addDailyUpdate(jobId, state, formData)
+}
+
+export async function deleteDailyUpdate(id: string): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+  const { data } = await admin.from('con_daily_updates')
+    .select('job_id, ticket_storage_path, ticket_document_id').eq('id', id).eq('company_id', profile.company_id).single()
+  if (data?.ticket_storage_path) {
+    await admin.storage.from('construction-docs').remove([data.ticket_storage_path])
+  }
+  // Drop the doc-center row too, or it lingers pointing at the file we just removed.
+  if (data?.ticket_document_id) {
+    await admin.from('con_documents').delete()
+      .eq('id', data.ticket_document_id).eq('company_id', profile.company_id)
+  }
+  // techs cascade-delete via FK
+  await admin.from('con_daily_updates').delete().eq('id', id).eq('company_id', profile.company_id)
+  if (data?.job_id) revalidatePath(`/construction/jobs/${data.job_id}`)
+}
+
+/** Confirms a backfilled field-ticket draft (review_status: needs_review -> filed).
+ * A human reading the billing preview in `notes` is the only thing that ever
+ * flips this — the backfill pipeline itself never marks its own rows filed. */
+export async function confirmFieldTicketDraft(id: string): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+  const { data } = await admin.from('con_daily_updates')
+    .update({ review_status: 'filed' })
+    .eq('id', id).eq('company_id', profile.company_id)
+    .select('job_id').single()
+  if (data?.job_id) revalidatePath(`/construction/jobs/${data.job_id}`)
+}
+
+// ============================================================
 // DOCUMENTS
 // ============================================================
 export async function deleteDocument(id: string): Promise<void> {
@@ -695,4 +777,156 @@ export async function deleteDocument(id: string): Promise<void> {
   }
   await admin.from('con_documents').delete().eq('id', id).eq('company_id', profile.company_id)
   if (doc?.job_id) revalidatePath(`/construction/jobs/${doc.job_id}`)
+}
+
+// File a document into a category and clear it from the review queue.
+// Used by the "Needs Review" page to approve/reassign an importer guess.
+export async function fileDocument(id: string, category: string): Promise<void> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  if (!CON_DOC_CATEGORY_VALUES.includes(category)) return
+  const admin = createAdminClient()
+  const { data: doc } = await admin.from('con_documents')
+    .select('job_id').eq('id', id).eq('company_id', profile.company_id).single()
+  await admin.from('con_documents')
+    .update({ category, review_status: 'filed' })
+    .eq('id', id).eq('company_id', profile.company_id)
+  revalidatePath('/construction/documents/review')
+  if (doc?.job_id) revalidatePath(`/construction/jobs/${doc.job_id}`)
+}
+
+// ============================================================
+// EMAIL OUT (Phase 5) — invoice PDF to the customer via Resend
+// ============================================================
+export type EmailState = { error?: string; ok?: boolean; sentTo?: string } | null
+
+function splitEmails(s: string | null): string[] {
+  return (s ?? '').split(/[,;\s]+/).map(e => e.trim()).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))
+}
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
+}
+
+export async function emailInvoice(id: string, _state: EmailState, formData: FormData): Promise<EmailState> {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return { error: 'You do not have permission to send invoices.' }
+  if (!process.env.RESEND_API_KEY) return { error: 'Email sending is not configured yet. Add RESEND_API_KEY and RESEND_FROM_EMAIL in Vercel → Settings → Environment Variables, then redeploy.' }
+
+  const to = splitEmails(str(formData.get('to')))
+  const cc = splitEmails(str(formData.get('cc')))
+  const subject = str(formData.get('subject'))
+  const message = str(formData.get('message')) ?? ''
+  if (!to.length) return { error: 'Enter at least one valid email address.' }
+  if (!subject) return { error: 'Subject is required.' }
+
+  const admin = createAdminClient()
+  const { buildInvoicePdf } = await import('@/lib/invoice-pdf')
+  const built = await buildInvoicePdf(admin, id, profile.company_id)
+  if (!built) return { error: 'Invoice not found.' }
+  const { pdf, invoice } = built
+  const number = invoice.invoice_number ?? 'Invoice'
+  const total = Number(invoice.invoice_grand_total) || 0
+
+  const { Resend } = await import('resend')
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const from = process.env.RESEND_INVOICE_FROM ?? process.env.RESEND_FROM_EMAIL ?? 'RPS <invoices@rpsmaintenance.com>'
+  const replyTo = process.env.RESEND_REPLY_TO
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1a1a1a">
+      <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#6b7280;letter-spacing:.08em;text-transform:uppercase">Rappahannock Petroleum Services</p>
+      <h2 style="margin:0 0 12px;font-size:20px;font-weight:700">Invoice ${escapeHtml(number)}</h2>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;white-space:pre-line">${escapeHtml(message)}</p>
+      <table style="font-size:14px;color:#374151;border-collapse:collapse">
+        ${invoice.store_label ? `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">Site</td><td>${escapeHtml(invoice.store_label)}</td></tr>` : ''}
+        ${invoice.po_number ? `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">PO</td><td>${escapeHtml(invoice.po_number)}</td></tr>` : ''}
+        ${invoice.csr_number ? `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">CSR</td><td>${escapeHtml(invoice.csr_number)}</td></tr>` : ''}
+        <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Amount due</td><td><b>$${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></td></tr>
+        ${invoice.due_date ? `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">Due</td><td>${escapeHtml(String(invoice.due_date))}</td></tr>` : ''}
+      </table>
+      <p style="margin:20px 0 0;font-size:12px;color:#9ca3af">The invoice is attached as a PDF.</p>
+    </div>`
+
+  const { data, error } = await resend.emails.send({
+    from, to, cc: cc.length ? cc : undefined, replyTo: replyTo || undefined, subject, html,
+    text: `${message}\n\nInvoice ${number} — amount due $${total.toFixed(2)}. PDF attached.`,
+    attachments: [{ filename: `${number}.pdf`, content: pdf }],
+  })
+
+  await admin.from('billing_emails').insert({
+    company_id: profile.company_id, invoice_id: id, to_emails: to, cc_emails: cc.length ? cc : null, subject, message,
+    provider: 'resend', provider_id: data?.id ?? null, status: error ? 'failed' : 'sent', error: error?.message ?? null, sent_by: profile.id,
+  })
+  if (error) return { error: `Send failed: ${error.message}` }
+
+  if (invoice.status === 'draft') {
+    await admin.from('con_invoices').update({ status: 'sent', sent_date: new Date().toISOString().split('T')[0] }).eq('id', id).eq('company_id', profile.company_id)
+  }
+  revalidatePath('/construction/invoices')
+  revalidatePath(`/construction/invoices/${id}`)
+  return { ok: true, sentTo: to.join(', ') }
+}
+
+// ── Dispatch → Construction job ─────────────────────────────
+/**
+ * Turn a dispatched work order (svc_work_orders, already parsed with site number
+ * + address) into a construction job: cleans the site number, finds or creates the
+ * matching con_sites row, and opens a con_jobs record pre-filled with the site,
+ * address, WO number and scope. The job_number trigger numbers it automatically.
+ * Idempotent per WO — if a job already carries this WO number it just opens it.
+ */
+export async function createJobFromWorkOrder(workOrderId: string) {
+  const profile = await getProfile()
+  if (!profile || !canWriteConstruction(profile)) return
+  const admin = createAdminClient()
+
+  const { data: wo } = await admin
+    .from('svc_work_orders')
+    .select('portal_wo_number, site_number, site_name, site_address, site_city, site_state, subject_raw, description, priority_raw, dispatched_at, client_name')
+    .eq('id', workOrderId).eq('company_id', profile.company_id).single()
+  if (!wo) return
+
+  // Don't create a second job for the same work order.
+  if (wo.portal_wo_number) {
+    const { data: existing } = await admin.from('con_jobs')
+      .select('id').eq('company_id', profile.company_id).eq('work_order_number', wo.portal_wo_number).limit(1).maybeSingle()
+    if (existing) redirect(`/construction/jobs/${existing.id}`)
+  }
+
+  const { siteNumber, brand } = classifySite(wo.site_number)
+  const cityStateZip = [wo.site_city, wo.site_state].filter(Boolean).join(', ')
+
+  // Find or create the site.
+  let siteId: string | null = null
+  if (siteNumber) {
+    const { data: site } = await admin.from('con_sites')
+      .select('id').eq('company_id', profile.company_id).eq('site_number', siteNumber).limit(1).maybeSingle()
+    if (site) siteId = site.id
+    else {
+      const { data: created } = await admin.from('con_sites').insert({
+        company_id: profile.company_id, site_number: siteNumber, store_brand: brand,
+        address: wo.site_address, city: wo.site_city, state: wo.site_state,
+      }).select('id').single()
+      siteId = created?.id ?? null
+    }
+  }
+
+  const dispatchedDate = wo.dispatched_at ? new Date(wo.dispatched_at).toISOString().slice(0, 10) : null
+  const { data: job, error } = await admin.from('con_jobs').insert({
+    company_id: profile.company_id,
+    site_id: siteId,
+    site_number: siteNumber || wo.site_number,
+    work_order_number: wo.portal_wo_number,
+    scope_of_work: wo.subject_raw || wo.description || null,
+    facility_address: wo.site_address,
+    gas_brand: brand,
+    date_received: dispatchedDate,
+    stage: 'survey',
+    notes: [wo.client_name && `Client: ${wo.client_name}`, cityStateZip, wo.priority_raw && `Priority: ${wo.priority_raw}`]
+      .filter(Boolean).join(' · ') || null,
+  }).select('id').single()
+  if (error || !job) return
+
+  revalidatePath('/construction/jobs')
+  revalidatePath('/service')
+  redirect(`/construction/jobs/${job.id}`)
 }

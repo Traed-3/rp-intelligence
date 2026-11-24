@@ -12,6 +12,7 @@ type Job = { id: string; site_number: string | null; work_order_number: string |
 export type ScheduleRecord = {
   id: string
   schedule_date: string
+  entry_type: string | null
   job_id: string | null
   site_number: string | null
   task_description: string | null
@@ -46,6 +47,14 @@ export function ScheduleEntryForm({
         <div>
           <label className={lbl}>Date <span className="text-red-500">*</span></label>
           <input name="schedule_date" type="date" className={inp} defaultValue={e?.schedule_date ?? defaultDate ?? ''} required />
+        </div>
+        <div>
+          <label className={lbl}>Type</label>
+          <select name="entry_type" className={inp} defaultValue={e?.entry_type ?? 'job'}>
+            <option value="job">Job</option>
+            <option value="time_off">Time off</option>
+            <option value="note">Note</option>
+          </select>
         </div>
         {fixedJobId ? (
           <input type="hidden" name="job_id" value={fixedJobId} />

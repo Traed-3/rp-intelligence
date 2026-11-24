@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { sendAlertEmail } from '@/lib/email'
 import { syncGmailToTickets } from '@/lib/gmail-sync'
+import { checkProjectNotifications } from '@/lib/notifications'
 
 const COMPANY_ID    = 'f3d06874-2e21-40f3-a7d0-a1d86bad02e7'
 const RECIPIENT     = 'finance.trae@proton.me'
@@ -39,6 +40,10 @@ export async function GET(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const admin  = createAdminClient()
+
+  // Construction project notifications (brand pre-start notice): create bell
+  // reminders for any project now inside/past the 7→3 day send window.
+  try { await checkProjectNotifications(admin, COMPANY_ID) } catch { /* best-effort */ }
 
   try {
     // ── 0) Force a fresh Gmail sync first so the summary reflects the latest
@@ -219,7 +224,7 @@ export async function GET(request: NextRequest) {
       subject: `Daily shop summary — ${context.period.end}`,
       title:   `Shop update: ${context.period.start} → ${context.period.end}`,
       message: mdToInlineHtml(content),
-      link:    '/dashboard',
+      link:    '/maintenance',
     })
 
     return NextResponse.json({ ok: true, summary_id: saved?.id, period: context.period, sync_errors })

@@ -24,4 +24,4 @@ jobs:
         run: |
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/daily-summary?secret=$CRON_SECRET"
+            "https://rpintelligence.app/api/daily-summary?secret=$CRON_SECRET"

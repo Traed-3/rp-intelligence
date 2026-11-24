@@ -41,7 +41,7 @@ export default async function BrakesPage({
         <Link href={`/assets/${id}`} className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to {asset.unit_number}
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">Record Brake Service</h1>
+        <h1 className="rp-title mt-2">Record Brake Service</h1>
         {vehicleLabel && <p className="text-gray-500 text-sm mt-0.5">{vehicleLabel}</p>}
       </div>
 
@@ -63,7 +63,7 @@ export default async function BrakesPage({
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="rp-card p-6">
         <BrakesForm action={action} today={today} currentMileage={asset.current_mileage} />
       </div>
     </div>

@@ -5,6 +5,8 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { SiteForm } from '@/components/construction/site-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { saveSite, deleteSite } from '../../../../actions'
+import { MapPin } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function EditSitePage({ params }: { params: Promise<{ id: string; siteId: string }> }) {
   const { id, siteId } = await params
@@ -22,9 +24,9 @@ export default async function EditSitePage({ params }: { params: Promise<{ id: s
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
         <Link href={`/construction/customers/${id}`} className="text-sm text-gray-500 hover:text-gray-700">← Back to Customer</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">Edit Site</h1>
+        <h1 className="rp-title mt-2"><TitleIcon icon={MapPin} tone="info" />Edit Site</h1>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="rp-card p-6">
         <SiteForm
           action={saveSite.bind(null, siteId)}
           site={site}

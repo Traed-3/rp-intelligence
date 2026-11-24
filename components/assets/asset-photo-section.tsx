@@ -30,7 +30,7 @@ export function AssetPhotoSection({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div className="rp-card p-5">
       <h2 className="font-semibold text-gray-900 mb-4">Photos</h2>
 
       {/* Existing photos */}
@@ -40,7 +40,7 @@ export function AssetPhotoSection({
             <div key={p.id} className="relative">
               <img src={p.photo_url} alt={p.caption ?? 'Asset photo'} className="w-32 h-24 object-cover rounded-lg border border-gray-200" />
               {p.caption && <p className="text-xs text-gray-500 mt-1 text-center max-w-[128px] truncate">{p.caption}</p>}
-              {p.is_primary && <span className="absolute top-1 left-1 text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">Primary</span>}
+              {p.is_primary && <span className="absolute top-1 left-1 text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded">Primary</span>}
             </div>
           ))}
         </div>
@@ -65,7 +65,7 @@ export function AssetPhotoSection({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save Photo'}
             </button>

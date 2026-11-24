@@ -151,14 +151,14 @@ export default async function PayrollPage({
             <span>/</span>
             <span>Payroll</span>
           </div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">Payroll Report</h1>
+          <h1 className="rp-title">Payroll Report</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {label} · {start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
         </div>
         <a
           href={csvUrl}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors shrink-0"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-600/90 transition-colors shrink-0"
         >
           <Download className="w-4 h-4" />
           Export CSV
@@ -173,8 +173,8 @@ export default async function PayrollPage({
             href={`/reports/payroll?period=${p.value}${empFilter ? `&employee=${empFilter}` : ''}`}
             className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
               period === p.value
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'
             }`}
           >
             {p.label}
@@ -190,22 +190,22 @@ export default async function PayrollPage({
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 text-center">
+        <div className="rp-card p-4 text-center">
           <p className="text-2xl font-bold text-gray-900">{fmtHours(totalAllMins)}</p>
           <p className="text-xs font-medium text-gray-500 mt-0.5">Total Hours</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 text-center">
+        <div className="rp-card p-4 text-center">
           <p className="text-2xl font-bold text-gray-900">{(entries ?? []).filter(e => e.clock_out).length}</p>
           <p className="text-xs font-medium text-gray-500 mt-0.5">Completed Shifts</p>
         </div>
-        <div className={`rounded-xl border p-4 text-center ${unapprovedCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-200'}`}>
+        <div className={`rounded-xl border p-4 text-center ${unapprovedCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-card border-gray-200'}`}>
           <p className={`text-2xl font-bold ${unapprovedCount > 0 ? 'text-amber-700' : 'text-gray-900'}`}>{unapprovedCount}</p>
           <p className="text-xs font-medium text-gray-500 mt-0.5">Pending Approval</p>
         </div>
       </div>
 
       {/* Weekly grid */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+      <div className="rp-card overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900 text-sm">Hours by Employee</h2>
           {unapprovedCount > 0 && (
@@ -217,16 +217,16 @@ export default async function PayrollPage({
           )}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Employee</th>
+                <th className="text-left px-4 py-2.5">Employee</th>
                 {days.map(day => (
                   <th key={toISO(day)} className="text-center px-2 py-2.5 font-medium text-gray-500 whitespace-nowrap min-w-[70px]">
                     {dayLabel(day)}
                   </th>
                 ))}
-                <th className="text-right px-4 py-2.5 font-medium text-gray-900">Total</th>
+                <th className="text-right px-4 py-2.5 text-gray-900">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -281,20 +281,20 @@ export default async function PayrollPage({
       </div>
 
       {/* Detailed entries */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="rp-card overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
           <h2 className="font-semibold text-gray-900 text-sm">Time Entry Detail</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500 hidden md:table-cell">Employee</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Date</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Clock In</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Clock Out</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-500">Hours</th>
-                <th className="text-center px-4 py-2.5 font-medium text-gray-500">Approved</th>
+                <th className="text-left px-4 py-2.5 hidden md:table-cell">Employee</th>
+                <th className="text-left px-4 py-2.5">Date</th>
+                <th className="text-left px-4 py-2.5">Clock In</th>
+                <th className="text-left px-4 py-2.5">Clock Out</th>
+                <th className="text-right px-4 py-2.5">Hours</th>
+                <th className="text-center px-4 py-2.5">Approved</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { ChangeFlash } from '@/components/ui/change-flash'
 
 // ── Status ────────────────────────────────────────────────────────────────────
 
@@ -22,9 +23,11 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 export function TicketStatusBadge({ status }: { status: string }) {
   const c = STATUS_CONFIG[status] ?? STATUS_CONFIG.new
   return (
-    <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border', c.className)}>
-      {c.label}
-    </span>
+    <ChangeFlash value={status}>
+      <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border', c.className)}>
+        {c.label}
+      </span>
+    </ChangeFlash>
   )
 }
 

@@ -21,7 +21,10 @@ const num = (v: any) => (typeof v === 'number' ? v : Number(v) || 0)
 /** Compute per-job cost rows (quoted vs invoiced vs material vs labor + margin). */
 export async function jobCostRows(admin: Admin, companyId: string): Promise<JobCostRow[]> {
   const [{ data: jobs }, { data: quotes }, { data: invoices }, { data: materials }, { data: jobLabor }] = await Promise.all([
-    admin.from('con_jobs').select('id, site_number, program, stage, con_customers(name)').eq('company_id', companyId),
+    // Explicit limit — an unfiltered select silently caps at Supabase's
+    // default 1000 rows once completed jobs pile up, and this report needs
+    // every job, complete ones included.
+    admin.from('con_jobs').select('id, site_number, program, stage, con_customers(name)').eq('company_id', companyId).limit(5000),
     admin.from('con_quotes').select('job_id, final_total').eq('company_id', companyId),
     admin.from('con_invoices').select('id, job_id, invoice_grand_total').eq('company_id', companyId),
     admin.from('con_job_materials').select('job_id, quantity, unit_cost, status').eq('company_id', companyId),

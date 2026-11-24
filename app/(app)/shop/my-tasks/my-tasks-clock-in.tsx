@@ -35,7 +35,7 @@ export function MyTasksClockIn({
       <button
         onClick={handleClockOut}
         disabled={isPending}
-        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white hover:bg-red-600/90 disabled:opacity-50 transition-colors"
       >
         {isPending ? '…' : '🔴 Clock Out'}
       </button>
@@ -46,7 +46,7 @@ export function MyTasksClockIn({
     <button
       onClick={handleClockIn}
       disabled={isPending}
-      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white hover:bg-green-600/90 disabled:opacity-50 transition-colors"
     >
       {isPending ? '…' : '🟢 Clock In'}
     </button>

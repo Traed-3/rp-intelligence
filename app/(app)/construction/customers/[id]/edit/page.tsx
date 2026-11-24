@@ -5,6 +5,8 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { CustomerForm } from '@/components/construction/customer-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { saveCustomer, deleteCustomer } from '../../../actions'
+import { Building2 } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function EditCustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -20,9 +22,9 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
         <Link href={`/construction/customers/${id}`} className="text-sm text-gray-500 hover:text-gray-700">← Back to Customer</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">Edit Customer</h1>
+        <h1 className="rp-title mt-2"><TitleIcon icon={Building2} tone="info" />Edit Customer</h1>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="rp-card p-6">
         <CustomerForm action={saveCustomer.bind(null, id)} customer={customer} />
       </div>
       <div className="mt-4 flex justify-end">

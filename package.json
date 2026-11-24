@@ -1,5 +1,5 @@
 {
-  "name": "rps-maintenance",
+  "name": "rps-intelligence",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "refresh-gmail": "node scripts/refresh-gmail-token.mjs"
+    "refresh-gmail": "node scripts/refresh-gmail-token.mjs",
+    "test": "vitest run",
+    "vercel-build": "vitest run && next build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
@@ -23,6 +25,7 @@
     "react-dom": "19.2.4",
     "resend": "^6.12.4",
     "shadcn": "^4.7.0",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^3.6.0",
     "tw-animate-css": "^1.4.0",
     "web-push": "^3.6.7"
@@ -36,6 +39,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

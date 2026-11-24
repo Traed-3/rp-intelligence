@@ -2,8 +2,12 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { noAccountingOrHr } from '@/lib/role-access'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { learnCardFromExpense, cleanLast4 } from '@/lib/receipt-scan'
+import { resolveSubmitter } from '@/lib/receipt-submitter'
+import { safeReceiptUrl } from '@/lib/receipt-url'
 
 type State = { error: string } | null
 
@@ -30,7 +34,7 @@ export async function createExpense(_state: State, formData: FormData): Promise<
   if (!profile) return { error: 'Not authenticated.' }
 
   const amount = num(formData.get('amount'))
-  if (!amount || amount <= 0) return { error: 'Amount is required.' }
+  if (!amount || amount <= 0) return { error: 'Amount must be more than $0.' }
 
   const expenseDate = str(formData.get('expense_date'))
   if (!expenseDate) return { error: 'Date is required.' }
@@ -51,9 +55,37 @@ export async function createExpense(_state: State, formData: FormData): Promise<
     pmId = pm?.id ?? null
   }
 
+  const cardLast4 = cleanLast4(formData.get('card_last4'))
+  let aiExtracted: unknown = null
+  try { const raw = str(formData.get('ai_extracted')); aiExtracted = raw ? JSON.parse(raw) : null } catch { aiExtracted = null }
+  const aiFilled = (str(formData.get('ai_filled')) ?? '').split(',').map(x => x.trim()).filter(Boolean)
+  // Receipt keyed in from an inbox email → credit the person who sent the email.
+  // Techs, mechanics and shop employees can turn in a receipt but never open the expense pages or an inbox email.
+  const locked = noAccountingOrHr(profile.role)
+  const sourceDocId = locked ? null : str(formData.get('source_document_id'))
+  let submitter: { submitted_by: string | null; submitter_name: string | null; submitter_email: string | null } =
+    { submitted_by: profile.id, submitter_name: null, submitter_email: null }
+  // Only link an email this company actually has (never trust the raw form value).
+  let linkedDocId: string | null = null
+  if (sourceDocId) {
+    // The receipt importer (lib/receipt-expense-import.ts) may already have filed this email:
+    // one expense per email (unique source_document_id), so open that one instead of failing.
+    const { data: existing } = await admin.from('expenses').select('id')
+      .eq('company_id', profile.company_id).eq('source_document_id', sourceDocId).maybeSingle()
+    if (existing) redirect(`/expenses/${existing.id}`)
+    const { data: doc } = await admin.from('billing_inbox_documents')
+      .select('id, sender, sender_email').eq('id', sourceDocId).eq('company_id', profile.company_id).maybeSingle()
+    if (doc) {
+      linkedDocId = doc.id
+      const who = await resolveSubmitter(admin, profile.company_id, doc.sender_email, doc.sender)
+      submitter = { submitted_by: who.profileId, submitter_name: who.name, submitter_email: who.email }
+    }
+  }
+
   const { data: expense, error } = await admin.from('expenses').insert({
     company_id:          profile.company_id,
-    submitted_by:        profile.id,
+    ...submitter,
+    source_document_id:  linkedDocId,
     expense_date:        expenseDate,
     amount,
     description:         str(formData.get('description')),
@@ -62,19 +94,32 @@ export async function createExpense(_state: State, formData: FormData): Promise<
     asset_id:            expenseType === 'asset' ? str(formData.get('asset_id')) : null,
     store_number:        expenseType === 'store' ? str(formData.get('store_number')) : null,
     project_number:      expenseType === 'project' ? str(formData.get('project_number')) : null,
+    con_job_id:          expenseType === 'project' ? str(formData.get('con_job_id')) : null,
     category_id:         str(formData.get('category_id')),
     category_custom:     str(formData.get('category_custom')),
     payment_method_id:   pmId,
     payment_method_code: pmCode?.toUpperCase() ?? null,
-    repair_ticket_id:    str(formData.get('repair_ticket_id')),
-    receipt_url:         str(formData.get('receipt_url')),
+    // Linked shop ticket only applies to non-project expenses
+    repair_ticket_id:    expenseType === 'project' ? null : str(formData.get('repair_ticket_id')),
+    receipt_url:         safeReceiptUrl(str(formData.get('receipt_url'))),
     notes:               str(formData.get('notes')),
+    card_last4:          cardLast4,
+    ai_extracted:        aiExtracted,
+    ai_filled:           aiFilled,
   }).select('id').single()
 
   if (error) return { error: error.message }
 
+  // Teach the app which card number belongs to which code/person (each tech has their own TEC card).
+  // The card belongs to whoever submitted the receipt — the email's sender when keyed in from an inbox email.
+  await learnCardFromExpense(admin, {
+    company_id: profile.company_id, last4: cardLast4, brand: str(formData.get('card_brand')),
+    code: pmCode, submitted_by: submitter.submitted_by,
+  }).catch(() => {})
+
   revalidatePath('/expenses')
-  redirect(`/expenses/${expense.id}`)
+  // Techs (and anyone who came in through Forms) land back on the form, ready for the next receipt.
+  redirect(locked || formData.get('from') === 'forms' ? '/expenses/new?sent=1&from=forms' : `/expenses/${expense.id}`)
 }
 
 // ── Create fuel entry ─────────────────────────────────────────────────────────
@@ -82,6 +127,7 @@ export async function createExpense(_state: State, formData: FormData): Promise<
 export async function createFuelEntry(_state: State, formData: FormData): Promise<State> {
   const profile = await getProfile()
   if (!profile) return { error: 'Not authenticated.' }
+  if (noAccountingOrHr(profile.role)) return { error: 'You do not have access to Expenses.' }
 
   const assetId = str(formData.get('asset_id'))
   if (!assetId) return { error: 'Asset is required.' }

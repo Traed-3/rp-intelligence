@@ -44,7 +44,7 @@ export default async function MileagePage({
         <Link href={`/assets/${id}`} className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to {asset.unit_number}
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">
+        <h1 className="rp-title mt-2">
           {(asset as any).uses_hours ? 'Add Hours' : 'Add Mileage'}
         </h1>
         {vehicleLabel && <p className="text-gray-500 text-sm mt-0.5">{vehicleLabel}</p>}
@@ -67,7 +67,7 @@ export default async function MileagePage({
         )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="rp-card p-6">
         <MileageForm action={action} today={today} usesHours={(asset as any).uses_hours} />
       </div>
     </div>

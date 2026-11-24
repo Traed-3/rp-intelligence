@@ -34,25 +34,30 @@ export default async function ReportsPage() {
     return { stage: s.value, label: s.label, count: inStage.length, avgAge: avg }
   }).filter(s => s.count > 0)
 
-  // A/R aging
-  const { data: openInv } = await admin
-    .from('con_invoices').select('id, invoice_number, status, invoice_grand_total, due_date, sent_date, con_customers(name)')
-    .eq('company_id', company_id).in('status', ['sent', 'overdue']).order('due_date', { nullsFirst: false })
-  const todayIso = iso(today)
-  const ar = (openInv ?? []).map(inv => {
-    const days = inv.due_date ? Math.floor((today.getTime() - new Date(inv.due_date + 'T00:00:00').getTime()) / 86400000) : 0
-    return { ...inv, daysOverdue: inv.due_date && inv.due_date < todayIso ? days : 0 }
-  })
-  const arTotal = ar.reduce((a, r) => a + (Number(r.invoice_grand_total) || 0), 0)
+  // Invoiced revenue by year. RPS runs no receivables here — once a job is
+  // invoiced it is revenue, so what matters is the history, not who owes what.
+  const { data: allInv } = await admin
+    .from('con_invoices').select('id, invoice_number, invoice_date, status, invoice_grand_total, con_customers(name)')
+    .eq('company_id', company_id).neq('status', 'void').order('invoice_date', { ascending: false, nullsFirst: false })
+  const invoiced = allInv ?? []
+  const invoicedTotal = invoiced.reduce((a, r) => a + (Number(r.invoice_grand_total) || 0), 0)
+  const byYear = new Map<string, { year: string; count: number; total: number }>()
+  for (const inv of invoiced) {
+    const y = String(inv.invoice_date ?? '').slice(0, 4) || 'Undated'
+    const cur = byYear.get(y) ?? { year: y, count: 0, total: 0 }
+    cur.count++; cur.total += Number(inv.invoice_grand_total) || 0
+    byYear.set(y, cur)
+  }
+  const years = [...byYear.values()].sort((a, b) => b.year.localeCompare(a.year))
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title">
             Construction Reports
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Job cost · margin · pipeline aging · A/R</p>
+          <p className="text-sm text-gray-500 mt-0.5">Job cost · margin · pipeline aging · invoiced revenue</p>
         </div>
         <Link href="/construction" className="text-sm text-gray-500 hover:text-gray-700">← Construction</Link>
       </div>
@@ -68,18 +73,18 @@ export default async function ReportsPage() {
       {/* Job cost */}
       <Section title="Job Cost" csv="job_cost">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-xs text-gray-500">
-                <th className="text-left px-4 py-2 font-medium">Job</th>
-                <th className="text-left px-4 py-2 font-medium hidden md:table-cell">Customer</th>
-                <th className="text-left px-4 py-2 font-medium hidden lg:table-cell">Stage</th>
-                <th className="text-right px-4 py-2 font-medium">Quoted</th>
-                <th className="text-right px-4 py-2 font-medium">Invoiced</th>
-                <th className="text-right px-4 py-2 font-medium hidden sm:table-cell">Material</th>
-                <th className="text-right px-4 py-2 font-medium hidden sm:table-cell">Labor</th>
-                <th className="text-right px-4 py-2 font-medium">Margin</th>
-                <th className="text-right px-4 py-2 font-medium hidden md:table-cell">%</th>
+                <th className="text-left px-4 py-2">Job</th>
+                <th className="text-left px-4 py-2 hidden md:table-cell">Customer</th>
+                <th className="text-left px-4 py-2 hidden lg:table-cell">Stage</th>
+                <th className="text-right px-4 py-2">Quoted</th>
+                <th className="text-right px-4 py-2">Invoiced</th>
+                <th className="text-right px-4 py-2 hidden sm:table-cell">Material</th>
+                <th className="text-right px-4 py-2 hidden sm:table-cell">Labor</th>
+                <th className="text-right px-4 py-2">Margin</th>
+                <th className="text-right px-4 py-2 hidden md:table-cell">%</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -111,7 +116,7 @@ export default async function ReportsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-6">
         {/* Pipeline aging */}
         <Section title="Pipeline Aging" csv="pipeline">
-          <table className="w-full text-sm">
+          <table className="rp-table w-full text-sm">
             <tbody className="divide-y divide-gray-50">
               {aging.length === 0 ? <tr><td className="px-4 py-6 text-gray-400">No open jobs.</td></tr> : aging.map(s => (
                 <tr key={s.stage}>
@@ -124,16 +129,15 @@ export default async function ReportsPage() {
           </table>
         </Section>
 
-        {/* A/R */}
-        <Section title={`Open A/R — ${money(arTotal)}`} csv="ar">
-          <table className="w-full text-sm">
+        {/* Invoiced revenue by year */}
+        <Section title={`Invoiced — ${money(invoicedTotal)}`} csv="invoiced">
+          <table className="rp-table w-full text-sm">
             <tbody className="divide-y divide-gray-50">
-              {ar.length === 0 ? <tr><td className="px-4 py-6 text-gray-400">No open invoices.</td></tr> : ar.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2"><Link href={`/construction/invoices/${r.id}`} className="font-mono text-xs text-blue-600">{r.invoice_number}</Link></td>
-                  <td className="px-4 py-2 text-gray-600 text-xs hidden sm:table-cell">{(r as any).con_customers?.name ?? ''}</td>
-                  <td className="px-4 py-2 text-right text-xs">{r.daysOverdue > 0 ? <span className="text-red-600 font-medium">{r.daysOverdue}d overdue</span> : <span className="text-gray-400">due {fmtDate(r.due_date)}</span>}</td>
-                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{money(r.invoice_grand_total)}</td>
+              {years.length === 0 ? <tr><td className="px-4 py-6 text-gray-400">Nothing invoiced yet.</td></tr> : years.map(y => (
+                <tr key={y.year} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 font-medium text-gray-900">{y.year}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">{y.count} {y.count === 1 ? 'invoice' : 'invoices'}</td>
+                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{money(y.total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -146,7 +150,7 @@ export default async function ReportsPage() {
 
 function Section({ title, csv, children }: { title: string; csv: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="rp-card overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <h2 className="font-semibold text-gray-900">{title}</h2>
         <a href={`/api/construction/reports/csv?report=${csv}`} className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800">
@@ -160,16 +164,16 @@ function Section({ title, csv, children }: { title: string; csv: string; childre
 
 function MarginTable({ title, rows }: { title: string; rows: { name: string; quoted: number; invoiced: number; cost: number; margin: number }[] }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="rp-card overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">{title}</h2></div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="rp-table w-full text-sm">
           <thead>
             <tr className="bg-gray-50 text-xs text-gray-500">
-              <th className="text-left px-4 py-2 font-medium">{title.includes('Customer') ? 'Customer' : 'Program'}</th>
-              <th className="text-right px-4 py-2 font-medium">Invoiced</th>
-              <th className="text-right px-4 py-2 font-medium">Cost</th>
-              <th className="text-right px-4 py-2 font-medium">Margin</th>
+              <th className="text-left px-4 py-2">{title.includes('Customer') ? 'Customer' : 'Program'}</th>
+              <th className="text-right px-4 py-2">Invoiced</th>
+              <th className="text-right px-4 py-2">Cost</th>
+              <th className="text-right px-4 py-2">Margin</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -190,7 +194,7 @@ function MarginTable({ title, rows }: { title: string; rows: { name: string; quo
 
 function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+    <div className="rp-card p-4">
       <p className="text-xs text-gray-400">{label}</p>
       <p className={`text-lg font-bold mt-0.5 ${accent ?? 'text-gray-900'}`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { canWriteConstruction } from '@/lib/construction'
+import { canWriteConstruction, CON_DOC_CATEGORY_VALUES, classifyDocument } from '@/lib/construction'
 
 const BUCKET = 'construction-docs'
 
@@ -25,13 +26,20 @@ export async function POST(request: NextRequest) {
   const jobId = (formData.get('job_id') as string)?.trim() || null
   const quoteId = (formData.get('quote_id') as string)?.trim() || null
   const invoiceId = (formData.get('invoice_id') as string)?.trim() || null
-  const docType = (formData.get('doc_type') as string)?.trim() || null
+
+  // Category is the primary filing dimension. Fall back to a best-guess from
+  // the filename when the uploader didn't pick one.
+  const guess = classifyDocument(file.name)
+  const rawCategory = (formData.get('category') as string)?.trim() || ''
+  const category = CON_DOC_CATEGORY_VALUES.includes(rawCategory) ? rawCategory : guess.category
+  const docType = (formData.get('doc_type') as string)?.trim() || guess.docType
 
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
   const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60)
   const path = `${profile.company_id}/${jobId ?? quoteId ?? invoiceId ?? 'general'}/${Date.now()}-${safe || `file.${ext}`}`
 
   const buffer = Buffer.from(await file.arrayBuffer())
+  const fileHash = createHash('sha256').update(buffer).digest('hex')
   const { error: upErr } = await admin.storage
     .from(BUCKET)
     .upload(path, buffer, { contentType: file.type || 'application/octet-stream', upsert: false })
@@ -43,8 +51,12 @@ export async function POST(request: NextRequest) {
     quote_id: quoteId,
     invoice_id: invoiceId,
     file_name: file.name,
+    original_filename: file.name,
     storage_path: path,
+    category,
     doc_type: docType,
+    file_hash: fileHash,
+    review_status: 'filed',
     uploaded_by: profile.id,
   })
   if (insErr) {

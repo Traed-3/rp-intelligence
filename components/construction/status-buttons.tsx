@@ -25,8 +25,8 @@ export function StatusButtons({
           onClick={() => startTransition(() => { action(id, o.value) })}
           className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-60 ${
             o.value === current
-              ? 'bg-blue-600 text-white border-blue-600'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'
           }`}
         >
           {o.label}

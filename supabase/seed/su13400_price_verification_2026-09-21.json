@@ -1,0 +1,304 @@
+{
+  "note": "Verified prices for the SU-13400 quotes (Q-2026-0004 NOV, Q-2026-0005 FlexWorks). Sources: RPS PRICE LIBRARY / SD tabs of RPS_QUOTE_TOOL_REV19_BLANK.xlsx (Trae: current pricing), vendor invoices in iCloud 'Supply and Vendor Invoices', econstruction Gmail. Lines not listed keep the workbook price and stay VERIFY.",
+  "rules": [
+    {
+      "match": "^THHN 12 AWG White",
+      "part_number": "22965857",
+      "unit_cost": 0.2975,
+      "flag": "ok",
+      "source": "RECEIPT Noland 395678 7/21/26 \u00b7 12-19 CU THHN WHT"
+    },
+    {
+      "match": "^THHN 12 AWG Black",
+      "part_number": "22964101",
+      "unit_cost": 0.3416,
+      "flag": "ok",
+      "source": "RECEIPT Noland 395678 7/21/26 \u00b7 12-19 CU THHN BLK"
+    },
+    {
+      "match": "^THHN 12 AWG Green",
+      "part_number": "22968221",
+      "unit_cost": 0.3515,
+      "flag": "ok",
+      "source": "RECEIPT Noland 395678 7/21/26 \u00b7 12-19 CU THHN GRN"
+    },
+    {
+      "match": "^THHN 14 AWG",
+      "part_number": "031403",
+      "unit_cost": 0.205,
+      "flag": "ok",
+      "source": "RECEIPT WCW inv 3214941 5/15/26 \u00b7 14-1C STR THHN $205/MFT (any color)"
+    },
+    {
+      "match": "^VR wire",
+      "part_number": "FEP-18-02-OAS-LK",
+      "unit_cost": 0.725,
+      "flag": "ok",
+      "source": "RECEIPT WCW inv 3214941 5/15/26 \u00b7 VR probe/sensor cable $725/MFT"
+    },
+    {
+      "match": "^Twisted pair data",
+      "part_number": "036015-1012",
+      "unit_cost": 0.315,
+      "flag": "ok",
+      "source": "RECEIPT WCW inv 3232238 6/9/26 \u00b7 18-1P TFFN $315/MFT"
+    },
+    {
+      "match": "seal off",
+      "part_number": "EYF-75",
+      "unit_cost": 34.7996,
+      "flag": "ok",
+      "source": "RECEIPT Noland 396156 8/18/26 \u00b7 3/4 MALL COND SEAL"
+    },
+    {
+      "match": "pull 90",
+      "part_number": "ELBY-75",
+      "unit_cost": 30.6041,
+      "flag": "ok",
+      "source": "SD CONDUIT-PIPING tab \u00b7 3/4 pull 90 \u00b7 Noland 6/17/26"
+    },
+    {
+      "match": "^3/4\" unions",
+      "part_number": "UNF75NR",
+      "unit_cost": 21.1374,
+      "flag": "ok",
+      "source": "RECEIPT Noland 396181 8/19/26 \u00b7 3/4 FEMALE UNION"
+    },
+    {
+      "match": "Rob roy conduit",
+      "part_number": "78401120002",
+      "unit_cost": 97.5,
+      "flag": "ok",
+      "source": "SD CONDUIT-PIPING tab \u00b7 Rob Roy 3/4 PVC-coated rigid, 10 ft stick \u00b7 Capital Electric"
+    },
+    {
+      "match": "3/4\" x 1/2\" reducers",
+      "part_number": "RB-3/4-1/2",
+      "unit_cost": 1.906,
+      "flag": "ok",
+      "source": "SD CONDUIT-PIPING tab \u00b7 3/4 to 1/2 reducer bushing \u00b7 Noland"
+    },
+    {
+      "match": "^104A-1800|Cast Iron Manhole",
+      "part_number": "104A-1800",
+      "unit_cost": 265.6,
+      "flag": "ok",
+      "source": "QUOTE Source NA 8522222 9/9/26 (and 8517929 8/27/26) \u00b7 18 IN lay-in manhole. Spatco 20115162 9/9/26 has the 10 IN skirt version at $221.95"
+    },
+    {
+      "match": "^10P-01|Shear valve",
+      "part_number": "10P-0152",
+      "unit_cost": 161.0,
+      "flag": "ok",
+      "source": "RECEIPT Source NA inv 2628199 6/26/26 \u00b7 10P-0152 1-1/2 IN double-poppet (what RPS buys; workbook said 10P-0150)"
+    },
+    {
+      "match": "^C15A",
+      "part_number": "C15A",
+      "unit_cost": 35.07,
+      "flag": "ok",
+      "source": "QUOTE Source NA 8517929 8/27/26 \u00b7 1-1/2 IN DW FlexWorks per ft (Spatco 20106685 9/2/25 was $27.80 \u2014 ask Spatco to re-quote)"
+    },
+    {
+      "match": "^DPC-2150A",
+      "part_number": "DPC-2150A",
+      "unit_cost": 178.5,
+      "flag": "ok",
+      "source": "RECEIPT Source NA inv 2617076 5/27/26"
+    },
+    {
+      "match": "^REF-4015",
+      "part_number": "REF-4015",
+      "unit_cost": 139.44,
+      "flag": "ok",
+      "source": "QUOTE Source NA 8517929 8/27/26"
+    },
+    {
+      "match": "Brass Ball Valve",
+      "part_number": "21BV-0200",
+      "unit_cost": 122.53,
+      "flag": "verify",
+      "source": "QUOTE Spatco 20106685 9/2/25 \u00b7 2 IN full port two-way ball valve (quote is a year old \u2014 re-quote)"
+    },
+    {
+      "match": "^STF-1515",
+      "part_number": "STF-1515",
+      "unit_cost": 85.27,
+      "flag": "verify",
+      "source": "QUOTE Spatco 20106685 9/2/25 (a year old \u2014 re-quote)"
+    },
+    {
+      "match": "^SEF-1515",
+      "part_number": "SEF-1515",
+      "unit_cost": 79.75,
+      "flag": "verify",
+      "source": "QUOTE Spatco 20106685 9/2/25 (a year old \u2014 re-quote)"
+    },
+    {
+      "match": "^TCT-2509",
+      "part_number": "TCT-2509",
+      "unit_cost": 27.32,
+      "flag": "verify",
+      "source": "QUOTE Spatco 20106685 9/2/25 (a year old \u2014 re-quote)"
+    },
+    {
+      "match": "^TTT-2536",
+      "part_number": "TTT-2536",
+      "unit_cost": 33.25,
+      "flag": "verify",
+      "source": "QUOTE Spatco 20106685 9/2/25 (a year old \u2014 re-quote)"
+    },
+    {
+      "match": "^SMA-1520",
+      "part_number": "SMA-1520",
+      "unit_cost": 73.3,
+      "flag": "verify",
+      "source": "QUOTE Spatco 20106685 9/2/25 (a year old \u2014 re-quote)"
+    },
+    {
+      "match": "^Hotel",
+      "part_number": "LODGING-ROOM",
+      "unit_cost": 275.0,
+      "flag": "ok",
+      "source": "RPS REV19 rate card \u00b7 room $225 + per diem $50 = $275 per room-night"
+    },
+    {
+      "match": "^LABOR AND MOBILIZATION",
+      "labor_rate": 80.0,
+      "flag": "ok",
+      "source": "Sunoco labor rate $80.00/hr (rate card) \u2014 hours are the estimator's"
+    },
+    {
+      "match": "^Fence",
+      "part_number": "SITE FENCING / BARRICADES",
+      "unit_cost": 275.0,
+      "flag": "ok",
+      "source": "RPS REV19 rate card \u00b7 temporary fence, barricades and cones"
+    },
+    {
+      "match": "^DOT barrels",
+      "part_number": "DOT BARREL - CLOSED TOP",
+      "unit_cost": 74.78,
+      "flag": "ok",
+      "source": "RPS REV19 rate card \u00b7 DOT barrel, closed top"
+    },
+    {
+      "match": "^Trip charge",
+      "part_number": "PMI - TRANSPORT",
+      "unit_cost": 350.0,
+      "flag": "ok",
+      "source": "RECEIPT Petroleum Management Inc \u00b7 transport to disposal, per trip"
+    },
+    {
+      "match": "^Fuell? charge",
+      "part_number": "PMI - FUEL SURCHARGE",
+      "unit_cost": 52.5,
+      "flag": "ok",
+      "source": "RECEIPT Petroleum Management Inc \u00b7 fuel surcharge, per trip"
+    },
+    {
+      "match": "^Barrel disposal",
+      "part_number": "PMI - DRUM DISPOSAL",
+      "unit_cost": 125.0,
+      "flag": "ok",
+      "source": "RECEIPT Petroleum Management Inc \u00b7 55 gal drum disposal, per drum"
+    },
+    {
+      "match": "^GUP explosion proof",
+      "part_number": "GUP",
+      "unit_cost": 105.2157,
+      "flag": "ok",
+      "source": "SD CONDUIT-PIPING tab \u00b7 GUP explosion-proof junction box \u00b7 Noland 5/28/26"
+    },
+    {
+      "match": "junction box \\(end run\\)",
+      "part_number": "GRLB75",
+      "unit_cost": 89.736,
+      "flag": "ok",
+      "source": "SD CONDUIT-PIPING tab \u00b7 L box (3/4 JCT UNILET) \u00b7 Noland 6/16/26"
+    },
+    {
+      "match": "Erickson coupling",
+      "part_number": "UNF75NR",
+      "unit_cost": 21.1374,
+      "flag": "ok",
+      "source": "SD CONDUIT-PIPING tab \u00b7 3/4 union (three-piece / Erickson) \u00b7 Noland 6/17/26"
+    },
+    {
+      "match": "^Soil sampling budget",
+      "unit_cost": 2000.0,
+      "flag": "ok",
+      "source": "Budget unchanged \u2014 same as the 5/12/25 SU-13400 quotes (Trae 9/21/26)"
+    },
+    {
+      "match": "^60210101|PSX-20",
+      "part_number": "60210101",
+      "unit_cost": 42.0,
+      "flag": "ok",
+      "source": "RECEIPT Spatco inv 95030998 2/12/26 (and 95018610 1/14/26) \u00b7 6 oz PSX-20 single adhesive kit"
+    },
+    {
+      "match": "^22469205",
+      "part_number": "22469205",
+      "unit_cost": 109.6,
+      "flag": "ok",
+      "source": "RECEIPT Spatco inv 95018610 1/14/26 \u00b7 2 IN LCX containment termination (2 pc)"
+    },
+    {
+      "match": "^22469203",
+      "part_number": "22469203",
+      "unit_cost": 154.28,
+      "flag": "ok",
+      "source": "RECEIPT Spatco inv 95018611 1/14/26 \u00b7 2 IN LCX containment tee (2 pc)"
+    },
+    {
+      "match": "^Concrete$",
+      "unit_cost": 8692.5,
+      "flag": "verify",
+      "source": "Lump sum \u2014 ready mix runs $280.66/CY (SCH inv 8/13/26, 4 CY $1,122.64; library $282.30) \u2192 needs the CY count"
+    },
+    {
+      "match": "^Rebar / chair",
+      "unit_cost": 740.0,
+      "flag": "verify",
+      "source": "Lump sum \u2014 #3 rebar $5.15/stick (CMG 8/10/26), chairs $1.21 (HD 7/13/26) \u2192 needs the count"
+    }
+  ],
+  "catalog_only": [
+    {
+      "part_number": "22469206",
+      "description": "2 IN LCX CONTAINMENT TERMINATION WITH TEST PORT (2 PC)",
+      "unit_cost": 138.82,
+      "source": "RECEIPT Spatco inv 95018610 1/14/26",
+      "category": 4
+    },
+    {
+      "part_number": "32469208",
+      "description": "3 x 2 IN LCX CONTAINMENT REDUCER (2 PC)",
+      "unit_cost": 217.06,
+      "source": "RECEIPT Spatco inv 95018610 1/14/26",
+      "category": 4
+    },
+    {
+      "part_number": "22482736",
+      "description": "2 IN RUBBER CLOSURE SLEEVE WITH TEST PORT, 35 PSI",
+      "unit_cost": 96.0,
+      "source": "RECEIPT Spatco inv 95018611 1/14/26",
+      "category": 4
+    },
+    {
+      "part_number": "22370802",
+      "description": "2 IN FIBERGLASS REPAIR COUPLING",
+      "unit_cost": 106.73,
+      "source": "RECEIPT Spatco inv 95030998 2/12/26",
+      "category": 4
+    },
+    {
+      "part_number": "2CK-35-SS",
+      "description": "STAINLESS STEEL ISLAND FORM 3 FT x 5 FT x 9 IN, 6 IN RADIUS ENDS",
+      "unit_cost": 611.99,
+      "source": "RECEIPT Source NA inv 2569600 1/15/26",
+      "category": 4
+    }
+  ]
+}

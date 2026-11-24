@@ -6,7 +6,8 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { Button } from '@/components/ui/button'
 import { SiteForm } from '@/components/construction/site-form'
 import { saveSite } from '../../actions'
-import { Pencil, MapPin } from 'lucide-react'
+import { Pencil, MapPin, Building2 } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -28,7 +29,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         <Link href="/construction/customers" className="text-sm text-gray-500 hover:text-gray-700">← Back to Customers</Link>
         <div className="flex items-start justify-between mt-2">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{customer.name}</h1>
+            <h1 className="rp-title"><TitleIcon icon={Building2} tone="info" />{customer.name}</h1>
             <div className="text-sm text-gray-500 mt-1 space-y-0.5">
               {customer.billing_contact && <div>Contact: {customer.billing_contact}</div>}
               {customer.email && <div>{customer.email}</div>}
@@ -47,7 +48,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sites */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
             <MapPin className="w-4 h-4 text-gray-400" />
             <h2 className="font-semibold text-gray-900">Sites</h2>
@@ -56,7 +57,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           {!sites?.length ? (
             <p className="px-4 py-6 text-sm text-gray-400">No sites yet.</p>
           ) : (
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <tbody className="divide-y divide-gray-50">
                 {sites.map(s => (
                   <ClickableRow key={s.id} href={`/construction/customers/${id}/sites/${s.id}`}>
@@ -66,7 +67,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                       {(s.city || s.state) && <div className="text-xs text-gray-400">{[s.city, s.state].filter(Boolean).join(', ')}</div>}
                     </td>
                     <td className="px-4 py-3 text-right text-xs text-gray-400">
-                      {s.dispenser_count ? `${s.dispenser_count} disp.` : ''}
+                      {[
+                        s.dispenser_count ? `${s.dispenser_count} disp.` : '',
+                        s.tank_count ? `${s.tank_count} tank` : '',
+                        s.stp_count ? `${s.stp_count} STP` : '',
+                        (s.fill_spill_bucket_count || s.vapor_bucket_count)
+                          ? `${(s.fill_spill_bucket_count ?? 0) + (s.vapor_bucket_count ?? 0)} buckets` : '',
+                      ].filter(Boolean).join(' · ')}
                       {canWrite && <span className="ml-2 text-blue-600">Edit →</span>}
                     </td>
                   </ClickableRow>
@@ -91,14 +98,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         </div>
 
         {/* Recent jobs */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="rp-card overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100">
             <h2 className="font-semibold text-gray-900">Recent Jobs</h2>
           </div>
           {!jobs?.length ? (
             <p className="px-4 py-6 text-sm text-gray-400">No jobs for this customer yet.</p>
           ) : (
-            <table className="w-full text-sm">
+            <table className="rp-table w-full text-sm">
               <tbody className="divide-y divide-gray-50">
                 {jobs.map(j => (
                   <ClickableRow key={j.id} href={`/construction/jobs/${j.id}`}>

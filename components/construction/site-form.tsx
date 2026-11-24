@@ -17,6 +17,15 @@ export type SiteRecord = {
   state: string | null
   zip: string | null
   dispenser_count: number | null
+  dispenser_type: string | null
+  tank_count: number | null
+  tank_type: string | null
+  stp_count: number | null
+  stp_type: string | null
+  fill_spill_bucket_count: number | null
+  fill_spill_bucket_type: string | null
+  vapor_bucket_count: number | null
+  vapor_bucket_type: string | null
   notes: string | null
 }
 
@@ -88,10 +97,63 @@ export function SiteForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className={lbl}>Dispenser Count</label>
-          <input name="dispenser_count" type="number" min="0" className={inp} defaultValue={s?.dispenser_count ?? ''} />
+      {/* Equipment */}
+      <div className="rounded-xl border border-gray-200 p-4 space-y-4">
+        <p className="text-sm font-semibold text-gray-800">Equipment</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className={lbl}>Dispensers</label>
+            <input name="dispenser_count" type="number" min="0" className={inp} placeholder="Qty" defaultValue={s?.dispenser_count ?? ''} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={lbl}>Dispenser Type / Brand</label>
+            <input name="dispenser_type" className={inp} placeholder="Gilbarco Encore, Wayne Ovation…" defaultValue={s?.dispenser_type ?? ''} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className={lbl}>Tanks</label>
+            <input name="tank_count" type="number" min="0" className={inp} placeholder="Qty" defaultValue={s?.tank_count ?? ''} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={lbl}>Tank Type / Brand</label>
+            <input name="tank_type" className={inp} placeholder="FRP, steel, Containment Solutions…" defaultValue={s?.tank_type ?? ''} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className={lbl}>STPs</label>
+            <input name="stp_count" type="number" min="0" className={inp} placeholder="Qty" defaultValue={s?.stp_count ?? ''} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={lbl}>STP Type / Brand</label>
+            <input name="stp_type" className={inp} placeholder="Red Jacket, FE Petro…" defaultValue={s?.stp_type ?? ''} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className={lbl}>Fill Spill Buckets</label>
+            <input name="fill_spill_bucket_count" type="number" min="0" className={inp} placeholder="Qty" defaultValue={s?.fill_spill_bucket_count ?? ''} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={lbl}>Fill Spill Bucket Type / Brand</label>
+            <input name="fill_spill_bucket_type" className={inp} placeholder="OPW, EMCO…" defaultValue={s?.fill_spill_bucket_type ?? ''} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className={lbl}>Vapor Buckets</label>
+            <input name="vapor_bucket_count" type="number" min="0" className={inp} placeholder="Qty" defaultValue={s?.vapor_bucket_count ?? ''} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={lbl}>Vapor Bucket Type / Brand</label>
+            <input name="vapor_bucket_type" className={inp} placeholder="OPW, EMCO…" defaultValue={s?.vapor_bucket_type ?? ''} />
+          </div>
         </div>
       </div>
 

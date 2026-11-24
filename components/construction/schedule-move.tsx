@@ -21,7 +21,7 @@ export function ScheduleMove({
       disabled={isPending}
       value={current}
       onChange={(e) => startTransition(() => { action(id, e.target.value) })}
-      className="text-xs border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+      className="text-xs border border-gray-200 rounded px-1 py-0.5 bg-card text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
     >
       {days.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
     </select>

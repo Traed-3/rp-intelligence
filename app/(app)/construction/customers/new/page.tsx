@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { requireConstruction } from '@/lib/construction-guard'
 import { CustomerForm } from '@/components/construction/customer-form'
 import { saveCustomer } from '../../actions'
+import { Building2 } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function NewCustomerPage() {
   const { canWrite } = await requireConstruction()
@@ -12,9 +14,9 @@ export default async function NewCustomerPage() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
         <Link href="/construction/customers" className="text-sm text-gray-500 hover:text-gray-700">← Back to Customers</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">New Customer</h1>
+        <h1 className="rp-title mt-2"><TitleIcon icon={Building2} tone="info" />New Customer</h1>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="rp-card p-6">
         <CustomerForm action={saveCustomer.bind(null, null)} />
       </div>
     </div>

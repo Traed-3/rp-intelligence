@@ -6,6 +6,8 @@ import { MaterialStatusSelect } from '@/components/construction/material-status-
 import { MaterialForm } from '@/components/construction/material-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { setMaterialStatus, deleteMaterial, saveMaterial } from '../actions'
+import { Package } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function MaterialsPage({ searchParams }: { searchParams: Promise<{ job?: string }> }) {
   const { job = '' } = await searchParams
@@ -19,16 +21,20 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
     .order('created_at', { ascending: false })
   if (job) mq = mq.eq('job_id', job)
 
-  const [{ data: materials }, { data: jobs }] = await Promise.all([
+  const [{ data: materials }, { data: jobs }, { data: vendorRows }] = await Promise.all([
     mq,
-    admin.from('con_jobs').select('id, site_number, work_order_number').eq('company_id', company_id).order('created_at', { ascending: false }),
+    // Material tracking is about open work — also keeps this well under
+    // Supabase's default 1000-row cap now that completed jobs have piled up.
+    admin.from('con_jobs').select('id, site_number, work_order_number').eq('company_id', company_id).neq('stage', 'complete').order('created_at', { ascending: false }),
+    admin.from('con_vendors').select('name').eq('company_id', company_id).eq('is_active', true).order('name'),
   ])
+  const vendorNames = (vendorRows ?? []).map(v => v.name).filter(Boolean)
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">
+          <h1 className="rp-title"><TitleIcon icon={Package} tone="info" />
             Materials
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{materials?.length ?? 0} item{materials?.length !== 1 ? 's' : ''}</p>
@@ -38,7 +44,7 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
 
       {/* Job filter */}
       <form method="GET" className="flex items-center gap-2 mb-5">
-        <select name="job" defaultValue={job} className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white">
+        <select name="job" defaultValue={job} className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-card">
           <option value="">All jobs</option>
           {jobs?.map(j => <option key={j.id} value={j.id}>{j.site_number ?? '—'}{j.work_order_number ? ` (${j.work_order_number})` : ''}</option>)}
         </select>
@@ -56,7 +62,7 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
               </div>
               <div className="space-y-2">
                 {col.map(m => (
-                  <div key={m.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
+                  <div key={m.id} className="rp-card p-3">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium text-gray-900">{m.description}</p>
                       {canWrite && <DeleteButton action={deleteMaterial.bind(null, m.id)} confirm="Remove this material?" iconOnly />}
@@ -78,9 +84,9 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
       </div>
 
       {canWrite && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mt-6 max-w-2xl">
+        <div className="rp-card p-5 mt-6 max-w-2xl">
           <h3 className="font-semibold text-gray-900 mb-3">Add Material</h3>
-          <MaterialForm action={saveMaterial.bind(null, null)} jobs={jobs ?? []} />
+          <MaterialForm action={saveMaterial.bind(null, null)} jobs={jobs ?? []} vendors={vendorNames} />
         </div>
       )}
     </div>

@@ -62,7 +62,7 @@ export default async function GeneralTimePage() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Log Shop Time</h1>
+          <h1 className="rp-title">Log Shop Time</h1>
           <Link href="/shop" className="text-sm text-blue-600">← Shop</Link>
         </div>
 
@@ -72,7 +72,7 @@ export default async function GeneralTimePage() {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-5">
+        <div className="rp-card p-5 mb-5">
           <GeneralTimeForm
             action={logGeneralTime}
             disabled={!isClockedIn}
@@ -82,7 +82,7 @@ export default async function GeneralTimePage() {
 
         {/* Recent entries */}
         {recent && recent.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="rp-card p-5">
             <h2 className="font-semibold text-gray-900 text-sm mb-3">Recent Entries</h2>
             <div className="space-y-2">
               {recent.map((e) => (

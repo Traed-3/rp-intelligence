@@ -7,6 +7,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calcDateDue, calcOilChangeDue } from '@/lib/maintenance'
+import { projectNotificationStatus } from '@/lib/construction'
 import { sendAlertEmail } from '@/lib/email'
 import { sendPushNotification } from '@/lib/push'
 
@@ -244,6 +245,56 @@ export async function notifyAssetUnsafe(
   }
 }
 
+// ── Rule: same tool/supply bought again for the same truck within its window ──
+// Sent per manager (not company-wide) so field staff never see "why did you re-buy X?".
+
+export async function notifyRepeatToolPurchase(
+  admin: AdminClient,
+  companyId: string,
+  args: {
+    assetId: string
+    unitNumber: string
+    itemName: string
+    windowMonths: number
+    newCost: number
+    newDate: string
+    previous: { purchased_on: string; total_cost: number; quantity: number }[]
+  },
+) {
+  const { data: mgrs } = await admin
+    .from('profiles')
+    .select('id')
+    .eq('company_id', companyId)
+    .in('role', ['owner', 'manager', 'shop_manager', 'construction_manager'])
+    .eq('is_active', true)
+  const recipientIds = mgrs?.map((p: { id: string }) => p.id) ?? []
+  if (recipientIds.length === 0) return
+
+  const fmtDate = (d: string) =>
+    new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const last = args.previous[0]
+  const title = `Repeat purchase — ${args.itemName} for ${args.unitNumber}`
+  const message =
+    `${args.itemName} was bought for ${args.unitNumber} on ${fmtDate(args.newDate)} ($${args.newCost.toFixed(2)}), ` +
+    `but it was already bought on ${fmtDate(last.purchased_on)} ($${last.total_cost.toFixed(2)}, qty ${last.quantity})` +
+    (args.previous.length > 1 ? ` and ${args.previous.length - 1} other time${args.previous.length > 2 ? 's' : ''}` : '') +
+    ` within the ${args.windowMonths}-month watch window. Find out why.`
+  const link = `/assets/${args.assetId}/tools`
+
+  for (const recipientId of recipientIds) {
+    await notify(admin, {
+      companyId,
+      recipientId,
+      type: 'repeat_purchase',
+      title,
+      message,
+      link,
+      relatedAssetId: args.assetId,
+    })
+  }
+  await deliverAlert(admin, { recipientIds, type: 'repeat_purchase', title, message, link })
+}
+
 // ── Rule: new repair ticket ───────────────────────────────────────────────────
 
 export async function notifyNewTicket(
@@ -331,7 +382,7 @@ export async function checkForgotClockOut(
     if (existing) continue
 
     const title   = 'Did you forget to clock out?'
-    const message = `You've been clocked in for ${hoursAgo}+ hours. Please go to RPS Maintenance and clock out now.`
+    const message = `You've been clocked in for ${hoursAgo}+ hours. Please go to RP Intelligence and clock out now.`
     const link    = '/shop/clock'
 
     await admin.from('notifications').insert({
@@ -345,4 +396,60 @@ export async function checkForgotClockOut(
 
     await deliverAlert(admin, { recipientIds: [e.profile_id], type: 'clock_out_reminder', title, message, link })
   }
+}
+
+// ── Construction: project notification reminders ──────────────────────────────
+/**
+ * For each construction project whose brand "Project Notification" is now due
+ * to be sent (inside the 7→3 day pre-start window, or past it) and hasn't been
+ * sent or waived, drop a company-wide bell notification. Deduped per job per day.
+ */
+export async function checkProjectNotifications(
+  admin: AdminClient,
+  companyId: string,
+): Promise<number> {
+  const { data: jobs } = await admin
+    .from('con_jobs')
+    .select('id, site_number, project_start_date, notification_sent_at, notification_waived, program')
+    .eq('company_id', companyId)
+    .not('project_start_date', 'is', null)
+    .is('notification_sent_at', null)
+    .eq('notification_waived', false)
+
+  let created = 0
+  const cutoff = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString()
+
+  for (const job of jobs ?? []) {
+    const status = projectNotificationStatus(job)
+    if (!status.isDue) continue
+
+    const link = `/construction/jobs/${job.id}`
+    const { data: existing } = await admin
+      .from('notifications')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('type', 'project_notification')
+      .eq('link', link)
+      .gte('created_at', cutoff)
+      .limit(1)
+      .maybeSingle()
+    if (existing) continue
+
+    const title = status.state === 'overdue'
+      ? `Project notification OVERDUE — ${job.site_number ?? 'site'}`
+      : `Send project notification — ${job.site_number ?? 'site'}`
+    const message = `Project starts ${job.project_start_date}. The brand notification must be sent by ${status.deadline}.`
+
+    await admin.from('notifications').insert({
+      company_id: companyId,
+      recipient_id: null,
+      type: 'project_notification',
+      title,
+      message,
+      link,
+    })
+    created++
+  }
+
+  return created
 }

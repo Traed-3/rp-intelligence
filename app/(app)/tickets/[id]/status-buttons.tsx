@@ -37,8 +37,8 @@ export function StatusButtons({
           className={cn(
             'px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50',
             a.style === 'primary'
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+              : 'bg-card text-gray-700 border border-gray-300 hover:bg-gray-50'
           )}
         >
           {isPending ? '…' : a.label}

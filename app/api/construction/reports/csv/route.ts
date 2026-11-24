@@ -2,15 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canReadConstruction, stageMeta } from '@/lib/construction'
+import { toCsv } from '@/lib/csv'
 import { jobCostRows } from '@/lib/construction-reports'
 
-function csvCell(v: unknown) {
-  const s = v == null ? '' : String(v)
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-function toCsv(rows: (string | number | null)[][]) {
-  return rows.map(r => r.map(csvCell).join(',')).join('\n')
-}
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()

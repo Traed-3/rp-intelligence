@@ -84,6 +84,25 @@ export async function createOverdueMaintenanceTickets(
 
       if (existing) continue // already has an open ticket for this (or an equivalent) item
 
+      // Just finished one (closing it updates the vehicle's due date, but a hand-closed
+      // ticket may not carry the new mileage/date) — don't re-open it straight away.
+      const recentCutoff = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10)
+      let recentlyDone = false
+      for (const pat of patterns) {
+        const { data } = await admin
+          .from('repair_tickets')
+          .select('id')
+          .eq('asset_id', asset.id)
+          .eq('company_id', companyId)
+          .ilike('title', `%${pat}%`)
+          .in('status', ['completed', 'closed'])
+          .gte('date_completed', recentCutoff)
+          .limit(1)
+          .maybeSingle()
+        if (data) { recentlyDone = true; break }
+      }
+      if (recentlyDone) continue
+
       // Create the ticket
       await admin.from('repair_tickets').insert({
         company_id:  companyId,

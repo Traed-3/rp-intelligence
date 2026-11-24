@@ -10,6 +10,7 @@ const ALERT_TYPES = [
   'clock_out_reminder',
   'ticket_assigned',
   'new_ticket',
+  'repeat_purchase',
 ] as const
 
 export async function saveAlertPreferences(formData: FormData) {

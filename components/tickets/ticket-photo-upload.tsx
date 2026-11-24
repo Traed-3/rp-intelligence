@@ -41,7 +41,7 @@ export function TicketPhotoUpload({
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+          className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-600/90 disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Attach to Ticket'}
         </button>

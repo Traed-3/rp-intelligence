@@ -1,4 +1,7 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -12,7 +15,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-4 mb-5">
-      <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
+      <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
         {n}
       </div>
       <div>
@@ -31,19 +34,26 @@ function Tip({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function GuidePage() {
+export default async function GuidePage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const admin = createAdminClient()
+  const { data: profile } = await admin.from('profiles').select('role').eq('id', user!.id).single()
+  if (!['owner', 'manager'].includes(profile?.role ?? '')) redirect('/settings')
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-6 flex items-center gap-3">
         <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">← Settings</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="inline-flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight before:content-[''] before:w-1.5 before:h-7 before:rounded-full before:bg-gradient-to-b before:from-blue-500 before:to-blue-700 before:shrink-0">User Guide</h1>
+        <h1 className="rp-title">User Guide</h1>
       </div>
 
       {/* Tab-style navigation */}
       <div className="flex gap-2 mb-8">
-        <a href="#owner" className="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium">Owner / Manager</a>
+        <a href="#owner" className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium">Owner / Manager</a>
         <a href="#employee" className="px-4 py-2 rounded-full border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50">Shop Employees</a>
+        <a href="#construction" className="px-4 py-2 rounded-full border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50">Construction</a>
         <a href="#iphone" className="px-4 py-2 rounded-full border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50">iPhone Setup</a>
       </div>
 
@@ -60,7 +70,7 @@ export default function GuidePage() {
             <p>Tell everyone to visit the app URL and sign in with their company Gmail.</p>
             <p>Then go to <strong>Settings → User Management</strong> and change their role.</p>
             <p className="text-xs text-gray-500 mt-1">
-              Shop employees who clock in need the <strong>Shop Employee</strong> role.
+              Shop technicians who clock in need the <strong>Shop Technician</strong> role.
               Your shop foreman should be <strong>Shop Manager</strong>.
             </p>
           </Step>
@@ -108,7 +118,7 @@ export default function GuidePage() {
 
       {/* ── Shop Employees ─────────────────────────────────────────────── */}
       <div id="employee">
-        <Section title="🔧 Shop Employee Guide">
+        <Section title="🔧 Shop Technician Guide">
           <Tip>
             Shop employees mainly use the <strong>/mobile</strong> screen on their phone.
             Add it to your home screen so it opens like an app — see iPhone Setup below.
@@ -150,6 +160,24 @@ export default function GuidePage() {
         </Section>
       </div>
 
+      {/* ── Construction ───────────────────────────────────────────────── */}
+      <div id="construction">
+        <Section title="🏗️ Construction">
+          <Tip>
+            The Construction module (jobs, statuses, schedule, materials, quotes &amp; invoices) has its own
+            full write-up — the Construction Playbook. It covers the color-coded job stages (matched to
+            Starsky&apos;s Master Schedule), the two ways a job can start (quoted vs. no quote needed), and
+            how the schedule, materials, and daily updates all fit together.
+          </Tip>
+          <Link
+            href="/help/construction-playbook"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+          >
+            Open the Construction Playbook →
+          </Link>
+        </Section>
+      </div>
+
       {/* ── iPhone Setup ───────────────────────────────────────────────── */}
       <div id="iphone">
         <Section title="📱 Add to iPhone Home Screen">
@@ -169,7 +197,7 @@ export default function GuidePage() {
 
           <Step n={3} title='"Add to Home Screen"'>
             <p>Scroll down in the share sheet and tap <strong>Add to Home Screen</strong>.</p>
-            <p>Edit the name to <strong>RPS</strong> if you like, then tap <strong>Add</strong>.</p>
+            <p>Edit the name to <strong>RP Intel</strong> if you like, then tap <strong>Add</strong>.</p>
           </Step>
 
           <Step n={4} title="Open from your home screen">

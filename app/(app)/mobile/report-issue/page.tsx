@@ -24,11 +24,11 @@ export default async function ReportIssuePage() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Report an Issue</h1>
+          <h1 className="rp-title">Report an Issue</h1>
           <Link href="/mobile" className="text-sm text-blue-600">← Home</Link>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           <ReportIssueForm action={createTicket} assets={assets ?? []} />
         </div>
       </div>

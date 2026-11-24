@@ -13,7 +13,7 @@ export function EmployeeSelect({
 }) {
   return (
     <select
-      className="px-3 py-1.5 text-xs border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+      className="px-3 py-1.5 text-xs border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
       value={currentValue}
       onChange={e => {
         const val = e.target.value

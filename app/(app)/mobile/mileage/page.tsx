@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { MileageForm } from '@/app/(app)/assets/[id]/mileage/mileage-form'
 import { addMileageEntry } from '@/app/(app)/assets/[id]/mileage/actions'
+import { Gauge } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function MobileMileagePage() {
   const supabase = await createClient()
@@ -25,12 +27,12 @@ export default async function MobileMileagePage() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-sm mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Log Mileage</h1>
+          <h1 className="rp-title"><TitleIcon icon={Gauge} tone="info" />Log Mileage</h1>
           <Link href="/mobile" className="text-sm text-blue-600">← Home</Link>
         </div>
 
         {/* Asset picker */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="rp-card p-5">
           <p className="text-sm font-medium text-gray-700 mb-3">Select a vehicle:</p>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {(assets ?? []).map(a => (

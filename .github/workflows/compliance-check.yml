@@ -1,0 +1,27 @@
+name: DQF & certification expiry check (7am ET)
+on:
+  # 11:00 UTC = 7am EDT (Mar-Nov) / 6am EST (Nov-Mar).
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compliance-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger /api/compliance/check
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body -sS --max-time 150 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -w "\nHTTP %{http_code}\n" \
+            "https://rpintelligence.app/api/compliance/check"

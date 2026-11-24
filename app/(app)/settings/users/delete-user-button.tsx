@@ -16,7 +16,7 @@ export function DeleteUserButton({
   const router = useRouter()
 
   function handleDelete() {
-    if (!confirm(`Permanently delete ${fullName}? This removes their login access and cannot be undone.`)) return
+    if (!confirm(`Permanently remove ${fullName}? This removes their login access and cannot be undone.`)) return
     setError(null)
     startTransition(async () => {
       const result = await deleteUser(userId)
@@ -35,7 +35,7 @@ export function DeleteUserButton({
         disabled={isPending}
         className="text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
       >
-        {isPending ? 'Deleting…' : 'Delete'}
+        {isPending ? 'Removing…' : 'Remove'}
       </button>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>

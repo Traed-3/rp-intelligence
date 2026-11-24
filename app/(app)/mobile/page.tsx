@@ -1,10 +1,14 @@
+import { isShopOnly } from '@/lib/role-access'
 import Link from 'next/link'
 import Image from 'next/image'
+import { redirect } from 'next/navigation'
+import { canUseFieldSurveys, isSurveyOnly, SURVEY_ONLY_HOME } from '@/lib/field-surveys'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 import { ShareAppButton } from '@/components/mobile/share-app-button'
 import { SignOutLink } from '@/components/mobile/sign-out-link'
+import { ClipboardCheck } from 'lucide-react'
 
 const STATUS_LABELS: Record<string, string> = {
   clocked_out: 'Clocked Out', at_shop: 'At Shop',
@@ -45,6 +49,11 @@ export default async function MobilePage() {
     return sum + (e.clock_out ? (e.total_minutes ?? 0) : Math.round((now - new Date(e.clock_in).getTime()) / 60000))
   }, 0)
 
+  // The Field Survey Only login has no use for this home screen: straight to its one page.
+  if (isSurveyOnly(profile?.role)) redirect(SURVEY_ONLY_HOME)
+  const canSurvey = canUseFieldSurveys({ id: profile?.id, role: profile?.role })
+  const { count: plateCount } = await admin.from('con_tasks').select('id', { count: 'exact', head: true }).eq('owner_id', profile!.id).in('status', ['open', 'waiting'])
+  const shopOnly = isShopOnly(profile?.role)   // shop employees: shop screens only (lib/role-access.ts)
   const isClockedIn = empStatus?.clock_status === 'clocked_in'
   const activeTicket = (empStatus as any)?.repair_tickets
   const isWorkingTicket = isClockedIn && empStatus?.current_status === 'working_on_ticket' && !!activeTicket?.id
@@ -67,15 +76,15 @@ export default async function MobilePage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="relative overflow-hidden text-white px-6 pt-10 pb-8 rounded-b-3xl shadow-lg"
-        style={{ background: 'linear-gradient(135deg, #16243d 0%, #1e3558 55%, #2d4e7a 100%)' }}>
+        data-hero>
         <div className="pointer-events-none absolute -top-16 -right-10 w-52 h-52 rounded-full bg-blue-300/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 -left-8 w-52 h-52 rounded-full bg-green-400/10 blur-3xl" />
         <div className="relative">
         <div className="flex items-center gap-2 mb-4">
-          <span className="inline-flex items-center justify-center bg-white rounded-lg p-1">
-            <Image src="/logo-mark.png" alt="" width={32} height={32} className="h-7 w-7" />
+          <span className="inline-flex items-center justify-center bg-card rounded-lg p-1">
+            <Image src="/logo-mark-v2.png" alt="" width={32} height={32} className="h-7 w-7" />
           </span>
-          <span className="font-semibold tracking-tight text-white/95">RPS Maintenance</span>
+          <span className="font-semibold tracking-tight text-white/95">RP Intelligence</span>
         </div>
         <p className="text-white/60 text-sm">{greeting}</p>
         <h1 className="text-2xl font-bold mt-0.5">{firstName}</h1>
@@ -114,7 +123,7 @@ export default async function MobilePage() {
       {isClockedIn && (empStatus as any)?.repair_tickets && (
         <Link
           href={`/tickets/${(empStatus as any).repair_tickets.id}`}
-          className="mx-4 -mt-4 bg-white rounded-xl border border-green-200 shadow-sm px-4 py-3 flex items-center justify-between"
+          className="mx-4 -mt-4 bg-card rounded-xl border border-green-200 shadow-sm px-4 py-3 flex items-center justify-between"
         >
           <div>
             <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">Active Ticket</p>
@@ -129,6 +138,12 @@ export default async function MobilePage() {
       {/* Main actions */}
       <div className="flex-1 px-4 py-6 space-y-3">
 
+        {/* My Plate first: what a manager assigned this person and what they added themselves. */}
+        <Link href="/my" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-sm">
+          <span>✅ My Plate{(plateCount ?? 0) > 0 ? ` (${plateCount})` : ''}</span>
+          <span className="text-2xl opacity-80">→</span>
+        </Link>
+
         {/* Primary action — clock */}
         <Link
           href="/shop/clock"
@@ -141,45 +156,77 @@ export default async function MobilePage() {
           <span className="text-2xl opacity-80">→</span>
         </Link>
 
+        {/* Forms: surveys and test reports (service techs, construction techs and the construction roles). */}
+        {canSurvey && (
+          <Link href="/forms" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-sm border-b-4 border-[#f0b43a]">
+            <span className="inline-flex items-center gap-2.5"><ClipboardCheck className="size-6 text-[#f0b43a]" aria-hidden />Forms</span>
+            <span className="text-2xl opacity-80">→</span>
+          </Link>
+        )}
+
+        {/* Field service ticket — sign on the phone, invoice from the office */}
+        {!shopOnly && <Link
+          href="/mobile/service-ticket"
+          className="rp-card flex items-center justify-between w-full px-6 py-4 font-semibold text-gray-900"
+        >
+          <span>🧾 Service Ticket</span>
+          <span className="text-gray-400">→</span>
+        </Link>}
+
         {/* Secondary actions grid */}
         <div className="grid grid-cols-2 gap-3">
-          <Link href="/shop/status" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+          <Link href="/shop/status" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">🏷️</span>
             <span className="text-sm font-semibold text-gray-800">Set Status</span>
           </Link>
 
-          <Link href="/shop/my-tasks" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors relative">
+          <Link href="/shop/my-tasks" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2 relative">
             <span className="text-3xl">📋</span>
             <span className="text-sm font-semibold text-gray-800">My Tasks</span>
             {(myTaskCount ?? 0) > 0 && (
-              <span className="absolute top-3 right-3 w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+              <span className="absolute top-3 right-3 w-5 h-5 bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center">
                 {myTaskCount}
               </span>
             )}
           </Link>
 
-          <Link href="/mobile/report-issue" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+          <Link href="/mobile/report-issue" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">⚠️</span>
             <span className="text-sm font-semibold text-gray-800">Report Issue</span>
           </Link>
 
-          <Link href="/mobile/mileage" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+          <Link href="/mobile/mileage" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">🚗</span>
             <span className="text-sm font-semibold text-gray-800">Log Mileage</span>
           </Link>
 
-          <Link href="/shop/general-time" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+          {!shopOnly && <Link href="/mobile/daily-update" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
+            <span className="text-3xl">📋</span>
+            <span className="text-sm font-semibold text-gray-800">Daily Update</span>
+          </Link>}
+
+          <Link href="/shop/general-time" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">⏱️</span>
             <span className="text-sm font-semibold text-gray-800">Log Shop Time</span>
           </Link>
 
+          <Link href="/training" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
+            <span className="text-3xl">🎓</span>
+            <span className="text-sm font-semibold text-gray-800">Training</span>
+          </Link>
+
+          <Link href="/help" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
+            <span className="text-3xl">🛟</span>
+            <span className="text-sm font-semibold text-gray-800">Technical Help</span>
+          </Link>
+
           {isManager ? (
-            <Link href="/dashboard" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+            <Link href="/maintenance" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">📊</span>
-              <span className="text-sm font-semibold text-gray-800">Dashboard</span>
+              <span className="text-sm font-semibold text-gray-800">Maintenance Dashboard</span>
             </Link>
           ) : (
-            <Link href="/tickets" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+            <Link href="/tickets" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">🔧</span>
               <span className="text-sm font-semibold text-gray-800">All Tickets</span>
             </Link>
@@ -187,14 +234,14 @@ export default async function MobilePage() {
 
           {/* Owners & managers — admin access on any device */}
           {canAdmin && (
-            <Link href="/settings" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+            <Link href="/settings" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">⚙️</span>
               <span className="text-sm font-semibold text-gray-800">Settings</span>
             </Link>
           )}
 
           {canAdmin && (
-            <Link href="/settings/users" className="bg-white rounded-2xl border border-gray-200 px-4 py-5 flex flex-col items-center gap-2 hover:border-blue-300 transition-colors">
+            <Link href="/settings/users" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
               <span className="text-3xl">👥</span>
               <span className="text-sm font-semibold text-gray-800">Users</span>
             </Link>
@@ -206,7 +253,7 @@ export default async function MobilePage() {
       <div className="px-6 pb-24 text-center space-y-3">
         <p className="text-xs text-gray-400">
           Add to Home Screen for quick access:{' '}
-          <span className="font-medium">tap Share → Add to Home Screen</span>
+          <Link href="/help/home-screen" className="font-medium underline">show me how</Link>
         </p>
         <div className="flex items-center justify-center gap-6">
           <ShareAppButton />

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Camera, Upload, X, Loader2 } from 'lucide-react'
+import { Camera, Upload, X } from 'lucide-react'
+import { RingLoader } from '@/components/ui/ring-loader'
 
 async function compressImage(file: File): Promise<File> {
   if (!file.type.startsWith('image/')) return file
@@ -109,7 +110,7 @@ export function ImageUpload({
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all disabled:opacity-50"
         >
           {uploading ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Uploading & compressing…</>
+            <><RingLoader /> Uploading & compressing…</>
           ) : (
             <><Camera className="w-4 h-4" /> {label}</>
           )}

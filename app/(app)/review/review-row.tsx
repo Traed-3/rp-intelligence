@@ -47,7 +47,7 @@ export function ReviewRow({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+    <div className="rp-card p-5">
       {/* Email summary */}
       <div className="flex flex-wrap items-center gap-2 mb-1">
         <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-100">
@@ -105,7 +105,7 @@ export function ReviewRow({
           <button
             onClick={() => selectedAsset && run(() => onAssign(imp.id, selectedAsset))}
             disabled={isPending || !selectedAsset}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             Assign
           </button>
@@ -155,7 +155,7 @@ export function ReviewRow({
           <button
             onClick={() => newUnit.trim() && run(() => onCreate(imp.id, newUnit, newType))}
             disabled={isPending || !newUnit.trim()}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-600/90 disabled:opacity-50 transition-colors"
           >
             Create &amp; open ticket
           </button>

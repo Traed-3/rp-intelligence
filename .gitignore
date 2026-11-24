@@ -40,5 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# ingest run reports (local)
+scripts/ingest/reports/
+scripts/ingest/backups/
+supabase/seed/smartsheet_dqf_*.json
+__pycache__/
 # generated daily-update PDFs (delivered artifacts, not source)
 /RPS-Daily-Update-*.pdf

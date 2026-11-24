@@ -2,7 +2,62 @@ name: Gmail sync
 on:
   schedule:
     - cron: '*/15 * * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      since_days:
+        description: 'rpinvoicing catch-up window in days (one-time manual backfill only — leave as 14 for a normal run)'
+        default: '14'
+      until_days:
+        description: 'Optional — pairs with since_days to slice a big backfill into dated chunks (e.g. since_days=60 until_days=30 = the 30-60 days ago slice). Leave blank for a normal run.'
+        default: ''
+      max:
+        description: 'Max rpinvoicing messages to process in this run'
+        default: '50'
+      lookup_q:
+        description: 'Optional — raw Gmail query for a read-only rpinvoicing lookup (e.g. subject:(WOT1 OR WOT2)), no date crawl. Leave blank for a normal run.'
+        default: ''
+      lookup_mailbox:
+        description: 'Which mailbox the lookup reads: invoicing (default), dispatcher, or econstruction. Read-only.'
+        default: 'invoicing'
+      reconcile:
+        description: 'Reconcile open call statuses against the evidence on file: dry (report only) or apply. Leave blank for a normal run.'
+        default: ''
+      lookup_full:
+        description: 'Lookup returns full message bodies (1, default) or headers only (0 — cheaper on Gmail quota).'
+        default: '1'
+      archive_stale_days:
+        description: 'Optional — archive work orders older than this many days with no rpinvoicing mail ever and no system update in that window. Leave blank for a normal run.'
+        default: ''
+      archive_stale_apply:
+        description: 'Set to 1 to actually archive (default is a dry-run preview only).'
+        default: ''
+      archive_stale_archived_by:
+        description: 'Optional — profile id to record as archived_by on the archived rows.'
+        default: ''
+      backfill_permits_offset:
+        description: 'Optional — one-time historical permit-email backfill (econstruction). Site offset to start this batch at (0 for the first run). Leave blank for a normal run.'
+        default: ''
+      backfill_permits_limit:
+        description: 'How many sites to process in this batch (Gmail fetches are slow — keep this small, default 5).'
+        default: '5'
+      backfill_permits_apply:
+        description: 'Set to 1 to actually file/link (default is a dry-run preview only).'
+        default: ''
+      billing_sync_inbox:
+        description: 'Optional — one-time historical billing-inbox catch-up for one inbox (econstruction, constructionreceipts, rpinvoicing, maintenance). Leave blank for a normal run.'
+        default: ''
+      billing_sync_since_days:
+        description: 'How many days back to search for that inbox (e.g. 365 for a full year).'
+        default: '365'
+      billing_sync_max:
+        description: 'Max messages to process in this batch (Gmail fetches are slow — keep this small, default 20).'
+        default: '20'
+      backfill_ticket_job_id:
+        description: 'Optional — one job''s con_jobs.id to run the field-ticket backfill for (matches rpinvoicing tickets to econstruction updates). Leave blank for a normal run.'
+        default: ''
+      backfill_ticket_apply:
+        description: 'Set to 1 to actually file the drafts (default is a dry-run preview only).'
+        default: ''
 
 permissions:
   contents: read
@@ -12,7 +67,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The 15-minute shop-mail sync runs from Supabase pg_cron now (supabase/migrations/maintenance_sync_schedule.sql) —
+  # GitHub's schedule fired only every ~1-5 hours. This job stays for manual runs.
   sync:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -22,4 +80,186 @@ jobs:
         run: |
           curl --fail-with-body -sS --max-time 90 \
             -w "\nHTTP %{http_code}\n" \
-            "https://rps-maintenance.vercel.app/api/gmail/sync?secret=$CRON_SECRET&max=30"
+            "https://rpintelligence.app/api/gmail/sync?secret=$CRON_SECRET&max=30"
+
+
+  # The 15-minute service sync runs from Supabase pg_cron now (supabase/migrations/svc_sync_pg_cron.sql) —
+  # GitHub's schedule fired only every 5-7 hours. This job stays for manual runs (e.g. a since_days catch-up).
+  svc-sync:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Sync rpdispatcher (create/update work orders)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body -sS --max-time 90 \
+            -w "\nHTTP %{http_code}\n" \
+            "https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=dispatcher"
+      - name: Sync rpinvoicing (completion status + ticket attachments)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SINCE_DAYS: ${{ github.event.inputs.since_days || '14' }}
+          UNTIL_DAYS: ${{ github.event.inputs.until_days || '' }}
+          MAX_MSGS: ${{ github.event.inputs.max || '50' }}
+        run: |
+          URL="https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=invoicing&sinceDays=$SINCE_DAYS&max=$MAX_MSGS"
+          if [ -n "$UNTIL_DAYS" ]; then URL="$URL&untilDays=$UNTIL_DAYS"; fi
+          curl --fail-with-body -sS --max-time 90 -w "\nHTTP %{http_code}\n" "$URL"
+      - name: Reconcile call statuses (invoice approvals, late completions, construction)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body -sS --max-time 90 \
+            -w "\nHTTP %{http_code}\n" \
+            "https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=reconcile&apply=1"
+      - name: Draft transcripts for newly captured tickets
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body -sS --max-time 90 \
+            -w "\nHTTP %{http_code}\n" \
+            "https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=extract-docs&limit=5"
+
+  svc-lookup:
+    if: ${{ github.event.inputs.lookup_q != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only rpinvoicing lookup
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          LOOKUP_Q: ${{ github.event.inputs.lookup_q }}
+          LOOKUP_MAILBOX: ${{ github.event.inputs.lookup_mailbox || 'invoicing' }}
+          LOOKUP_FULL: ${{ github.event.inputs.lookup_full || '1' }}
+        run: |
+          curl -G -sS --fail-with-body --max-time 90 \
+            --data-urlencode "secret=$CRON_SECRET" \
+            --data-urlencode "pass=lookup" \
+            --data-urlencode "q=$LOOKUP_Q" \
+            --data-urlencode "full=${LOOKUP_FULL}" \
+            --data-urlencode "mailbox=$LOOKUP_MAILBOX" \
+            -o resp.json -w "HTTP %{http_code}\n" \
+            "https://rpintelligence.app/api/svc/gmail-sync" || { cat resp.json; exit 1; }
+          echo "COUNT $(jq '.count' resp.json)"
+          jq -r '.hits[] | "HIT " + tojson' resp.json | cut -c1-6000
+
+  svc-reconcile:
+    if: ${{ github.event.inputs.reconcile != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reconcile open call statuses
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APPLY: ${{ github.event.inputs.reconcile }}
+        run: |
+          URL="https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=reconcile&archivedBy=09d76016-7ed8-427d-83c3-1f94c484c1ce"
+          if [ "$APPLY" = "apply" ]; then URL="$URL&apply=1"; fi
+          curl -sS --fail-with-body --max-time 90 -o resp.json -w "HTTP %{http_code}\n" "$URL" || { cat resp.json; exit 1; }
+          jq -c '.result | del(.changes)' resp.json
+          jq -r '.result.changes[] | "CHG " + tojson' resp.json
+
+  svc-archive-stale:
+    if: ${{ github.event.inputs.archive_stale_days != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Archive stale work orders
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DAYS: ${{ github.event.inputs.archive_stale_days }}
+          APPLY: ${{ github.event.inputs.archive_stale_apply }}
+          ARCHIVED_BY: ${{ github.event.inputs.archive_stale_archived_by }}
+        run: |
+          URL="https://rpintelligence.app/api/svc/gmail-sync?secret=$CRON_SECRET&pass=archive-stale&days=$DAYS"
+          if [ "$APPLY" = "1" ]; then URL="$URL&apply=1"; fi
+          if [ -n "$ARCHIVED_BY" ]; then URL="$URL&archivedBy=$ARCHIVED_BY"; fi
+          curl --fail-with-body -sS --max-time 90 -w "\nHTTP %{http_code}\n" "$URL"
+
+  billing-permit-backfill:
+    if: ${{ github.event.inputs.backfill_permits_offset != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Backfill historical permit emails from econstruction
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          OFFSET: ${{ github.event.inputs.backfill_permits_offset }}
+          LIMIT: ${{ github.event.inputs.backfill_permits_limit }}
+          APPLY: ${{ github.event.inputs.backfill_permits_apply }}
+        run: |
+          URL="https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=backfill-permits&offset=$OFFSET&limit=$LIMIT"
+          if [ "$APPLY" = "1" ]; then URL="$URL&apply=1"; fi
+          curl --fail-with-body -sS --max-time 90 -w "\nHTTP %{http_code}\n" "$URL"
+
+  billing-inbox-historical-sync:
+    if: ${{ github.event.inputs.billing_sync_inbox != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Historical sync for one billing inbox
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          INBOX: ${{ github.event.inputs.billing_sync_inbox }}
+          SINCE_DAYS: ${{ github.event.inputs.billing_sync_since_days }}
+          MAX_MSGS: ${{ github.event.inputs.billing_sync_max }}
+        run: |
+          curl --fail-with-body -sS --max-time 90 \
+            -w "\nHTTP %{http_code}\n" \
+            "https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=sync&inbox=$INBOX&since=$SINCE_DAYS&max=$MAX_MSGS"
+
+  billing-field-ticket-backfill:
+    if: ${{ github.event.inputs.backfill_ticket_job_id != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Backfill one job's field tickets (rpinvoicing + econstruction)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          JOB_ID: ${{ github.event.inputs.backfill_ticket_job_id }}
+          APPLY: ${{ github.event.inputs.backfill_ticket_apply }}
+        run: |
+          URL="https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=backfill-field-tickets&jobId=$JOB_ID"
+          if [ "$APPLY" = "1" ]; then URL="$URL&apply=1"; fi
+          curl --fail-with-body -sS --max-time 90 -w "\nHTTP %{http_code}\n" "$URL"
+
+  # The 15-minute billing-inbox + job-email-feed passes run from Supabase pg_cron now
+  # (supabase/migrations/billing_sync_pg_cron.sql) — GitHub's schedule fired only every 5-7 hours. Manual runs only here.
+  billing-inbox-sync:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Pull paperwork from the billing inboxes
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body -sS --max-time 90 \
+            -w "\nHTTP %{http_code}\n" \
+            "https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=sync&max=30"
+      - name: Read pending documents
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body -sS --max-time 90 \
+            -w "\nHTTP %{http_code}\n" \
+            "https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=extract&limit=3"
+      - name: Tech updates, field tickets and invoice workups onto their jobs
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # Gmail allows 6,000 query units per user per minute; the sync + thread pass above spends most of that,
+          # so wait for the next window before this pass lists and reads the update mail.
+          sleep 65
+          curl --fail-with-body -sS --max-time 90 \
+            -w "\nHTTP %{http_code}\n" \
+            "https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=updates&since=3"
+      - name: Invoice workups and order mail onto their jobs and the plate
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body -sS --max-time 90 \
+            -w "\nHTTP %{http_code}\n" \
+            "https://rpintelligence.app/api/billing/inbox-sync?secret=$CRON_SECRET&pass=orders&since=3"
