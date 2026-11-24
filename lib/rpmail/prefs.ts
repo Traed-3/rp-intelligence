@@ -28,6 +28,9 @@ export type Prefs = {
   density: 'comfortable' | 'compact'
   tz: string
   groups: Group[]
+  /** Mailboxes the person left out of their own lists (Needs you, For you, the mail on My Plate cards, the morning summary).
+   *  They can still open and read them; only these lists change, and only for this person. */
+  lists_off: string[]
 }
 
 const ids = (v: unknown): string[] => Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && UUID.test(x)))].slice(0, 60) : []
@@ -53,7 +56,8 @@ export async function getPrefs(who: Pick<Me, 'id'>): Promise<Prefs> {
   const { data } = await createAdminClient().from('rpmail_prefs').select('data').eq('profile_id', who.id).maybeSingle()
   const d = (data?.data ?? {}) as Partial<Record<keyof Prefs, unknown>>
   return { hidden: ids(d.hidden), order: ids(d.order), undo_secs: undoSecs(d.undo_secs), notify: notifyPrefs(d.notify),
-    sender_name: senderName(d.sender_name), default_from: one(d.default_from), start: one(d.start), density: d.density === 'compact' ? 'compact' : 'comfortable', tz: zone(d.tz), groups: groups(d.groups) }
+    sender_name: senderName(d.sender_name), default_from: one(d.default_from), start: one(d.start), density: d.density === 'compact' ? 'compact' : 'comfortable', tz: zone(d.tz), groups: groups(d.groups),
+    lists_off: ids(d.lists_off) }
 }
 
 /** Save some of this person's settings; anything not named keeps its value. Only this person's own screen changes. */
@@ -67,6 +71,7 @@ export async function setPrefs(who: Me, p: Partial<Record<keyof Prefs, unknown>>
     default_from: p.default_from === undefined ? cur.default_from : one(p.default_from), start: p.start === undefined ? cur.start : one(p.start),
     density: p.density === undefined ? cur.density : p.density === 'compact' ? 'compact' : 'comfortable',
     tz: p.tz === undefined ? cur.tz : zone(p.tz), groups: p.groups === undefined ? cur.groups : groups(p.groups),
+    lists_off: p.lists_off === undefined ? cur.lists_off : ids(p.lists_off),
   }
   const { error } = await createAdminClient().from('rpmail_prefs').upsert({ profile_id: who.id, data: next, updated_at: new Date().toISOString() }, { onConflict: 'profile_id' })
   if (error) throw new Error('Could not save that.')
@@ -88,6 +93,10 @@ export function dayStartIn(day: string, plus = 0, tz = DEFAULT_TZ): string {
   at = wall - zoneOffsetMs(tz, new Date(at))   // again from the answer, for the two days a year the clocks change
   return new Date(at).toISOString()
 }
+/** The mailboxes that count toward this person's own lists: every mailbox they may open, minus the ones they left out. */
+export const listMailboxes = <T extends { id: string }>(boxes: T[], prefs: Pick<Prefs, 'lists_off'>): T[] =>
+  boxes.filter(b => !prefs.lists_off.includes(b.id))
+
 /** Is `at` inside the person's quiet hours, by their own clock? A range may run past midnight (21:00 to 06:00). */
 export function inQuietHours(n: Pick<NotifyPrefs, 'quiet_from' | 'quiet_to'>, at: Date, tz = DEFAULT_TZ): boolean {
   if (!n.quiet_from || !n.quiet_to || n.quiet_from === n.quiet_to) return false

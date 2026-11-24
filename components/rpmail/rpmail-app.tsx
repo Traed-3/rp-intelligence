@@ -24,7 +24,7 @@ import { ClipboardList, HardHat, Newspaper, type LucideIcon } from 'lucide-react
 
 export type Notify = { on: boolean; what: 'needs' | 'people' | 'all'; quiet_from: string; quiet_to: string; off: string[] }
 export type Group = { name: string; addrs: string[] }
-export type Prefs = { hidden: string[]; order: string[]; undo_secs?: number; notify?: Notify; sender_name?: string; default_from?: string; start?: string; density?: 'comfortable' | 'compact'; tz?: string; groups?: Group[] }
+export type Prefs = { hidden: string[]; order: string[]; undo_secs?: number; notify?: Notify; sender_name?: string; default_from?: string; start?: string; density?: 'comfortable' | 'compact'; tz?: string; groups?: Group[]; lists_off?: string[] }
 /** Lists drawn tighter (one line less per message) when the person chose Compact in Settings. */
 const Compact = createContext(false)
 export type State = { prefs?: Prefs; enabled: boolean; name: string; role: string; googleReady: boolean; personalAddress: string | null; loginEmail: string; boxes: BoxInfo[]; note: string | null }
@@ -658,6 +658,9 @@ function Dash({ ov, boxes, hidden, onBoxMenu, putBack, boxName, rowProps, goBox,
   const P = ov.plate.items, open = P.filter(t => t.status === 'open')
   const waitingJobs = ov.foryou.filter(m => m.waiting).length
   const s = ov.summary?.data
+  // Mailboxes the person left out of their own lists (RPMail → Settings → Mailboxes in my lists).
+  const offCount = (ov.prefs?.lists_off ?? []).filter(id => ov.boxes.some(b => b.id === id)).length
+  const leftOut = offCount > 0 ? <Link href="/rpmail/settings" className="text-xs text-muted-foreground hover:text-foreground">Leaving out {offCount} mailbox{offCount === 1 ? '' : 'es'} · Change</Link> : undefined
   const many = ov.boxes.length > 1
   const closed = boxes.filter(b => hidden.has(b.id))
   return (
@@ -698,12 +701,12 @@ function Dash({ ov, boxes, hidden, onBoxMenu, putBack, boxName, rowProps, goBox,
         ))}
       </Section>
 
-      <Section id="rp-jobs" title="Your jobs" count={ov.foryou.length} tone="info">
+      <Section id="rp-jobs" title="Your jobs" count={ov.foryou.length} tone="info" right={leftOut}>
         {!ov.foryou.length && <Empty>No mail about your jobs in the last 14 days.</Empty>}
         {ov.foryou.map(m => <Row key={m.mailbox_id + m.id} m={m} boxLabel={many ? boxName(m.mailbox_id) : undefined} onDone={() => markDone(m)} {...rowProps} />)}
       </Section>
 
-      <Section id="rp-needs" title="Needs you" count={ov.needs.length} tone="warning">
+      <Section id="rp-needs" title="Needs you" count={ov.needs.length} tone="warning" right={leftOut}>
         {!ov.needs.length && <Empty>Nothing is waiting on you.</Empty>}
         {ov.needs.map(m => <Row key={m.mailbox_id + m.id} m={m} boxLabel={many ? boxName(m.mailbox_id) : undefined} onDone={() => markDone(m)} {...rowProps} />)}
       </Section>
