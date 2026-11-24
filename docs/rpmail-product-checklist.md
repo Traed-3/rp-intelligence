@@ -26,7 +26,7 @@ on, 0 mailboxes connected, 1 company. A real-mailbox pass was done later the sam
 | 5 | One Settings area (profile, mailboxes, signatures, notifications, rules, appearance, defaults) and company admin (read / send / delete per person, blocked-content rule, activity log with export) | shipped 2026-11-23. The owner page was looked at on the live site; the rest by automated tests only. Writing with formatting (bold, italic, underline, lists, links) added the same day: the message box was tried in a browser on a stand-alone page, the send path by automated tests; not yet sent through a real mailbox |
 | 6 | Automated tests + a check that runs before anything goes live; "one company cannot see another" proven by tests | shipped 2026-11-20 (done ahead of stages 3 to 5, because there was no test mailbox). 50 tests |
 | 7 | Selling it: companies as separate customers, sign-up, trial, Stripe plans and seats, billing page, plan limits, public page, owner view | **Not needed** (Trae, 2026-11-23: internal only). A short how-to for staff is kept on the list under "What is left" |
-| 8 | More providers: Microsoft 365 / Outlook, then any mailbox by IMAP + SMTP | **Set aside**: every staff mailbox is Gmail. Comes back only if a staff mailbox turns up that is not |
+| 8 | More providers: Microsoft 365 / Outlook, then any mailbox by IMAP + SMTP | **Proton done** (2026-11-24): Work Proton and Personal Proton come through a helper on the Mac Studio (Proton Bridge): reading, mark read, star, archive, Spam, Trash with Undo, labels, drafts and send. Outlook stays set aside: every staff mailbox is Gmail |
 | 9 | Trust: two-step sign-in, session list, export my data, delete my account, error tracking, uptime checks, tested restore, Google verification package | **Mostly not needed** for an internal program (see "Trust, safety and reliability"). Kept: two-step sign-in is worth a look, since staff mail now sits behind the RP Intelligence password |
 
 ## What is left (internal program, 2026-11-23)
@@ -39,6 +39,11 @@ Nothing here needs money. In rough order of how much a person would notice:
 9. Two-step sign-in for RP Intelligence (the whole site, not only RPMail).
 
 Done from this list: conversation view, pictures inside the text, signatures and templates that keep their formatting, the rough edges, reopening Gmail drafts, the staff how-to (2026-11-23). Still plain: a picture (a logo) in a signature.
+
+Proton (2026-11-24): reads since the morning; changes and sending added the same day. What only works while the Mac Studio is on
+and Proton Bridge is open: all of it. Not built for Proton: renaming or deleting a Proton *folder* from RPMail (labels can be), and
+"Search all of Gmail" searches Proton the same way as the 90-day search. A sent draft and the old copy of a re-saved draft go to
+Proton's Trash (RPMail never deletes for good).
 
 ## Accounts and sign-in
 

@@ -19,7 +19,8 @@ import { setEnabled, disconnect, oauthStart, adminState, adminSetUser, adminSave
 // Every action needs a signed-in person (proxy.ts) and, for anything that touches mail, RPMail turned on for that
 // person and the mailbox on their own login (lib/rpmail/access.ts). Nothing here is decided by role alone.
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+// 90 seconds: a send from a Proton mailbox waits up to 40 seconds for the Mac Studio, after the attachments are gathered.
+export const maxDuration = 90
 
 type Q = Record<string, string>
 type B = Record<string, unknown>

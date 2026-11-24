@@ -5,6 +5,7 @@ import { world, addPerson, addBox, type Person } from './fakes'
 import { requireMe, mailboxFor } from '@/lib/rpmail/access'
 import { gmail, NotConnected, UserError } from '@/lib/rpmail/gmail'
 import { relayExchange, cleanRelay } from '@/lib/rpmail/relay'
+import { sendMail } from '@/lib/rpmail/mail-ops'
 
 // Proton mailboxes are answered by a helper on the Mac Studio. The website writes each Gmail-style question as a job, the
 // helper collects jobs for the Proton addresses it serves and sends back the answers, and the website reads and deletes them.
@@ -49,6 +50,43 @@ describe('a Proton mailbox', () => {
     expect(await run(404)).toBeNull()
     expect(await run(501)).toBeInstanceOf(UserError)
     expect(await run(401)).toBeInstanceOf(NotConnected)
+    const late = await run(408)
+    expect(late).toBeInstanceOf(UserError)
+    expect(String(late.message)).toMatch(/too late, so it was not sent/)
+  })
+
+  it('hands a large message to the helper in pieces, and only to the helper that serves that mailbox', async () => {
+    const raw = 'a'.repeat(400_000)
+    const sent = gmail(proton, 'messages/send', { method: 'POST', body: { raw } })
+    let r: { jobs: { id: number; body: { _parts?: number }; created_at?: string }[] } = { jobs: [] }
+    for (let i = 0; i < 20 && !r.jobs.length; i++) r = await relayExchange({ addresses: ['ann@proton.me'], wait: true }) as typeof r
+    const job = r.jobs[0]
+    expect(job.body).toEqual({ _parts: 1 })                                 // the message itself is not in the job list
+    expect(Date.now() - Date.parse(job.created_at!)).toBeLessThan(60_000)    // so the helper can refuse a late send
+    expect(await relayExchange({ addresses: ['bob@proton.me'], body_of: { job: job.id, seq: 0 } })).toEqual({ data: null })
+    const piece = await relayExchange({ addresses: ['ann@proton.me'], body_of: { job: job.id, seq: 0 } }) as { data: string }
+    expect(JSON.parse(piece.data)).toEqual({ raw })
+    await relayExchange({ addresses: ['ann@proton.me'], results: [{ job: job.id, seq: 0, last: true, code: 200, data: '{}' }] })
+    expect(await sent).toEqual({})                                          // the answer pieces only, not the message
+    expect(world.db.t('rpmail_relay_parts')).toEqual([])                    // and every piece is gone afterwards
+    expect(world.db.t('rpmail_relay_jobs')).toEqual([])
+  })
+
+  it('sends from a Proton mailbox only through the helper, as that mailbox, after the person confirmed', async () => {
+    const who = await requireMe()
+    await expect(sendMail(who, { mailbox: proton, to: 'zed@example.com', subject: 'Hi', body: 'Hello' })).rejects.toThrow(/confirm/)
+    expect(world.db.t('rpmail_relay_jobs')).toEqual([])                     // nothing reached the Mac
+    const going = sendMail(who, { mailbox: proton, to: 'zed@example.com', subject: 'Hi', body: 'Hello', confirmed: true })
+    type Job = { id: number; path: string; body: { raw: string } }
+    let job: Job | undefined
+    for (let i = 0; i < 40 && !job; i++) job = (await relayExchange({ addresses: ['ann@proton.me'], wait: true }) as unknown as { jobs: Job[] }).jobs[0]
+    expect(job!.path).toBe('messages/send')
+    const message = Buffer.from(job!.body.raw, 'base64url').toString()
+    expect(message).toMatch(/^From: .*<ann@proton\.me>/m)
+    expect(message).toMatch(/^To: zed@example\.com/m)
+    await relayExchange({ addresses: ['ann@proton.me'], results: [{ job: job!.id, seq: 0, last: true, code: 200, data: '{}' }] })
+    expect(await going).toMatchObject({ ok: true, sent: true, from: 'ann@proton.me' })
+    expect(world.gmail.calls).toEqual([])
   })
 
   it('says the Mac Studio is not answering when the helper has not been heard from', async () => {

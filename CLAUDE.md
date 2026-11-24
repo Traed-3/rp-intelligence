@@ -742,8 +742,19 @@ is never changed from here). PER USER, NEVER PER ROLE.
   local RPMail. A box with `folder_home` (Work Proton: Folders/RPS) owns everything filed in that folder tree from EVERY Proton login (the
   two logins are separate address mailboxes; ~950 personal-address messages are filed under RPS), plus the rest of its own login's mail;
   Personal Proton gets the personal login minus the RPS tree. "Inbox" = INBOX + the box's `inbox_folders` (Work: Folders/RPS itself).
-  Ids: login tag + 7 hex of All Mail UIDVALIDITY + UID (16 hex). Proton folders and labels show as Gmail labels. Writes (mark read, archive, trash, send, drafts) answer 501
-  until built. The helper only works while the Mac Studio is on and Proton Bridge is running.
+  Ids: login tag + 7 hex of All Mail UIDVALIDITY + UID (16 hex). Proton folders and labels show as Gmail labels.
+  CHANGES (2026-11-24, Trae: "finish"): read / unread and the star are Proton flags (STORE in All Mail); Archive / Inbox / Spam / Trash /
+  a Proton folder are IMAP MOVEs (Trash = Proton's Trash, never a permanent delete); a label goes on by COPY into Labels/<name> and comes
+  off by MOVING the message from Labels/<name> back to its own folder (Proton's documented way). NOTHING IS EVER EXPUNGED. Mail RPMail
+  moved out of the folder that put it in a box (e.g. personal-address mail filed under RPS, then archived) STAYS in that box: the helper
+  remembers it in ~/rpmail-relay/moves.json (`Router.holds`, plus `moved` = where it came from, used by Undo). Send = Bridge SMTP (port
+  1025, SSL, loopback only) as the box's own address, only for a From equal to that address; Proton files the Sent copy. A send job older
+  than 30 s when the helper gets it is refused (408), so a send the website gave up on (40 s) never goes out late. Drafts are APPENDed to
+  Drafts; saving again or sending moves the old copy to Trash. Proton folders cannot be renamed or deleted from RPMail (labels can).
+  A job body over 150 KB (a message with attachments) goes in pieces in `rpmail_relay_parts` from seq 1000 up; the helper fetches them
+  with `body_of`. Helper checks: `python3 -I scripts/rpmail-relay/test_relay.py` (stand-in Bridge, no real mail).
+  After changing relay.py: `cp scripts/rpmail-relay/relay.py ~/rpmail-relay/ && launchctl kickstart -k gui/$(id -u)/com.trae.rpmail-relay`.
+  The helper only works while the Mac Studio is on and Proton Bridge is running.
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
   project or Google. access.test.ts drives the real API route and must list every op that takes a mailbox (`everyAction`): ADD NEW OPS THERE.
