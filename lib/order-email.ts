@@ -4,9 +4,11 @@
  *    Quantities and prices as quoted: … Shannon, can we get a PO# for this? Thank you!"
  * Pure: the plate builds the draft here, stores it on the task, and hands it to the mail client or to the Proton Bridge push.
  */
+import { IS_DEMO } from '@/lib/demo'
+
 export type OrderVendorKey = 'icon' | 'icon_support' | 'source' | 'spatco' | 'morgan' | 'other'
 
-export const ORDER_VENDORS: Record<OrderVendorKey, { label: string; to: string; greeting: string }> = {
+const ORDER_VENDORS_REAL: Record<OrderVendorKey, { label: string; to: string; greeting: string }> = {
   icon:   { label: 'ICON Containment',      to: 'orders@icontainment.com',       greeting: 'ICON Team:' },
   icon_support: { label: 'ICON tech support (surveys)', to: 'techsupport@icontainment.com', greeting: 'Gary & Team:' },
   source: { label: 'Source North America',  to: 'ddixon@sourcena.com',           greeting: 'David,' },
@@ -15,8 +17,22 @@ export const ORDER_VENDORS: Record<OrderVendorKey, { label: string; to: string; 
   other:  { label: 'Other vendor',          to: '',                              greeting: 'Hello,' },
 }
 
-export const ORDER_CC = ['sparsons.rp@gmail.com', 'econstruction.rp@gmail.com']
-export const SHIP_TO = 'Rappahannock Petroleum, 225 Ritter Rd., Winchester, VA 22602, ATTN: Starsky Dodson'
+// Public demo: placeholder vendors, people and addresses only.
+const ORDER_VENDORS_DEMO: Record<OrderVendorKey, { label: string; to: string; greeting: string }> = {
+  icon:         { label: 'Containment Supplier',        to: 'orders@containment.example',  greeting: 'Orders Team:' },
+  icon_support: { label: 'Containment tech support',    to: 'support@containment.example', greeting: 'Support Team:' },
+  source:       { label: 'Atlantic Fuel Parts Supply',  to: 'orders@fuelparts.example',    greeting: 'Gina,' },
+  spatco:       { label: 'Regional Parts Distributor',  to: 'sales@distributor.example',   greeting: 'Hello,' },
+  morgan:       { label: 'Equipment Dealer',            to: 'sales@dealer.example',        greeting: 'Hello,' },
+  other:        { label: 'Other vendor',                to: '',                            greeting: 'Hello,' },
+}
+export const ORDER_VENDORS = IS_DEMO ? ORDER_VENDORS_DEMO : ORDER_VENDORS_REAL
+
+export const ORDER_CC = IS_DEMO ? ['purchasing@demo.rpintelligence.app'] : ['sparsons.rp@gmail.com', 'econstruction.rp@gmail.com']
+export const SHIP_TO = IS_DEMO
+  ? 'Summit Petroleum Services, 100 Demo Way, Maple Hill, VA 22000, ATTN: Receiving'
+  : 'Rappahannock Petroleum, 225 Ritter Rd., Winchester, VA 22602, ATTN: Starsky Dodson'
+const SIGNER = IS_DEMO ? ['Alex Morgan', 'Summit Petroleum Services'] : ['Trae Dodson', 'Rappahannock Petroleum']
 
 export type OrderDraftInput = {
   vendor: OrderVendorKey
@@ -52,8 +68,8 @@ export function buildOrderDraft(i: OrderDraftInput): OrderDraft {
     `Please confirm pricing and ship date. Ship to ${i.shipTo || SHIP_TO}, marked ${i.site}.`,
   ]
   if (i.note) lines.push('', i.note.trim())
-  if (i.askPo !== false) lines.push('', 'Shannon, can we get a PO# for this? Thank you!')
-  lines.push('', 'Trae Dodson', 'Rappahannock Petroleum')
+  if (i.askPo !== false) lines.push('', IS_DEMO ? 'Taylor, can we get a PO# for this? Thank you!' : 'Shannon, can we get a PO# for this? Thank you!')
+  lines.push('', ...SIGNER)
   return { to: (i.to || v.to).trim(), cc: ORDER_CC, subject, body: lines.join('\n') }
 }
 
@@ -70,12 +86,11 @@ export function buildSurveyEmail(i: { site: string; siteName?: string | null; ad
   const where = [i.siteName, i.address].filter(Boolean).join(', ')
   const subject = `${i.site} ICON Material ${i.request === 'order' ? 'Quote - Order' : 'Quote Request'}${i.sumps.length ? ` (${i.sumps.join(', ')})` : ''}`
   const body = [
-    'Gary & Team:',
+    IS_DEMO ? 'Support Team:' : 'Gary & Team:',
     '',
     `The following attachment is the survey forms and pics of the entry fittings needed at ${i.site}${where ? ` (${where})` : ''}${i.sumps.length ? `: ${i.sumps.join(', ')}` : ''}. Please put together the part numbers and pricing${i.request === 'order' ? ' so we can place the order' : ''}. Let me know if you have any questions and thank you for your help!`,
     '',
-    'Trae Dodson',
-    'Rappahannock Petroleum',
+    ...SIGNER,
   ].join('\n')
   return { to: `${ORDER_VENDORS.icon_support.to}, ${ORDER_VENDORS.icon.to}`, cc: ORDER_CC, subject, body }
 }

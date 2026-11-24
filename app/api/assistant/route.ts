@@ -7,6 +7,7 @@ import { isSurveyOnly } from '@/lib/field-surveys'
 import { toolsFor, toApiTools, runTool } from '@/lib/assistant/registry'
 import { systemPrompt, pageNote } from '@/lib/assistant/prompt'
 import type { AssistantCtx } from '@/lib/assistant/types'
+import { IS_DEMO } from '@/lib/demo'
 
 // A question can take several look-ups in a row; give it room.
 export const maxDuration = 120
@@ -20,6 +21,9 @@ const MAX_HISTORY = 30          // messages kept from the conversation the brows
 const MAX_MESSAGE_CHARS = 4000
 
 export async function POST(request: NextRequest) {
+  if (IS_DEMO && !process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: 'Ask RP (the AI assistant) is turned off in this public demo. In the real app it answers questions about your jobs, trucks and tickets.' }, { status: 503 })
+  }
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'The assistant is not configured yet (missing ANTHROPIC_API_KEY).' }, { status: 503 })
   }

@@ -3,6 +3,8 @@ import { Barlow_Condensed, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google
 import './globals.css'
 import { PWARegister } from '@/components/pwa-register'
 import { themeScript } from '@/components/ui/theme-toggle'
+import { DemoBanner } from '@/components/demo-banner'
+import { IS_DEMO } from '@/lib/demo'
 
 // The Action Board's type: condensed caps for headings, Plex for reading, Plex Mono for site numbers and counts.
 const displayFont = Barlow_Condensed({ variable: '--font-barlow', subsets: ['latin'], weight: ['600', '700'] })
@@ -11,7 +13,7 @@ const monoFont = IBM_Plex_Mono({ variable: '--font-plex-mono', subsets: ['latin'
 
 export const metadata: Metadata = {
   title: 'RP Intelligence',
-  description: 'RP Intelligence — Rappahannock Petroleum operations platform',
+  description: IS_DEMO ? 'RP Intelligence demo — field service, construction and fleet operations platform (sample data)' : 'RP Intelligence — Rappahannock Petroleum operations platform',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -41,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Sets light/dark before first paint so there is no flash. */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <PWARegister />
+        <DemoBanner />
         {children}
       </body>
     </html>

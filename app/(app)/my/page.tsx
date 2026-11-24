@@ -14,6 +14,7 @@ import { CopyButton } from '@/components/plate/copy-button'
 import { BulkBar } from '@/components/plate/bulk-bar'
 import { MaterialLists, materialLists } from '@/components/plate/material-lists'
 import { WORK_ORDER_DOCS_BUCKET } from '@/lib/svc-gmail-sync'
+import { PLATE_PARTNER_NAME, PO_CONTACT_NAME } from '@/lib/demo'
 
 type TicketRef = { date?: string; subject?: string; paths: string[] }
 type TicketUrls = Map<string, string>
@@ -141,7 +142,7 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
 
       <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Filter">
         <Link href={filterHref({ ...filters, sd: false, over: false })} className={chip(!filters.sd && !filters.over)}>Everything open</Link>
-        <Link href={filterHref({ ...filters, sd: !filters.sd })} className={chip(filters.sd)}>From Starsky <span className="tabular-nums opacity-70">{sdCount}</span></Link>
+        <Link href={filterHref({ ...filters, sd: !filters.sd })} className={chip(filters.sd)}>From {PLATE_PARTNER_NAME} <span className="tabular-nums opacity-70">{sdCount}</span></Link>
         <Link href={filterHref({ ...filters, over: !filters.over })} className={chip(filters.over)}>Overdue <span className="tabular-nums opacity-70">{overCount}</span></Link>
       </div>
 
@@ -217,7 +218,7 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
                   </select>
                 </label>
               )}
-              <textarea name="detail" rows={2} placeholder="Detail, numbers, who to call (start with SD if Starsky asked)" className="w-full rounded-md border border-gray-300 px-2.5 py-1.5" />
+              <textarea name="detail" rows={2} placeholder={`Detail, numbers, who to call (start with SD if ${PLATE_PARTNER_NAME} asked)`} className="w-full rounded-md border border-gray-300 px-2.5 py-1.5" />
               <button className="w-full rounded-md bg-primary text-primary-foreground py-1.5 text-sm font-semibold hover:bg-primary/90">Add</button>
             </form>
           </section>
@@ -330,7 +331,7 @@ function TaskCard({ t, today, urls, partner = null, waiting = false }: { t: Task
         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
           <span className={`px-2 py-0.5 rounded-full border text-xs ${KIND_CLASS[t.kind]}`}>{KIND_LABEL[t.kind]}</span>
           {t.priority === 1 && <Pill tone="over">Hot</Pill>}
-          {fromStarsky(t) && <Pill tone="sd">Starsky</Pill>}
+          {fromStarsky(t) && <Pill tone="sd">{PLATE_PARTNER_NAME}</Pill>}
           {partner && t.handed_from === partner.id && <Pill tone="plain" title="Moved here from the other plate">from {partner.name}&apos;s plate</Pill>}
           {waiting && t.waiting_on && <Pill tone="plain">{t.waiting_on}</Pill>}
           {waiting && t.waiting_since && <Pill tone={waitDays >= 5 ? 'over' : 'plain'} title={`since ${fmt(t.waiting_since)}`}>{waitDays === 0 ? 'today' : `${waitDays} business day${waitDays === 1 ? '' : 's'}`}{waitDays >= 5 ? ' · nudge' : ''}</Pill>}
@@ -525,7 +526,7 @@ function Resolver({ t }: { t: TaskRow }) {
             <div className="flex flex-wrap items-center gap-1.5">
               <a href={mailtoHref(d)} className="px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-600/90">Open in mail</a>
               <CopyButton text={`To: ${d.to}\nCc: ${d.cc.join(', ')}\nSubject: ${d.subject}\n\n${d.body}`} label="Copy email" />
-              <form action={markOrderSent.bind(null, t.id)} className="flex items-center gap-1"><input name="who" defaultValue="Shannon (PO#)" className={`${input} w-28`} /><button className="px-2 py-0.5 rounded border border-emerald-300 text-emerald-800 hover:bg-emerald-100">I sent it → waiting</button></form>
+              <form action={markOrderSent.bind(null, t.id)} className="flex items-center gap-1"><input name="who" defaultValue={`${PO_CONTACT_NAME} (PO#)`} className={`${input} w-28`} /><button className="px-2 py-0.5 rounded border border-emerald-300 text-emerald-800 hover:bg-emerald-100">I sent it → waiting</button></form>
             </div>
             <details><summary className="cursor-pointer text-gray-500">Edit and redraft</summary><OrderForm t={t} a={a} input={input} /></details>
           </>
@@ -561,7 +562,7 @@ function OrderForm({ t, a, input }: { t: TaskRow; a: { vendor?: OrderVendorKey; 
       <textarea name="items" rows={4} defaultValue={a.items ?? ''} placeholder={'(4) IRF 5B3.5x3.2AC - Icon SplitRepair Flange Fitting Kit … - $459.00 each\n(2) IAC FASTFUSE - … - $109.00 each'} className="w-full rounded border border-gray-300 px-1.5 py-1 text-[11px] font-mono" />
       <div className="flex flex-wrap items-center gap-1.5">
         <input name="note" placeholder="extra line (optional)" className={`${input} w-64`} />
-        <label className="flex items-center gap-1"><input type="checkbox" name="ask_po" value="on" defaultChecked /> ask Shannon for a PO#</label>
+        <label className="flex items-center gap-1"><input type="checkbox" name="ask_po" value="on" defaultChecked /> ask {PO_CONTACT_NAME} for a PO#</label>
         <button className="px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-600/90">Draft it</button>
       </div>
     </form>

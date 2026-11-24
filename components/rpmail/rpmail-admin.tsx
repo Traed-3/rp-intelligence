@@ -5,6 +5,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { api } from './rpmail-app'
 import { useAsk } from './ask'
+import { IS_DEMO } from '@/lib/demo'
 
 type Shared = { id: string; address: string; name: string; crew_reads: boolean; connected: boolean; connected_at: string | null; last_error: string | null }
 type Person = { id: string; name: string; email: string; role: string; locked: boolean; hasLocal: boolean; enabled: boolean; mail_address: string | null
@@ -15,12 +16,15 @@ type AdminState = { googleReady: boolean; shared: Shared[]; people: Person[]; co
 type Line = { id: number; at: number; kind: string; what: string; who: string; mailbox: string; about: string; detail: string }
 const LEVELS: [Level, string][] = [['read', 'Read only'], ['send', 'Read and send'], ['full', 'Read, send, delete']]
 
-const SUGGESTED = [
+const SUGGESTED_REAL = [
   { address: 'econstruction.rp@gmail.com', name: 'Construction Dept', crew_reads: true },
   { address: 'const.inv.rp@gmail.com', name: 'Construction Invoices', crew_reads: false },
   { address: 'const.receipt.rp@gmail.com', name: 'Construction Receipts', crew_reads: false },
   { address: 'const.log.rp@gmail.com', name: 'Construction Truck Log', crew_reads: true },
 ]
+const SUGGESTED = IS_DEMO
+  ? SUGGESTED_REAL.map(s => ({ ...s, address: s.address.replace(/\.rp@gmail\.com$/, '@demo.rpintelligence.app') }))
+  : SUGGESTED_REAL
 const ROLE = (r: string) => r.replace(/_/g, ' ')
 
 export function RpmailAdmin({ connected, connectError }: { connected?: string; connectError?: string }) {

@@ -1,3 +1,4 @@
+import { IS_DEMO } from '@/lib/demo'
 /**
  * Gmail API client for the BILLING + INVENTORY module (Phase 5).
  *
@@ -19,12 +20,17 @@
 
 export type BillingInbox = 'econstruction' | 'constructionreceipts' | 'rpinvoicing' | 'maintenance'
 
-export const BILLING_INBOXES: ReadonlyArray<{ key: BillingInbox; email: string; purpose: string; envKey: string }> = [
+const BILLING_INBOXES_REAL: ReadonlyArray<{ key: BillingInbox; email: string; purpose: string; envKey: string }> = [
   { key: 'econstruction',        email: 'econstruction.rp@gmail.com',    purpose: 'Construction dispatch — packing slips, vendor quotes, invoice workups', envKey: 'GMAIL_TOKEN_ECONSTRUCTION' },
   { key: 'constructionreceipts', email: 'constructionreceipts@gmail.com', purpose: 'Vendor receipts — cost updates',                                        envKey: 'GMAIL_TOKEN_CONSTRUCTIONRECEIPTS' },
   { key: 'rpinvoicing',          email: 'rpinvoicing@gmail.com',          purpose: 'Service invoicing — tech completions, ticket workups, and (via a Gmail auto-forward rule on const.inv.rp) every foreman field ticket', envKey: 'GMAIL_TOKEN_RPINVOICING' },
   { key: 'maintenance',          email: 'maintenance.rps@gmail.com',      purpose: 'Fleet maintenance — shop receipts',                                    envKey: 'GMAIL_TOKEN_MAINTENANCE' },
 ]
+
+// Public demo shows placeholder mailbox addresses instead of the real company inboxes.
+export const BILLING_INBOXES: ReadonlyArray<{ key: BillingInbox; email: string; purpose: string; envKey: string }> = IS_DEMO
+  ? BILLING_INBOXES_REAL.map(b => ({ ...b, email: `${b.key}@demo.rpintelligence.app` }))
+  : BILLING_INBOXES_REAL
 
 // const.inv.rp@gmail.com has Gmail's own "Forward a copy of incoming mail to
 // rpinvoicing@gmail.com" rule turned on (confirmed in its Settings ->

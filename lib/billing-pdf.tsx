@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 import { money, fmtDate } from '@/lib/billing'
 import { REV19_CATEGORIES, categoryMeta, computeRev19, faceLineRows, type Rev19Inputs, type Rev19LineInput, type Rev19Totals, type Rev19Line } from '@/lib/rev19'
+import { IS_DEMO } from '@/lib/demo'
 
 // ============================================================
 // RPS quote / invoice PDF — mirrors the RP QUOTE TEMPLATE sheet that every
@@ -51,6 +52,7 @@ const PINK = '#FCE4EC', GREEN = '#E6F4EA', ORANGE = '#FFF1E0'
 
 let LOGO: Buffer | null = null
 function logo(): Buffer | null {
+  if (IS_DEMO) return null  // demo prints a plain fictional letterhead
   if (LOGO) return LOGO
   for (const p of [join(process.cwd(), 'public', 'rps-letterhead-logo.png'), join(process.cwd(), '..', 'public', 'rps-letterhead-logo.png')]) {
     try { LOGO = readFileSync(p); return LOGO } catch { /* try next */ }
@@ -95,10 +97,10 @@ function Letterhead({ doc, title }: { doc: BillingDoc; title: string }) {
   return (
     <View style={[s.row, { justifyContent: 'space-between', alignItems: 'flex-start' }]}>
       <View style={{ width: 300 }}>
-        {img ? <Image src={{ data: img, format: 'png' }} style={{ width: 235, height: 75 }} /> : <Text style={[s.bold, { fontSize: 16 }]}>RAPPAHANNOCK PETROLEUM SERVICES</Text>}
+        {img ? <Image src={{ data: img, format: 'png' }} style={{ width: 235, height: 75 }} /> : <Text style={[s.bold, { fontSize: 16 }]}>{IS_DEMO ? 'SUMMIT PETROLEUM SERVICES (DEMO)' : 'RAPPAHANNOCK PETROLEUM SERVICES'}</Text>}
         <View style={[s.addrBox, { width: 235 }]}>
-          <Text style={[s.bold, { fontSize: 7.5 }]}>225 RITTER RD, WINCHESTER, VA 22602</Text>
-          <Text style={[s.bold, { fontSize: 7.5 }]}>(540) 869-5033   FAX (540) 869-5406</Text>
+          <Text style={[s.bold, { fontSize: 7.5 }]}>{IS_DEMO ? '100 DEMO WAY, MAPLE HILL, VA 22000' : '225 RITTER RD, WINCHESTER, VA 22602'}</Text>
+          <Text style={[s.bold, { fontSize: 7.5 }]}>{IS_DEMO ? '(555) 010-1000   SAMPLE DOCUMENT' : '(540) 869-5033   FAX (540) 869-5406'}</Text>
         </View>
       </View>
       <View style={{ alignItems: 'flex-end', width: 230 }}>
@@ -318,7 +320,7 @@ export async function renderBillingPdf(doc: BillingDoc, items: Rev19LineInput[],
   const basicRows = faceRows('basic', lines, totals.basic, doc.inputs, detail)
   const addRows = faceRows('additional', lines, totals.additional, doc.inputs, detail)
   const pdf = (
-    <Document title={`${title} ${doc.number}`} author="Rappahannock Petroleum Services">
+    <Document title={`${title} ${doc.number}`} author={IS_DEMO ? "Summit Petroleum Services (Demo)" : "Rappahannock Petroleum Services"}>
       {view !== 'breakdown' && (
         <Page size="LETTER" style={s.page}>
           <ContinuationHeader doc={doc} title={title} />
@@ -342,7 +344,7 @@ export async function renderBillingPdf(doc: BillingDoc, items: Rev19LineInput[],
         <Page size="LETTER" orientation="landscape" style={[s.page, { paddingHorizontal: 30 }]}>
           <ContinuationHeader doc={doc} title={`Material and Labor Breakdown — ${title}`} />
           <View style={[s.row, { justifyContent: 'space-between', alignItems: 'flex-end' }]}>
-            {logo() ? <Image src={{ data: logo()!, format: 'png' }} style={{ width: 170, height: 54 }} /> : <Text style={s.bold}>RAPPAHANNOCK PETROLEUM SERVICES</Text>}
+            {logo() ? <Image src={{ data: logo()!, format: 'png' }} style={{ width: 170, height: 54 }} /> : <Text style={s.bold}>{IS_DEMO ? 'SUMMIT PETROLEUM SERVICES (DEMO)' : 'RAPPAHANNOCK PETROLEUM SERVICES'}</Text>}
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={[s.bold, { fontSize: 14 }]}>MATERIAL AND LABOR BREAKDOWN — {doc.number}</Text>
               <Text style={[s.tiny, { color: MUTED }]}>{doc.customerName ?? ''}{doc.storeLabel ? ` · ${doc.storeLabel}` : ''}{doc.siteNumber && doc.siteNumber !== doc.storeLabel ? ` · ${doc.siteNumber}` : ''} · {doc.date ?? ''}{doc.csrNumber ? ` · CSR ${doc.csrNumber}` : ''}</Text>
