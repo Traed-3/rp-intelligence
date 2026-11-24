@@ -312,7 +312,7 @@ export async function extractWorkOrderDocument(docId: string): Promise<{ ok: boo
   })
 
   const client = new Anthropic()
-  const call = (model: string) => client.messages.create({ model, max_tokens: 8000, system: SYSTEM, tools: [RECORD_TOOL], tool_choice: { type: 'tool', name: 'record_ticket' }, messages: [{ role: 'user', content }] })
+  const call = (model: string) => client.messages.create({ model, max_tokens: 8000, system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }], tools: [RECORD_TOOL], tool_choice: { type: 'tool', name: 'record_ticket' }, messages: [{ role: 'user', content }] })
   let model = EXTRACT_MODEL
   let response: Anthropic.Message
   try {
@@ -326,6 +326,8 @@ export async function extractWorkOrderDocument(docId: string): Promise<{ ok: boo
   }
 
   const tool = response.content.find(b => b.type === 'tool_use') as Anthropic.ToolUseBlock | undefined
+  // Prompt-cache check: cache_read > 0 means the fixed instructions were billed at the cached rate.
+  console.log(`[svc-docs] tokens in=${response.usage.input_tokens} cache_read=${response.usage.cache_read_input_tokens ?? 0} cache_write=${response.usage.cache_creation_input_tokens ?? 0}`)
   if (!tool) return fail('failed', 'Model returned no record')
   const raw = tool.input as Omit<TicketExtracted, 'transcript'>
 

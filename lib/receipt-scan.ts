@@ -89,7 +89,7 @@ function sniff(buf: Buffer, fallback: ImageInput['media']): ImageInput['media'] 
 async function callTool(content: Anthropic.ContentBlockParam[], tool: Anthropic.Tool, maxTokens = 1500) {
   const client = new Anthropic()
   const call = (model: string) => client.messages.create({
-    model, max_tokens: maxTokens, system: SYSTEM, tools: [tool],
+    model, max_tokens: maxTokens, system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }], tools: [tool],
     tool_choice: { type: 'tool', name: tool.name }, messages: [{ role: 'user', content }],
   })
   let res: Anthropic.Message
