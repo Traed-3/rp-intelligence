@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  isInHandOrLater, permitDueDate, daysUntil, businessDaysBetween,
+  isInHandOrLater, isPermitComplete, permitDueDate, daysUntil, businessDaysBetween,
 } from './permits'
 
 export type Jurisdiction = {
@@ -124,7 +124,9 @@ export function computeAlerts(
     (byProject.get(projectId) ?? []).some(p => p.permit_type === 'Electrical' && isInHandOrLater(p.status))
 
   // 1. Unknown inside the 28-day window, electrical not yet in hand.
+  // A completed permit never raises an alert of any kind.
   const unknownWindow = graph.enriched.filter(p => {
+    if (isPermitComplete(p.status)) return false
     if (p.requirement_status !== 'Unknown') return false
     if (electricalIssued(p.project_id)) return false
     const d = daysUntil(p.project?.scheduled_work_date, now)
@@ -147,6 +149,7 @@ export function computeAlerts(
 
   // 4. License mismatch — pulled_by has no active license in the site's state.
   const licenseMismatch = graph.enriched.filter(p => {
+    if (isPermitComplete(p.status)) return false // closed out — nothing left to flag
     if (p.requirement_status === 'Not Required') return false
     if (p.pulled_by === 'Engineering Firm') return false // firm licensing tracked elsewhere
     return !hasActiveLicense(graph.licenses, p.pulled_by, p.site?.state ?? null, now)
@@ -159,7 +162,7 @@ export function computeAlerts(
       .filter(l => l.expiration_date && new Date(l.expiration_date) <= soon && new Date(l.expiration_date) >= now)
       .map(l => l.contractor_name))
   const expiringLicense = graph.enriched.filter(p =>
-    p.requirement_status === 'Required' && expiringContractors.has(p.pulled_by))
+    p.requirement_status === 'Required' && !isPermitComplete(p.status) && expiringContractors.has(p.pulled_by))
 
   const mk = (key: AlertKey, label: string, description: string, permits: EnrichedPermit[]): PermitAlert =>
     ({ key, label, description, permits, count: permits.length })

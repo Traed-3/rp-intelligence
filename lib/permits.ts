@@ -29,6 +29,26 @@ export function isInHandOrLater(status: string) {
   return IN_HAND_OR_LATER.includes(status)
 }
 
+// ── Dashboard buckets ──
+// Every permit lands in exactly one of three piles on the Permits dashboard.
+//   waiting    — not in hand yet (not started, with Hash, at the jurisdiction, on hold, rejected)
+//   inspection — permit is in hand, the final inspection is still owed
+//   complete   — final passed / closed out. Nothing left to do, so no alerts.
+export type PermitBucket = 'waiting' | 'inspection' | 'complete'
+export const PERMIT_BUCKETS: readonly { key: PermitBucket; label: string; blurb: string }[] = [
+  { key: 'waiting',    label: 'Waiting / In progress',  blurb: 'Not in hand yet' },
+  { key: 'inspection', label: 'Need final inspection',  blurb: 'Permit in hand, final still owed' },
+  { key: 'complete',   label: 'Completed',              blurb: 'Final passed, closed out' },
+]
+export function permitBucket(status: string): PermitBucket {
+  if (status === 'Complete') return 'complete'
+  if (status === 'Permit In-Hand' || status === 'Inspection Scheduled') return 'inspection'
+  return 'waiting'
+}
+export function isPermitComplete(status: string) {
+  return status === 'Complete'
+}
+
 export const PERMIT_TYPES = ['Electrical', 'Building', 'Mechanical', 'Plumbing', 'Fire', 'Zoning', 'Other'] as const
 export const PULLED_BY = ['Hash Construction', 'RPS', 'Engineering Firm'] as const
 export const REQUIREMENT_STATUSES = ['Unknown', 'Required', 'Not Required'] as const

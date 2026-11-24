@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation'
 import { canWriteConstruction } from '@/lib/construction'
 import {
   PERMIT_STATUS_VALUES, REQUIREMENT_STATUSES, isInHandOrLater,
-  defaultPulledBy, computeReadyToWork,
+  defaultPulledBy, computeReadyToWork, iso,
 } from '@/lib/permits'
 import { findOrCreateJobForPermitSite, linkProjectToChosenJob } from '@/lib/permit-job-link'
 
@@ -60,12 +60,15 @@ export async function updatePermitStatus(permitId: string, newStatus: string): P
   const admin = createAdminClient()
 
   const { data: permit } = await admin.from('con_permits')
-    .select('id, project_id, permit_type, status')
+    .select('id, project_id, permit_type, status, date_completed')
     .eq('id', permitId).eq('company_id', profile.company_id).single()
   if (!permit) return
   if (permit.status === newStatus) return
 
-  await admin.from('con_permits').update({ status: newStatus }).eq('id', permitId).eq('company_id', profile.company_id)
+  // Marking a permit Complete stamps today's date as the completion date (unless one is already set).
+  const patch: { status: string; date_completed?: string } = { status: newStatus }
+  if (newStatus === 'Complete' && !permit.date_completed) patch.date_completed = iso(new Date())
+  await admin.from('con_permits').update(patch).eq('id', permitId).eq('company_id', profile.company_id)
   await logEvent(admin, profile, permitId, permit.status, newStatus, null)
 
   // AUTO-RESOLVE: electrical reaching Permit In-Hand (or later) proves the
