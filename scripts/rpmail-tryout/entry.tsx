@@ -55,7 +55,12 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const body = init?.body ? JSON.parse(String(init.body)) : {}
   await new Promise(r => setTimeout(r, op === 'message' ? 350 : 60))
   if (op === 'state') return json(state())
-  if (op === 'overview') return json({ prefs: state().prefs, boxes: [box()], needs: [], foryou: [], plate: { items: [], error: null }, summary: null, moves: [], now: Date.now() })
+  if (op === 'overview') {
+    // A plate item and a job line, so the dashboard's Done buttons can be seen.
+    const plate = [{ id: 'p1', title: '41333 testing-failure repair: schedule + report', detail: 'Waiting on the report from Dave', kind: 'task', site_number: '41333', priority: 2, due_date: null, status: 'open', waiting_on: null, mail: null, mail_n: 0 }]
+    const job = item(msgs.find(m => m.id === 'a3')!)
+    return json({ prefs: state().prefs, boxes: [box()], needs: [job], foryou: [{ ...job, why: 'Site 34006' }], plate: { items: plate, error: null }, summary: null, moves: [], now: Date.now() })
+  }
   if (op === 'sync') return json({ done: true })
   if (op === 'labels') return json({ labels: [], can_edit: true })
   if (op === 'templates') return json({ templates })

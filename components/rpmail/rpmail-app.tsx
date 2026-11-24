@@ -68,6 +68,9 @@ const ago = (iso: string | null) => {
 }
 const size = (n: number) => n > 1_048_576 ? (n / 1_048_576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'
 const btn = (variant: 'default' | 'outline' | 'ghost' | 'destructive' = 'outline', sz: 'sm' | 'default' | 'xs' = 'sm') => buttonVariants({ variant, size: sz })
+/** The Done button on the dashboard lists (My Plate, Your jobs, Needs you): one look everywhere, a solid green pill (Trae, 11/24/26),
+ *  in the same green as the My Plate count (the theme's `success`). In dark mode that green is brighter, so the words turn dark. */
+const DONE_BTN = cn(buttonVariants({ size: 'xs' }), 'self-center shrink-0 rounded-full px-3 border-transparent bg-success text-white hover:bg-success/90 focus-visible:ring-success/40 dark:text-[oklch(0.2_0.04_160)]')
 
 export function RpmailApp({ localUrl, connected, connectError }: { localUrl: string | null; connected?: string; connectError?: string }) {
   const [st, setSt] = useState<State | null>(null)
@@ -608,7 +611,7 @@ function Row({ m, selected, boxLabel, onDone, onOpen, onMenu, onStar, pick, labe
         </div>
       </div>
       {onStar && <button title={m.starred ? 'Remove the star' : 'Star it'} aria-label={m.starred ? 'Remove the star' : 'Star it'} className="self-start mt-0.5 shrink-0 text-muted-foreground hover:text-foreground" onClick={e => { e.stopPropagation(); onStar(m) }}><Star className={cn('size-4', m.starred && 'fill-warning text-warning')} /></button>}
-      {onDone && <button title="Done: take it off my lists" className={cn(btn('ghost', 'xs'), 'self-center')} onClick={e => { e.stopPropagation(); onDone() }}><Check />Done</button>}
+      {onDone && <button title="Done: take it off my lists" className={DONE_BTN} onClick={e => { e.stopPropagation(); onDone() }}><Check />Done</button>}
     </div>
   )
 }
@@ -690,7 +693,7 @@ function Dash({ ov, boxes, hidden, onBoxMenu, putBack, boxName, rowProps, goBox,
               {t.mail && <button className={cn('mt-1 text-xs underline text-left', t.mail.unread ? 'font-bold text-foreground' : 'text-muted-foreground')} onClick={() => rowProps.onOpen(t.mail!)}>
                 Latest mail: {t.mail.from_name}, {when(t.mail.date)}: {t.mail.subject}{t.mail_n > 1 ? ` (${t.mail_n} in 2 weeks)` : ''}</button>}
             </div>
-            <button className={cn(btn('outline', 'xs'), 'self-center')} onClick={() => plateDone(t)}><Check />Done</button>
+            <button className={DONE_BTN} title="Done: take it off My Plate" onClick={() => plateDone(t)}><Check />Done</button>
           </div>
         ))}
       </Section>
