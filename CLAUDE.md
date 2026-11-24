@@ -738,8 +738,11 @@ is never changed from here). PER USER, NEVER PER ROLE.
   It speaks Gmail-API shapes over Proton Bridge IMAP, so `gmail()` just hands a Proton mailbox's calls to `relayCall` (lib/rpmail/relay.ts):
   the call is written to `rpmail_relay_jobs`, the helper long-polls POST /api/rpmail/relay (shared secret RPMAIL_RELAY_SECRET in Vercel and
   the Mac Keychain item rpmail-relay/secret), answers in parts of up to 3 MB (`rpmail_relay_parts`), and the website deletes the job as soon
-  as it reads it. Ids: All Mail UIDVALIDITY + UID (16 hex). "Inbox" = INBOX + the box's `inbox_folders` from ~/rps-inbox/config.json
-  (Work Proton: Folders/RPS). Proton folders and labels show as Gmail labels. Writes (mark read, archive, trash, send, drafts) answer 501
+  as it reads it. WORK PROTON = THE RPS FOLDER (Trae, 11/24/26: "work proton resides in the folder RPS on proton"): the split copies the
+  local RPMail. A box with `folder_home` (Work Proton: Folders/RPS) owns everything filed in that folder tree from EVERY Proton login (the
+  two logins are separate address mailboxes; ~950 personal-address messages are filed under RPS), plus the rest of its own login's mail;
+  Personal Proton gets the personal login minus the RPS tree. "Inbox" = INBOX + the box's `inbox_folders` (Work: Folders/RPS itself).
+  Ids: login tag + 7 hex of All Mail UIDVALIDITY + UID (16 hex). Proton folders and labels show as Gmail labels. Writes (mark read, archive, trash, send, drafts) answer 501
   until built. The helper only works while the Mac Studio is on and Proton Bridge is running.
 - Tests: `npm test` (vitest, tests/rpmail). tests/rpmail/fakes.ts holds an in-memory stand-in for the Supabase admin client (rpmail tables,
   the token / counts / needs functions, the outbox bucket) and a stand-in Gmail behind a replaced `fetch`; nothing reaches the real
