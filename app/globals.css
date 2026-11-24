@@ -71,6 +71,8 @@
   --color-danger-soft: var(--danger-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
 
   /* Layered shadows: a tight contact shadow plus a soft ambient one */
   --shadow-xs: var(--shadow-1);
@@ -151,6 +153,7 @@
   --warning: oklch(0.56 0.13 70);   --warning-soft: oklch(0.966 0.04 85);
   --danger:  oklch(0.53 0.2 27);    --danger-soft:  oklch(0.966 0.02 25);
   --info:    oklch(0.5 0.13 250);   --info-soft:    oklch(0.96 0.02 250);
+  --gold:    #b07c0c;               --gold-soft:    #fdf1d6;   /* RP gold (Forms icons), deepened so it reads on white */
 
   --shadow-1: 0 1px 2px oklch(0.2 0.03 258 / 0.05), 0 1px 1px oklch(0.2 0.03 258 / 0.03);
   --shadow-2: 0 1px 2px oklch(0.2 0.03 258 / 0.05), 0 4px 10px -2px oklch(0.2 0.03 258 / 0.07);
@@ -225,6 +228,7 @@
   --warning: oklch(0.8 0.13 80);    --warning-soft: oklch(0.265 0.045 80);
   --danger:  oklch(0.74 0.15 25);   --danger-soft:  oklch(0.255 0.045 25);
   --info:    oklch(0.76 0.11 250);  --info-soft:    oklch(0.26 0.045 250);
+  --gold:    #f0b43a;               --gold-soft:    oklch(0.28 0.05 80);
 
   --shadow-1: 0 1px 2px oklch(0 0 0 / 0.35);
   --shadow-2: 0 1px 2px oklch(0 0 0 / 0.35), 0 4px 10px -2px oklch(0 0 0 / 0.4);
@@ -416,6 +420,7 @@
   :where([data-tone="success"]) { --tone: var(--success); --tone-soft: var(--success-soft); }
   :where([data-tone="warning"]) { --tone: var(--warning); --tone-soft: var(--warning-soft); }
   :where([data-tone="danger"])  { --tone: var(--danger);  --tone-soft: var(--danger-soft); }
+  :where([data-tone="gold"])    { --tone: var(--gold);    --tone-soft: var(--gold-soft); }
   /* Colored icon chip in front of a page title (components/ui/title-icon.tsx). */
   .rp-title-chip { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.25rem; height: 2.25rem; border-radius: 0.75rem; background: var(--tone-soft, var(--info-soft)); color: var(--tone, var(--info)); border: 1px solid color-mix(in oklab, var(--tone, var(--info)) 25%, transparent); }
   .rp-title-chip svg { width: 1.25rem; height: 1.25rem; }

@@ -24,7 +24,7 @@ export default async function FormsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <div className="mb-5">
-        <h1 className="rp-title"><TitleIcon icon={ClipboardList} tone="info" />Forms</h1>
+        <h1 className="rp-title"><TitleIcon icon={ClipboardList} tone="gold" />Forms</h1>
         <p className="text-sm text-gray-500 mt-0.5">Field forms for service and construction techs. Fill them out on the phone at the site.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -33,7 +33,7 @@ export default async function FormsPage() {
           const inner = (
             <>
               <div className="flex items-center gap-3 mb-2">
-                <span className={`rounded-lg p-2 ${t.href ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-400'}`}><Icon className="w-5 h-5" /></span>
+                <span className={`rounded-lg p-2 ${t.href ? 'bg-gold-soft text-gold' : 'bg-gray-100 text-gray-400'}`}><Icon className="w-5 h-5" /></span>
                 <h2 className={`font-semibold ${t.href ? 'text-gray-900' : 'text-gray-500'}`}>{t.title}</h2>
               </div>
               <p className="text-sm text-gray-500">{t.body}</p>

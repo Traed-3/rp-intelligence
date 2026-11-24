@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 import { ShareAppButton } from '@/components/mobile/share-app-button'
 import { SignOutLink } from '@/components/mobile/sign-out-link'
+import { ClipboardCheck } from 'lucide-react'
 
 const STATUS_LABELS: Record<string, string> = {
   clocked_out: 'Clocked Out', at_shop: 'At Shop',
@@ -157,8 +158,8 @@ export default async function MobilePage() {
 
         {/* Forms: surveys and test reports (service techs, construction techs and the construction roles). */}
         {canSurvey && (
-          <Link href="/forms" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-emerald-600 hover:bg-emerald-600/90 text-white font-bold text-lg shadow-sm">
-            <span>📝 Forms</span>
+          <Link href="/forms" className="flex items-center justify-between w-full rounded-2xl px-6 py-5 bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-sm border-b-4 border-[#f0b43a]">
+            <span className="inline-flex items-center gap-2.5"><ClipboardCheck className="size-6 text-[#f0b43a]" aria-hidden />Forms</span>
             <span className="text-2xl opacity-80">→</span>
           </Link>
         )}
