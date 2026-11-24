@@ -102,4 +102,4 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 }
 
 // Add #settings to the address for the person's own Settings page, or #help for the RPMail guide, instead of the mail page.
-createRoot(document.getElementById('root')!).render(<div className="p-4 sm:p-6 max-w-[1500px] mx-auto">{location.hash === '#settings' ? <RpmailSettings /> : location.hash === '#help' ? <RpmailHelpPage /> : <RpmailApp localUrl={null} />}</div>)
+createRoot(document.getElementById('root')!).render(<main className="rp-main min-h-screen"><div className="p-4 sm:p-6 max-w-[1500px] mx-auto">{location.hash === '#settings' ? <RpmailSettings /> : location.hash === '#help' ? <RpmailHelpPage /> : <RpmailApp localUrl={null} />}</div></main>)

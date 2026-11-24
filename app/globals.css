@@ -122,6 +122,8 @@
   --radius: 0.375rem;
 
   --background: oklch(1 0 0);
+  --paper: oklch(0.972 0.004 255);            /* the light grey behind the pages */
+  --paper-line: oklch(0.45 0.03 255 / 0.09);  /* the draft-paper grid on it */
   --surface: #f3f5f8;
   --raised: oklch(0.97 0.004 258);
   --foreground: #152237;
@@ -199,6 +201,8 @@
   color-scheme: dark;
 
   --background: #0f1622;
+  --paper: #0f1622;
+  --paper-line: oklch(1 0 0 / 0.045);
   --surface: #0f1622;
   --raised: oklch(0.235 0.02 258);
   --foreground: #e6ebf3;
@@ -317,6 +321,15 @@
   .rp-main > .rp-page-in > div > :is(h1, :has(h1)):not([data-hero], :has(.rp-card, table, form, [data-hero])) { border-bottom: 3px solid var(--heading); padding-bottom: 0.625rem; margin-bottom: 1.25rem; }
 
   /* Cards */
+  /* Draft-paper background behind the pages (Trae, 11/24/26: "a light grey version" of the grid on prestigesitestudio.com):
+     a light grey page with a fine square grid, 1px lines every 56px. Cards stay white, so they lift off it. Kept off in print. */
+  .rp-main {
+    background-color: var(--paper);
+    background-image: linear-gradient(var(--paper-line) 1px, transparent 1px), linear-gradient(90deg, var(--paper-line) 1px, transparent 1px);
+    background-size: 56px 56px;
+    background-attachment: local;
+  }
+  @media print { .rp-main { background: none; } }
   .rp-card { background: var(--card); color: var(--card-foreground); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-1); }
   .rp-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--hairline); }
   .rp-card-title { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.1; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--foreground); }
