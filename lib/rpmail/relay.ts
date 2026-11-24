@@ -24,36 +24,62 @@ export async function isRelayBox(mailboxId: string): Promise<boolean> {
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const PART = 3_000_000
+// A job's body (a message to send, with its attachments) goes in pieces when it is large: the helper collects its jobs
+// through one web call, and a web reply can carry about 4.5 MB at most. Body pieces sit beside the answer pieces, from 1000 up.
+const BODY_INLINE = 150_000
+const BODY_SEQ = 1000
+const SENDS = new Set(['messages/send', 'drafts/send'])
+
+/** How long the website waits for the Mac. A send gets longer (Proton has to take the whole message), anything else 15 seconds. */
+function waitFor(method: string, path: string) {
+  if (method === 'POST' && SENDS.has(path)) return 40_000
+  if (path === 'drafts' || path.startsWith('drafts/')) return method === 'GET' ? 15_000 : 30_000
+  return 15_000
+}
 
 /** One Gmail-style call answered by the Mac helper. Same results as `gmail()`: the answer, null for "not found", or an error. */
-// 15 seconds at most: a background round has about 14 seconds per mailbox, so one slow answer must not use up a whole round.
-export async function relayCall<T>(mailboxId: string, method: string, path: string, params: Record<string, string | string[]>, body: unknown, waitMs = 15_000): Promise<T | null> {
+// 15 seconds for a read: a background round has about 14 seconds per mailbox, so one slow answer must not use up a whole round.
+export async function relayCall<T>(mailboxId: string, method: string, path: string, params: Record<string, string | string[]>, body: unknown, waitMs = waitFor(method, path)): Promise<T | null> {
   const admin = createAdminClient()
   const { data: box } = await admin.from('rpmail_mailboxes').select('address, relay_seen_at').eq('id', mailboxId).maybeSingle()
   if (!box) throw new UserError('No such mailbox.')
   const seen = box.relay_seen_at ? Date.parse(box.relay_seen_at as string) : 0
   if (Date.now() - seen > 120_000) throw new NotConnected('The Mac Studio is not answering. Proton mail only comes through while the Mac Studio is on and its RPMail helper is running.')
-  const { data: job, error } = await admin.from('rpmail_relay_jobs').insert({ mailbox_id: mailboxId, address: box.address, method, path, params, body: body ?? null }).select('id').single()
+  const text = body == null ? null : JSON.stringify(body)
+  const big = text !== null && text.length > BODY_INLINE
+  // A large body: the job is held back ("taken") until every piece is written, then let go.
+  const { data: job, error } = await admin.from('rpmail_relay_jobs').insert({ mailbox_id: mailboxId, address: box.address, method, path, params,
+    body: big ? { _parts: Math.ceil(text!.length / PART) } : body ?? null, ...(big ? { status: 'taken' } : {}) }).select('id').single()
   if (error || !job) throw new Error('Could not ask the Mac Studio.')
+  const sending = method === 'POST' && SENDS.has(path)
   try {
+    if (big) {
+      for (let i = 0; i * PART < text!.length; i++) {
+        const { error: e } = await admin.from('rpmail_relay_parts').insert({ job_id: job.id, seq: BODY_SEQ + i, data: text!.slice(i * PART, (i + 1) * PART) })
+        if (e) throw new Error('Could not hand the message to the Mac Studio.')
+      }
+      await admin.from('rpmail_relay_jobs').update({ status: 'new' }).eq('id', job.id)
+    }
     const until = Date.now() + waitMs
     for (let wait = 100; Date.now() < until; wait = Math.min(wait + 50, 400)) {
       await sleep(wait)
       const { data: j } = await admin.from('rpmail_relay_jobs').select('status, code, parts').eq('id', job.id).maybeSingle()
       if (!j || j.status !== 'done') continue
-      const { data: parts } = await admin.from('rpmail_relay_parts').select('seq, data').eq('job_id', job.id).order('seq')
-      const text = (parts ?? []).map(p => p.data as string).join('')
+      const { data: parts } = await admin.from('rpmail_relay_parts').select('seq, data').eq('job_id', job.id).lt('seq', BODY_SEQ).order('seq')
+      const answer = (parts ?? []).map(p => p.data as string).join('')
       const code = Number(j.code)
       if (code === 404) return null
-      const json = text ? JSON.parse(text) as T & { error?: { message?: string } } : ({} as T & { error?: { message?: string } })
+      const json = answer ? JSON.parse(answer) as T & { error?: { message?: string } } : ({} as T & { error?: { message?: string } })
       if (code >= 200 && code < 300) return json
       const msg = json?.error?.message ?? ''
       if (code === 429) throw new Busy('Proton is busy with this mailbox right now. Try again in a moment.')
       if (code === 401) throw new NotConnected('The Mac Studio cannot sign in to Proton Bridge. Check that Proton Bridge is open on the Mac Studio.')
-      if (code === 501) throw new UserError('That does not work for Proton mailboxes yet.')
+      if (code === 501) throw new UserError('That does not work for Proton mailboxes.')
+      if (code === 408) throw new UserError('That reached the Mac Studio too late, so it was not sent. Press Send again.')
       if (code === 400) throw new UserError(msg || 'Proton refused that.')
       throw new Error(`The Mac Studio said ${code}: ${msg.slice(0, 200)}`)
     }
+    if (sending) throw new Busy('The Mac Studio did not confirm the send in time. It may still go out: look in Sent before sending it again.')
     throw new Busy('The Mac Studio is taking too long to answer. Try again in a moment.')
   } finally {
     // The answer can hold message text: gone as soon as it has been read (parts first, then the job).
@@ -71,11 +97,12 @@ export function relayAllowed(given: string | null): boolean {
 }
 
 type Result = { job: number; seq: number; last: boolean; code: number; data: string }
-type Pull = { addresses?: unknown; results?: unknown; wait?: unknown }
+type Pull = { addresses?: unknown; results?: unknown; wait?: unknown; body_of?: unknown }
 
 /**
  * The Mac helper's one door. It says which Proton addresses it serves, hands back answers (in parts of up to 3 MB),
- * and, when it asks to wait, gets the next jobs for those addresses as they arrive (up to 20 seconds).
+ * fetches the pieces of a large job body, and, when it asks to wait, gets the next jobs for those addresses as they arrive
+ * (up to 15 seconds). Each job says when it was written, so the helper can refuse a send that reached it too late.
  */
 export async function relayExchange(p: Pull) {
   const admin = createAdminClient()
@@ -96,6 +123,17 @@ export async function relayExchange(p: Pull) {
     if (r.last) await admin.from('rpmail_relay_jobs').update({ status: 'done', code: Math.trunc(Number(r.code) || 500), parts: seq + 1, done_at: new Date().toISOString() }).eq('id', id)
   }
 
+  // A piece of a large job body, for a job this helper has taken.
+  if (p.body_of && typeof p.body_of === 'object') {
+    const b = p.body_of as { job?: unknown; seq?: unknown }
+    const id = Number(b.job), seq = Number(b.seq)
+    if (!Number.isInteger(id) || !Number.isInteger(seq) || seq < 0 || seq > 40) return { data: null }
+    const { data: j } = await admin.from('rpmail_relay_jobs').select('mailbox_id, status').eq('id', id).maybeSingle()
+    if (!j || !mine.has(j.mailbox_id as string) || j.status !== 'taken') return { data: null }
+    const { data: part } = await admin.from('rpmail_relay_parts').select('data').eq('job_id', id).eq('seq', BODY_SEQ + seq).maybeSingle()
+    return { data: (part?.data as string | undefined) ?? null }
+  }
+
   if (p.wait !== true || !mine.size) return { jobs: [] }
   // Held open 15 seconds at most, well inside the 60-second limit even when the database is slow.
   const until = Date.now() + 15_000
@@ -104,7 +142,7 @@ export async function relayExchange(p: Pull) {
     if (fresh?.length) {
       // Claimed in one step, so two helpers (or two calls) never take the same job.
       const { data: taken } = await admin.from('rpmail_relay_jobs').update({ status: 'taken', taken_at: new Date().toISOString() })
-        .in('id', fresh.map(f => f.id)).eq('status', 'new').select('id, address, method, path, params, body')
+        .in('id', fresh.map(f => f.id)).eq('status', 'new').select('id, address, method, path, params, body, created_at')
       if (taken?.length) return { jobs: taken }
     }
     await sleep(250)
