@@ -7,6 +7,8 @@ import { loadSiteSurvey } from '@/lib/site-survey-pdf'
 import { SiteSurveyForm, SiteSurveyEmail } from '@/components/forms/site-survey-form'
 import { SitePlanEditor } from '@/components/forms/site-plan-editor'
 import { findSites, saveSurvey, addPhotos, updatePhoto, removePhoto, finishSurvey, savePlan, loadAerial, removeAerial, scanPlan, drawFromSurvey, emailSurvey, reopenSurvey, deleteSurvey } from '../actions'
+import { ClipboardList } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -27,7 +29,7 @@ export default async function SiteSurveyPage({ params }: { params: Promise<{ id:
     <div className="p-4 sm:p-6 max-w-5xl mx-auto overflow-x-hidden space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="rp-title">{surveyTitle(row)} <span className="text-base font-normal text-gray-500">· Site survey</span></h1>
+          <h1 className="rp-title"><TitleIcon icon={ClipboardList} tone="gold" />{surveyTitle(row)} <span className="text-base font-normal text-gray-500">· Site survey</span></h1>
           <p className="text-xs text-gray-500 mt-0.5">{fmtDate(row.survey_date)} · {row.tech_name ?? 'tech'} · <span className="uppercase font-semibold">{locked ? 'finished' : 'draft'}</span>{counts ? ` · ${counts}` : ''}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">

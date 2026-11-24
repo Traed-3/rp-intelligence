@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { BookOpen } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -46,7 +48,7 @@ export default async function GuidePage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">← Settings</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="rp-title">User Guide</h1>
+        <h1 className="rp-title"><TitleIcon icon={BookOpen} tone="gold" />User Guide</h1>
       </div>
 
       {/* Tab-style navigation */}

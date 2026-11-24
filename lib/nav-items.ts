@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
   item({ href: '/training', label: 'Training', short: 'Training', icon: GraduationCap }),
   // How-to guides and videos for the field (Trae, 11/18/26). Open to everyone who signs in.
   item({ href: '/help', label: 'Technical Help', short: 'Help', icon: LifeBuoy }),
-  item({ href: '/settings', label: 'Settings', icon: Settings }),
+  item({ href: '/settings', label: 'Settings', icon: Settings, gold: true }),
 ]
 
 /** Techs and mechanics cannot open Expenses; they get a straight link to the receipt form instead. */

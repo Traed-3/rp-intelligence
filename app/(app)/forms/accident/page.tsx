@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireFieldSurveys } from '@/lib/construction-guard'
 import { type AccidentRow, ACCIDENT_INTRO, fmtDate, accidentFlags } from '@/lib/accident'
 import { createReport } from './actions'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 const STATUS: Record<string, string> = { draft: 'rp-stage rp-stage-needs-scheduled', complete: 'rp-stage rp-stage-complete' }
@@ -20,7 +21,7 @@ export default async function AccidentListPage() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto overflow-x-hidden">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="rp-title">Accident Report</h1>
+          <h1 className="rp-title"><TitleIcon icon={TriangleAlert} tone="gold" />Accident Report</h1>
           <p className="text-sm text-gray-500 mt-0.5">Work vehicle accident report. Call management first, then fill this out the same day. Submitting emails the PDF to the office.</p>
         </div>
         <Link href="/forms" className="text-sm text-gray-500 hover:text-gray-700">← Forms</Link>

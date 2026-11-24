@@ -8,6 +8,8 @@ import { arrange, cardStyleOf, loadUiPrefs, MAX_TABS } from '@/lib/ui-prefs'
 import { PageHeader } from '@/components/ui/page-header'
 import { hasRpmail } from '@/lib/rpmail/has'
 import { PersonalizeEditor } from './editor'
+import { SlidersHorizontal } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +43,7 @@ export default async function PersonalizePage() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <PageHeader
         title="Personalize"
+        icon={<TitleIcon icon={SlidersHorizontal} tone="gold" />}
         description="Choose what you see and in what order. This only changes your own screen, on every device you sign in on."
         crumbs={isAdmin ? [{ label: 'Settings', href: '/settings' }, { label: 'Personalize' }] : undefined}
       />

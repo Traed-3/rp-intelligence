@@ -437,7 +437,7 @@
   /* Colored icon chip in front of a page title (components/ui/title-icon.tsx). */
   .rp-title-chip { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.25rem; height: 2.25rem; border-radius: 0.75rem; background: var(--tone-soft, var(--info-soft)); color: var(--tone, var(--info)); border: 1px solid color-mix(in oklab, var(--tone, var(--info)) 25%, transparent); }
   .rp-title-chip svg { width: 1.25rem; height: 1.25rem; }
-  h1:has(> .rp-title-chip) { display: flex; align-items: center; gap: 0.625rem; }
+  h1:has(> .rp-title-chip) { display: flex; flex-wrap: wrap; align-items: center; gap: 0.625rem; }
   /* A thin colored bar down the left of a card header or row. */
   /* Navy chip with a gold icon (Trae, 11/24/26): Quotes & Invoices, Inventory, Expenses, Technical Help, Training. Same in both themes. */
   .rp-icon-navy { background: var(--sidebar-navy); color: #f0b43a; }

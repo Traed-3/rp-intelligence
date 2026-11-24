@@ -6,6 +6,8 @@ import { type TestRow, type ItemRow, testTitle, stateInfo, overallResult, missin
 import { ContainmentItemCard } from '@/components/construction/containment-item-card'
 import { TestSignature, FinishBox } from '@/components/construction/containment-finish'
 import { saveTestHeader, addTestItem, saveTestItem, deleteTestItem, saveSignature, finishTest, reopenTest, deleteTest } from '../actions'
+import { Droplets } from 'lucide-react'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 const inp = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-card disabled:bg-gray-50'
@@ -36,7 +38,7 @@ export default async function ContainmentTestPage({ params }: { params: Promise<
     <div className="p-4 sm:p-6 max-w-4xl mx-auto overflow-x-hidden space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="rp-title">{testTitle(t)} <span className="text-base font-normal text-gray-500">· Containment test</span></h1>
+          <h1 className="rp-title"><TitleIcon icon={Droplets} tone="gold" />{testTitle(t)} <span className="text-base font-normal text-gray-500">· Containment test</span></h1>
           <p className="text-xs text-gray-500 mt-0.5">{t.test_date} · {t.tester_name ?? 'tech'} · <span className="uppercase font-semibold">{t.status}</span>{result !== 'incomplete' && <> · <span className={result === 'fail' ? 'text-red-600 font-bold' : 'text-emerald-700 font-bold'}>{result.toUpperCase()}</span></>}</p>
           <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800">{info.label} → {info.form}</p>
         </div>

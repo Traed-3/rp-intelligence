@@ -1,10 +1,11 @@
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Receipt } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { ExpenseForm } from './expense-form'
 import { createExpense } from '../actions'
 import { noAccountingOrHr, roleMayVisit } from '@/lib/role-access'
+import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function NewExpensePage({ searchParams }: { searchParams: Promise<{ doc?: string; sent?: string; from?: string }> }) {
   const { doc: rawDocId, sent, from } = await searchParams
@@ -95,6 +96,7 @@ export default async function NewExpensePage({ searchParams }: { searchParams: P
       <PageHeader
         crumbs={home ? [home, { label: 'Submit a receipt' }] : undefined}
         title="Submit a Receipt"
+        icon={<TitleIcon icon={Receipt} tone="gold" />}
         description="Take a photo of the receipt first. The app reads it and fills in what it can; check it, then send it in."
       />
       {sent && (
