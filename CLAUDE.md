@@ -866,3 +866,40 @@ the shop. Trae, 11/24/26: "I want it to encompass the entire app."
   for someone when canAssignPlate), add a note to a job, post a daily update; never the master schedule or service-call
   status. (3) Answers that type out as they come (streaming), voice input on the phone. (4) Hours / payroll questions for
   owners and managers (Reports & Payroll area).
+
+---
+
+## JOB COSTS: MATERIALS TAB + COST SUMMARY (added 2026-11-25)
+
+Trae, 11/25/26: every job that had materials ordered must show them on its Materials tab, any invoice or order with a
+total must be in the Cost Summary, and the Cost Summary must show labor and the other expenses charged to the job.
+Nobody types materials in, so both tabs are now built from the paperwork already in the system.
+- Link: `billing_inbox_documents.con_job_id` (+ `job_link_source` auto|manual), migration
+  `supabase/migrations/job_purchase_links.sql` (APPLIED 2026-11-25 via Supabase MCP). A trigger works out the job when an
+  email is filed or re-read: `con_pick_job_for_doc()` reads the site out of the subject, then the PO / job box
+  (`con_doc_site_keys`: SU-8001, "SU 8001", "TEC 14765" = SU-14765, "WAWA-6609", "HDP-33266", bare 5-digit stores; never a
+  "PO 24296", and never a street number or ZIP in a long PO box), then picks among that site's jobs: PO number match, a job
+  from the paper's own year (33453-26, never 33453-16), a job open on that date, working jobs ahead of quotes, newest.
+  No site at all = follow the PO number to the job other paperwork with that PO went to. `con_site_key()` is the one
+  spelling of a site ("SU -1800 (80015635)" = SU1800, "1600-CPG" = CPG1600).
+- `lib/job-costs.ts`: `buildJobCosts` (pure; tests/job-costs.test.ts), `loadJobCosts` (job page), `loadAllJobCosts`
+  (Construction reports + CSV; `jobCostRows` now pages past the 1,000-row cap that was dropping a third of the jobs).
+  Purchases = `expenses` on the job + linked vendor invoices / receipts that never became an expense (Jan to June 2026)
+  + packing slips. Rules: the same order / receipt number is one purchase ("Sent in twice, counted once"); a packing slip
+  marks its invoice Received, and a slip with no invoice shows with "no total yet" and is NOT in the cost; an expense
+  decides the job when it disagrees with its paper; typed-in materials count once Ordered. `classifyPurchase` splits
+  Materials from Other expenses (Lodging, Permits & inspections, Subcontractor, Disposal & pump-out, Fuel, Meals, Rental).
+- Labor = man-hours x rate. Hours: field tickets on the job (`svc_work_order_documents.con_job_id`, on-site hours x crew;
+  same day + same hours = the office's forward of the same ticket, counted once), daily-update tech hours on days with no
+  ticket, and the labor log. Rate: `companies.labor_cost_rate` (owner / manager set it in the box on the Cost Summary,
+  `saveLaborCostRate`); until it is set, the customer's billing rate (invoice rate, else rate card) and the page says so.
+  Invoice labor is revenue, not cost: it shows under Invoiced, and is no longer added to cost.
+- UI: components/construction/job-costs-view.tsx (`JobMaterialOrders`, `JobCostBreakdown`), labor-rate-form.tsx. The
+  Materials tab keeps the typed-in list under "Materials typed in". Purchases on the site's other projects are linked
+  at the foot of both tabs.
+- The receipt importer (lib/receipt-expense-import.ts) takes the job from the paper's `con_job_id` first.
+- 11/25/26 clean-up: 77 expenses ($54,372) had been filed on old-year jobs (2026 receipts on 33453-16) and were moved to
+  that site's 2026 job; before values are in `expenses_job_bak_20261125`.
+- Check: `npx tsx --env-file=.env.local scripts/job-costs-report.mts [--open] [--job <job number or site>] [--json]`.
+- To move one paper to another job by hand: set `con_job_id` and `job_link_source = 'manual'` (the trigger then leaves it
+  alone). No button for this yet.

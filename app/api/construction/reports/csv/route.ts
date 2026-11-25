@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   if (report === 'job_cost') {
     const data = await jobCostRows(admin, profile.company_id)
-    rows = [['Job', 'Customer', 'Program', 'Stage', 'Quoted', 'Invoiced', 'Material Cost', 'Labor Cost', 'Margin', 'Margin %']]
+    rows = [['Job', 'Customer', 'Program', 'Stage', 'Quoted', 'Invoiced', 'Materials & Expenses', 'Labor Cost', 'Margin', 'Margin %']]
     for (const r of data) {
       rows.push([r.site, r.customer, r.program, stageMeta(r.stage).label,
         r.quoted.toFixed(2), r.invoiced.toFixed(2), r.materialCost.toFixed(2), r.laborCost.toFixed(2),
