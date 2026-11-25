@@ -865,8 +865,8 @@ type Hue = 'info' | 'warning' | 'danger' | 'success'
 const HUE_TEXT: Record<Hue, string> = { info: 'text-info', warning: 'text-warning', danger: 'text-danger', success: 'text-success' }
 /** The big numbers on the dashboard blocks, lit like LEDs (Trae, 11/25/26); the amber is the unread gold of the mail menu. */
 const HUE_LED: Record<Hue, string> = { info: 'rp-led rp-led-blue', warning: 'rp-led rp-led-amber', danger: 'rp-led rp-led-red', success: 'rp-led rp-led-green' }
-/** The connected / not connected dot, one for the dashboard blocks and the navy menu. The menu is drawn dark, so the dot
- *  takes the page's colors (--status-ok / --status-bad, set on <html>), not the menu's own, and matches the blocks. */
+/** The connected / not connected dot, one for the dashboard blocks and the navy menu: bright green / red from
+ *  --status-ok / --status-bad (set on <html>), so the always-dark menu and the blocks beside it always match. */
 const Dot = ({ ok }: { ok: boolean }) => <span aria-hidden className={cn('size-2 shrink-0 rounded-full', ok ? 'bg-[var(--status-ok)]' : 'bg-[var(--status-bad)]')} />
 const HUE_TOP: Record<Hue, string> ={ info: 'border-t-info', warning: 'border-t-warning', danger: 'border-t-danger', success: 'border-t-success' }
 

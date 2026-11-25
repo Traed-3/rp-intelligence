@@ -154,9 +154,10 @@
   --success: oklch(0.52 0.13 160);  --success-soft: oklch(0.962 0.03 160);
   --warning: oklch(0.56 0.13 70);   --warning-soft: oklch(0.966 0.04 85);
   --danger:  oklch(0.53 0.2 27);    --danger-soft:  oklch(0.966 0.02 25);
-  /* The page's own connected / not connected colors, worked out on <html> (light or dark theme) and inherited as they are,
-     so the always-dark navy menu shows the same dot as the dashboard blocks beside it. Declared here only, never under .dark. */
-  --status-ok: var(--success);      --status-bad: var(--danger);
+  /* The connected / not connected dots of RPMail, the same in the navy menu and on the dashboard blocks. Green = the bright
+     green the menu always had (Trae, 11/25/26: "bright green like they were"), in light and dark alike. Red = the page's,
+     worked out on <html> and inherited as it is. Declared here only, never under .dark. */
+  --status-ok: oklch(0.76 0.14 160); --status-bad: var(--danger);
   --info:    oklch(0.5 0.13 250);   --info-soft:    oklch(0.96 0.02 250);
   --gold:    #b07c0c;               --gold-soft:    #fdf1d6;   /* RP gold (Forms icons), deepened so it reads on white */
 
