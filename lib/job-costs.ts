@@ -15,6 +15,7 @@
  * buildJobCosts() is pure (tests/job-costs.test.ts). loadJobCosts() / loadAllJobCosts() fetch the rows.
  */
 import type { createAdminClient } from '@/lib/supabase/admin'
+import { safeReceiptUrl } from '@/lib/receipt-url'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -284,7 +285,8 @@ export function buildJobCosts(input: BuildInput): JobCosts {
       lines,
       expenseId: e.id,
       documentId: doc?.id ?? null,
-      receiptUrl: e.receipt_url ?? null,
+      // only a link to our own receipts storage is ever put in a page
+      receiptUrl: safeReceiptUrl(e.receipt_url),
       notes: [],
       tokens: tokensOf(reference),
       vkey: vendorKey(vendor),
