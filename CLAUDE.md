@@ -934,3 +934,16 @@ Nobody types materials in, so both tabs are now built from the paperwork already
   Sunoco $80 / $120, Global $82.50 / $82.50, Wawa $78 / $102.50, Independent $95 / $110), picked by the job's brand.
   There is NO labor-cost-per-hour box and no margin on the page: do not bring them back. (`companies.labor_cost_rate`
   still exists and is unused.) Not in the preview: equipment lines (compressor, lift), tax, and bid jobs' approved price.
+
+---
+
+## SHOP MAILBOX: ARCHIVED = DONE, REVIEW QUEUE INCLUDED (added 2026-11-25)
+
+Trae, 11/25/26: "anything that has been archived from inbox on eshoptasks or maintenance.rps has been completed."
+- Tickets already followed this (`refreshArchivedOpenTickets` in lib/gmail-sync.ts). The Email Review queue did not, so 63
+  unmatched emails (861 / 211 / office jobs since March) sat in the daily summary forever. `closeArchivedReviewItems` now
+  runs in the same step of every sync: a `pending` gmail_imports row whose thread is no longer in the Inbox becomes
+  `reviewed` with `raw_payload.archived_done_at`. An empty Inbox read does nothing (treated as a bad read).
+- Daily summary "Still needs attention" is built by lib/summary-attention.ts (tests/summary-attention.test.ts): new
+  unassigned tickets first, then review emails grouped by place (861, 211, 225 / office, Trucks and equipment), a job and
+  its replies as one line with date and initials, 8 lines per group then "and N older". Add a property to `PLACES` there.

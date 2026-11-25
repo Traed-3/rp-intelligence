@@ -295,6 +295,7 @@ export interface SyncResult {
   skipped:       number
   ignored:       number   // attendance notes, due-lists, outbound mail — logged, no ticket
   review:        number   // unmatched assets parked in the review queue
+  reviewClosed?: number   // review-queue emails closed because the shop archived them
   queued:        number   // threads with unlogged mail found this run
   more:          boolean  // time budget ran out — call again to continue
   errors:        string[]
@@ -419,6 +420,7 @@ async function runSync(admin: Admin, options: SyncOptions): Promise<SyncResult> 
     try {
       const inboxThreadIds = new Set(await listThreadIds('in:inbox'))
       await refreshArchivedOpenTickets(admin, inboxThreadIds, result, ctx)
+      await closeArchivedReviewItems(admin, inboxThreadIds, result)
     } catch (e: any) {
       result.errors.push(`Archived refresh failed: ${e.message}`)
     }
@@ -550,6 +552,37 @@ async function refreshArchivedOpenTickets(
     } catch (e: any) {
       result.errors.push(`Refresh ${t.gmail_thread_id}: ${e.message}`)
     }
+  }
+}
+
+// ── Archived review-queue emails ──────────────────────────────────────────────
+//
+// Same rule as tickets (Trae, 11/25/26: "anything that has been archived from inbox ... has
+// been completed"). An email waiting in the review queue (no truck matched: 861 / 211 / office
+// jobs, mostly) whose thread the shop has archived is finished, so it leaves the queue.
+// It is marked 'reviewed' (not 'rejected': it was real work) with the day we noticed.
+
+export async function closeArchivedReviewItems(
+  admin: Admin,
+  inboxThreadIds: Set<string>,
+  result: Pick<SyncResult, 'reviewClosed' | 'errors'>,
+) {
+  // An empty Inbox list is far more likely a bad read than a truly empty Inbox: do nothing.
+  if (!inboxThreadIds.size) return
+  const { data: pending, error } = await admin.from('gmail_imports')
+    .select('id, gmail_thread_id, raw_payload')
+    .eq('company_id', COMPANY_ID).eq('status', 'pending')
+  if (error) { result.errors.push(`Review queue read failed: ${error.message}`); return }
+
+  const when = new Date().toISOString()
+  for (const r of pending ?? []) {
+    const thread = r.gmail_thread_id as string | null
+    if (!thread || inboxThreadIds.has(thread)) continue          // still open in the Inbox
+    const { error: upErr } = await admin.from('gmail_imports')
+      .update({ status: 'reviewed', raw_payload: { ...((r.raw_payload as object) ?? {}), archived_done_at: when } })
+      .eq('id', r.id).eq('status', 'pending')
+    if (upErr) result.errors.push(`Review close ${r.id}: ${upErr.message}`)
+    else result.reviewClosed = (result.reviewClosed ?? 0) + 1
   }
 }
 
