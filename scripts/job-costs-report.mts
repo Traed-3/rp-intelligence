@@ -18,7 +18,7 @@ const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', curren
 if (one) {
   for (const j of jobs.filter((j: any) => j.job_number === one || j.site_number === one)) {
     const c = await loadJobCosts(admin, company.id, forCosts(j))
-    console.log(`\n== ${j.job_number ?? j.site_number} (${j.stage})  materials ${usd(c.materialCost)}  other ${usd(c.otherCost)}  labor ${c.laborHours} hr ${usd(c.laborCost)} @ ${c.laborRate} (${c.laborRateSource})  total ${usd(c.totalCost)}`)
+    console.log(`\n== ${j.job_number ?? j.site_number} (${j.stage})  materials ${usd(c.materialCost)}  other ${usd(c.otherCost)}  labor ${c.laborHours} hr ${usd(c.laborCost)} @ ${c.laborRate} (${c.laborRateSource})  total ${usd(c.totalCost)}\n   INVOICE PREVIEW ${usd(c.invoice.total)} = labor ${usd(c.invoice.labor)} + ${c.invoice.tripCount} trips ${usd(c.invoice.trips)} + disposables ${usd(c.invoice.disposables)} + materials ${usd(c.invoice.materials)} + other ${usd(c.invoice.other)}`)
     for (const p of c.purchases) console.log(`  ${p.group === 'material' ? 'MAT' : 'OTH'} ${p.date} ${(p.amount == null ? 'no total' : usd(p.amount)).padStart(11)}  ${p.source.padEnd(14)} ${(p.vendor ?? '').slice(0, 26).padEnd(26)} ${p.description.slice(0, 50)}${p.received ? ' [received]' : ''} (${p.lines.length} lines)${p.notes.length ? ' !! ' + p.notes.join('; ') : ''}`)
     for (const l of c.labor) console.log(`  LAB ${l.date} ${String(l.manHours).padStart(6)} hr  ${l.source.padEnd(13)} ${l.who}`)
   }

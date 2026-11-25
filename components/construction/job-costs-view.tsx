@@ -113,6 +113,51 @@ export function JobMaterialOrders({ costs, siblings }: { costs: JobCosts; siblin
   )
 }
 
+/** The job priced the way the invoice will be: labor, trips, disposables, materials and expenses with their markup. */
+export function InvoicePreviewCard({ costs }: { costs: JobCosts }) {
+  const v = costs.invoice
+  const days = new Set(costs.labor.filter((l) => l.date && l.crew > 0).map((l) => l.date)).size
+  const rows: { label: string; how: string; amount: number }[] = [
+    { label: 'Labor', how: `${costs.laborHours} man-hours${v.laborRate ? ` x ${money(v.laborRate)}` : ''}`, amount: v.labor },
+    { label: 'Trips', how: `${v.tripCount} (one per tech per day, ${days} day${days === 1 ? '' : 's'})${v.tripRate ? ` x ${money(v.tripRate)}` : ''}`, amount: v.trips },
+    { label: 'Disposables', how: 'One line for the job', amount: v.disposables },
+    { label: 'Materials', how: `${money(v.materialsCost)} cost; parts +20%, everything else +15%`, amount: v.materials },
+    { label: 'Other expenses', how: `${money(v.otherCost)} cost +15%`, amount: v.other },
+  ]
+  return (
+    <SectionCard
+      flush
+      title="Invoice preview"
+      hint="What this job would bill for at time and material, from what is on file today. A job with an approved bid bills the bid instead."
+      action={<span className="text-sm font-semibold text-foreground tabular-nums">{money(v.total)}</span>}
+    >
+      <div className="rp-table-wrap">
+        <table className="rp-table">
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.label}>
+                <td className="px-5 py-2.5 font-medium text-foreground w-44">{r.label}</td>
+                <td className="px-3 py-2.5 text-muted-foreground">{r.how}</td>
+                <td className="px-5 py-2.5 text-right tabular-nums text-foreground">{money(r.amount)}</td>
+              </tr>
+            ))}
+            <tr>
+              <td className="px-5 py-3 font-semibold text-foreground">Total</td>
+              <td className="px-3 py-3 text-muted-foreground">Before tax. Equipment (compressor, lift) and anything not on a ticket or receipt yet is not in it.</td>
+              <td className="px-5 py-3 text-right tabular-nums font-semibold text-foreground">{money(v.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {costs.unpricedOrders > 0 && (
+        <p className="px-5 py-3 text-xs text-warning border-t border-hairline">
+          {costs.unpricedOrders} order{costs.unpricedOrders === 1 ? ' has' : 's have'} a packing slip but no invoice with a total yet, so {costs.unpricedOrders === 1 ? 'it is' : 'they are'} not in this figure.
+        </p>
+      )}
+    </SectionCard>
+  )
+}
+
 /** Cost Summary: where the money went, line by line. */
 export function JobCostBreakdown({ costs, siblings, laborAction }: {
   costs: JobCosts
@@ -128,7 +173,7 @@ export function JobCostBreakdown({ costs, siblings, laborAction }: {
         ) : (
           <div className="rp-table-wrap">
             <table className="rp-table">
-              <thead><tr><th className="px-5 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Vendor</th><th className="px-3 py-2 text-left">What</th><th className="px-3 py-2 text-left">Paper</th><th className="px-5 py-2 text-right">Cost</th></tr></thead>
+              <thead><tr><th className="px-5 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Vendor</th><th className="px-3 py-2 text-left">What</th><th className="px-3 py-2 text-left">Paper</th><th className="px-3 py-2 text-right">Cost</th><th className="px-5 py-2 text-right">Bills at</th></tr></thead>
               <tbody>
                 {costs.materials.map((p) => {
                   const href = purchaseHref(p)
@@ -141,7 +186,8 @@ export function JobCostBreakdown({ costs, siblings, laborAction }: {
                         {p.notes.map((n) => <div key={n} className="text-xs text-warning">{n}</div>)}
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">{SOURCE_LABEL[p.source]}{p.reference ? ` #${p.reference}` : ''}</td>
-                      <td className="px-5 py-2.5 text-right tabular-nums text-foreground">{p.amount == null ? '—' : money(p.amount)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{p.amount == null ? '—' : money(p.amount)}</td>
+                      <td className="px-5 py-2.5 text-right tabular-nums text-foreground whitespace-nowrap">{p.billed == null ? '—' : <>{money(p.billed)} <span className="text-xs text-muted-foreground">+{Math.round(p.markupPct * 100)}%</span></>}</td>
                     </tr>
                   )
                 })}
@@ -162,7 +208,7 @@ export function JobCostBreakdown({ costs, siblings, laborAction }: {
         ) : (
           <div className="rp-table-wrap">
             <table className="rp-table">
-              <thead><tr><th className="px-5 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Kind</th><th className="px-3 py-2 text-left">Vendor</th><th className="px-3 py-2 text-left">What</th><th className="px-5 py-2 text-right">Cost</th></tr></thead>
+              <thead><tr><th className="px-5 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Kind</th><th className="px-3 py-2 text-left">Vendor</th><th className="px-3 py-2 text-left">What</th><th className="px-3 py-2 text-right">Cost</th><th className="px-5 py-2 text-right">Bills at</th></tr></thead>
               <tbody>
                 {costs.others.map((p) => {
                   const href = purchaseHref(p)
@@ -175,7 +221,8 @@ export function JobCostBreakdown({ costs, siblings, laborAction }: {
                         {href ? <Link href={href} className="hover:underline">{p.description}</Link> : p.description}
                         {p.notes.map((n) => <div key={n} className="text-xs text-warning">{n}</div>)}
                       </td>
-                      <td className="px-5 py-2.5 text-right tabular-nums text-foreground">{p.amount == null ? '—' : money(p.amount)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{p.amount == null ? '—' : money(p.amount)}</td>
+                      <td className="px-5 py-2.5 text-right tabular-nums text-foreground whitespace-nowrap">{p.billed == null ? '—' : <>{money(p.billed)} <span className="text-xs text-muted-foreground">+{Math.round(p.markupPct * 100)}%</span></>}</td>
                     </tr>
                   )
                 })}
@@ -196,7 +243,7 @@ export function JobCostBreakdown({ costs, siblings, laborAction }: {
         ) : (
           <div className="rp-table-wrap">
             <table className="rp-table">
-              <thead><tr><th className="px-5 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Who</th><th className="px-3 py-2 text-left">From</th><th className="px-3 py-2 text-right">Man-hours</th><th className="px-3 py-2 text-right">Rate</th><th className="px-5 py-2 text-right">Cost</th></tr></thead>
+              <thead><tr><th className="px-5 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Who</th><th className="px-3 py-2 text-left">From</th><th className="px-3 py-2 text-right">Man-hours</th><th className="px-3 py-2 text-right">Rate</th><th className="px-5 py-2 text-right">Bills at</th></tr></thead>
               <tbody>
                 {costs.labor.map((l, i) => (
                   <tr key={`${l.date}-${i}`}>

@@ -21,14 +21,13 @@ import { AssignSubcontractor } from '@/components/construction/assign-subcontrac
 import { Button } from '@/components/ui/button'
 import { TicketDocsCard, TICKET_DOC_COLUMNS, type TicketDocRow } from '@/components/svc/ticket-docs-card'
 import { loadJobCosts, type JobCosts } from '@/lib/job-costs'
-import { JobMaterialOrders, JobCostBreakdown, type SiblingPurchases } from '@/components/construction/job-costs-view'
-import { LaborRateForm } from '@/components/construction/labor-rate-form'
+import { JobMaterialOrders, JobCostBreakdown, InvoicePreviewCard, type SiblingPurchases } from '@/components/construction/job-costs-view'
 import { Pencil, Plus, FileText, Image as ImageIcon } from 'lucide-react'
 import {
   changeJobStage, saveMaterial, setMaterialStatus, deleteMaterial,
   saveScheduleEntry, deleteScheduleEntry,
   toggleCloseoutTask, deleteCloseoutTask, addCloseoutTask, seedCloseoutTasks,
-  addJobLabor, deleteJobLabor, deleteDocument, saveLaborCostRate,
+  addJobLabor, deleteJobLabor, deleteDocument,
   addDailyUpdate, deleteDailyUpdate, confirmFieldTicketDraft, addDisposablesForm, deleteDisposablesForm,
   assignSubcontractor, unassignSubcontractor,
 } from '../../actions'
@@ -55,7 +54,7 @@ export default async function JobDetailPage({
 }) {
   const { id } = await params
   const { tab = 'overview' } = await searchParams
-  const { company_id, canWrite, role } = await requireConstruction()
+  const { company_id, canWrite } = await requireConstruction()
   const admin = createAdminClient()
 
   const { data: job } = await admin
@@ -719,7 +718,7 @@ export default async function JobDetailPage({
 
       {/* ── COST SUMMARY ───────────────────────────────────── */}
       {tab === 'cost' && (
-        <CostSummary jobId={id} companyId={company_id} canWrite={canWrite} labor={labor ?? []} costs={costs!} siblings={siblingPurchases} canSetRate={role === 'owner' || role === 'manager'} />
+        <CostSummary jobId={id} companyId={company_id} canWrite={canWrite} labor={labor ?? []} costs={costs!} siblings={siblingPurchases} />
       )}
     </div>
   )
@@ -764,9 +763,9 @@ function DocList({ title, newHref, canWrite, empty, rows }: { title: string; new
   )
 }
 
-async function CostSummary({ jobId, companyId, canWrite, labor, costs, siblings, canSetRate }: {
+async function CostSummary({ jobId, companyId, canWrite, labor, costs, siblings }: {
   jobId: string; companyId: string; canWrite: boolean; labor: any[]
-  costs: JobCosts & { billedLabor: number }; siblings: SiblingPurchases; canSetRate: boolean
+  costs: JobCosts & { billedLabor: number }; siblings: SiblingPurchases
 }) {
   const admin = createAdminClient()
   const [{ data: quotes }, { data: invoices }] = await Promise.all([
@@ -776,32 +775,19 @@ async function CostSummary({ jobId, companyId, canWrite, labor, costs, siblings,
 
   const quotedTotal = (quotes ?? []).reduce((a, q) => a + (Number(q.final_total) || 0), 0)
   const invoicedTotal = (invoices ?? []).reduce((a, i) => a + (Number(i.invoice_grand_total) || 0), 0)
-  const margin = invoicedTotal - costs.totalCost
-  const marginPct = invoicedTotal > 0 ? (margin / invoicedTotal) * 100 : null
-  const rateNote = costs.laborRateSource === 'company'
-    ? `${costs.laborHours} man-hours at ${money(costs.laborRate)}/hr`
-    : costs.laborRateSource === 'billing'
-      ? `${costs.laborHours} man-hours at the ${money(costs.laborRate)}/hr billing rate`
-      : `${costs.laborHours} man-hours, no rate set`
+  const inv = costs.invoice
+  const spent = costs.materialCost + costs.otherCost
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Stat label="Invoice preview" value={money(inv.total)} sub="What it would bill for so far" />
         <Stat label="Quoted" value={money(quotedTotal)} />
-        <Stat label="Invoiced" value={money(invoicedTotal)} sub={costs.billedLabor > 0 ? `${money(costs.billedLabor)} of it labor` : undefined} />
-        <Stat label="Materials" value={money(costs.materialCost)} sub={`${costs.materials.length} purchase${costs.materials.length === 1 ? '' : 's'}${costs.unpricedOrders ? `, ${costs.unpricedOrders} with no total yet` : ''}`} />
-        <Stat label="Other expenses" value={money(costs.otherCost)} sub={costs.otherByLabel.slice(0, 2).map(l => l.label).join(', ') || undefined} />
-        <Stat label="Labor" value={money(costs.laborCost)} sub={rateNote} />
-        <Stat label="Total cost" value={money(costs.totalCost)} />
-        <Stat label="Margin" value={invoicedTotal > 0 ? money(margin) : '—'} accent={invoicedTotal > 0 ? (margin >= 0 ? 'text-green-700' : 'text-red-700') : undefined} sub={marginPct != null ? `${marginPct.toFixed(1)}%` : 'Not invoiced yet'} />
+        <Stat label="Invoiced" value={money(invoicedTotal)} sub={invoicedTotal > 0 ? `${money(invoicedTotal - inv.total)} against the preview` : 'Not invoiced yet'} />
+        <Stat label="Spent so far" value={money(spent)} sub={`${costs.materials.length + costs.others.length} purchase${costs.materials.length + costs.others.length === 1 ? '' : 's'}, at cost`} />
       </div>
 
-      {costs.laborRateSource !== 'company' && (
-        <p className="text-xs text-gray-500 px-1">
-          Labor is figured at the customer&apos;s billing rate until the company&apos;s own labor cost per hour is set, so the margin below is on the low side.
-        </p>
-      )}
-      {canSetRate && <LaborRateForm action={saveLaborCostRate} current={costs.laborRateSource === 'company' ? costs.laborRate : null} />}
+      <InvoicePreviewCard costs={costs} />
 
       <JobCostBreakdown
         costs={costs}
