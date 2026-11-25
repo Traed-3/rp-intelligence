@@ -456,6 +456,15 @@
 
 /* ── Navy sidebar. It carries class "dark" so everything inside reads light-on-navy;
    unlayered and after .dark so these values win. ── */
+/* The gold New message button in the mail window (Trae, 11/25/26): full amber at the edges, lighter toward the middle, so
+   it reads as a rounded, raised button. Built from the theme's own gold, so it follows light and dark. */
+.rp-gold-button {
+  background: radial-gradient(ellipse 75% 95% at 50% 42%, color-mix(in oklab, var(--gold) 45%, white) 0%, color-mix(in oklab, var(--gold) 80%, white) 38%, var(--gold) 72%, color-mix(in oklab, var(--gold) 86%, black) 100%);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.45), inset 0 -1px 0 oklch(0 0 0 / 0.12), 0 1px 3px oklch(0 0 0 / 0.3);
+  border: 1px solid color-mix(in oklab, var(--gold) 80%, black);
+}
+.rp-gold-button:hover:not(:disabled) { filter: brightness(1.05); }
+.rp-gold-button:active:not(:disabled) { filter: brightness(0.97); transform: translateY(0.5px); }
 .rp-sidebar { background: var(--sidebar-navy); --sidebar-accent: oklch(1 0 0 / 0.1); --sidebar-border: oklch(1 0 0 / 0.1); --border: oklch(1 0 0 / 0.12); --muted: oklch(1 0 0 / 0.07); --card: oklch(1 0 0 / 0.16); --brand: var(--amber); }
 
 /* ── Section headings: condensed caps, like the Action Board lanes. Unlayered on

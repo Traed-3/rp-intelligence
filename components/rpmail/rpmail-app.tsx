@@ -711,7 +711,7 @@ function MailSidebar({ boxes, view, filter, needs, stamp, newMessage, canWrite, 
         <span className="text-2xl font-bold uppercase tracking-wide text-foreground [font-family:var(--font-display)]">RPMail</span>
       </div>
       <div className="px-3 pb-2">
-        <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-3 py-2.5 text-sm font-semibold text-[#1d1a12] shadow-sm transition hover:brightness-105 disabled:opacity-50" onClick={newMessage} disabled={!canWrite} title={writeTitle}><PenSquare className="size-4" />New message</button>
+        <button className="rp-gold-button flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#1d1a12] transition disabled:opacity-50" onClick={newMessage} disabled={!canWrite} title={writeTitle}><PenSquare className="size-4" />New message</button>
       </div>
       <nav aria-label="Mailboxes" className="flex-1 overflow-y-auto px-3 py-1">
         <button className={cn(row(view.kind === 'dash'), 'mb-2 !py-2 !text-sm font-semibold')} style={{ paddingLeft: 10 }} onClick={goDash}>
