@@ -32,6 +32,11 @@ const PARTS: Part[] = [
     <>In the mail window the menu on the left is your mail: <b>New message</b>, <b>Dashboard</b>, then each mailbox. Press the arrow beside a mailbox to see its folders, with how many are unread and how many there are.</>,
     <>On the dashboard, drag a block to move it, or press its <b>X</b> to close it. Closed blocks are listed under the blocks, to put back.</>,
   ], note: <>If nothing opens, your browser stopped the new window: allow pop-ups for rpintelligence.app and press RPMail again. On a phone RPMail opens in the page as before.</> },
+  { id: 'search', title: 'Find an email', steps: [
+    <>Type in <b>Search every mailbox</b> at the top and press Enter. It looks through all of your mailboxes at once, folders included.</>,
+    <>Each result says which mailbox it is in and where: <b>Inbox</b>, <b>Sent</b>, or its folder (for example <b>RPS / Claude Anthropic</b>). Press one to open it; <b>Back to the search</b> takes you back to the list.</>,
+    <>Not there? Press <b>Look further back in every mailbox</b>. It asks each mailbox itself, past the last 90 days.</>,
+  ], note: <>The search box inside a mailbox looks only in that mailbox. Mail your email program files into a folder automatically (a filter) never reaches an inbox, so search is the quickest way to find it.</> },
   { id: 'write', title: 'Write, reply and forward', steps: [
     <>Press <b>New message</b>, or <b>Reply</b>, <b>Reply all</b> or <b>Forward</b> on a message.</>,
     <>Type a name in <b>To</b>; RPMail offers people you have emailed. Pick a group to add everyone in it.</>,

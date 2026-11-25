@@ -88,6 +88,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const waitingFor = (id: string) => scheduled.find(x => x.draft_id === id && x.status === 'waiting')?.send_at ?? null
   if (op === 'drafts') return json({ drafts: drafts.map(d => ({ id: d.id, thread_id: d.id, date: d.date, to: d.to, subject: d.subject, snippet: d.text.slice(0, 80), scheduled_at: waitingFor(d.id) })) })
   if (op === 'draft_open') { const d = drafts.find(x => x.id === q.get('draft')); return d ? json({ draft: d.id, to: d.to, cc: '', subject: d.subject, html: d.html, reply: false, attachments: d.files, scheduled_at: waitingFor(d.id) }) : json({ error: 'That draft is no longer in Gmail.' }, 400) }
+  if (op === 'search_all') { const w = (q.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean); return json({ messages: msgs.filter(m => w.every(x => (m.subject + ' ' + m.name + ' ' + m.addr + ' ' + m.text).toLowerCase().includes(x))).map(m => ({ ...item(m), where: m.inbox ? 'Inbox' : m.sent ? 'Sent' : 'RPS / Claude Anthropic' })) }) }
+  if (op === 'search_all_further') return json({ messages: [], total: 0, missed: ['Office'] })
   if (op === 'scheduled') return json({ scheduled: scheduled.map(x => ({ ...x, mailbox_id: q.get('mailbox') ?? BOX })) })
   if (op === 'schedule') {
     sentLog.push({ schedule: body })

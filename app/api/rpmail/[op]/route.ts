@@ -14,6 +14,7 @@ import { activityList, activityCsv } from '@/lib/rpmail/activity'
 import { contentSave } from '@/lib/rpmail/company'
 import { attachPrepare, attachRemove, contacts, templateList, templateSave, templateDelete, attachView } from '@/lib/rpmail/compose-ops'
 import { scheduleMail, scheduledList, scheduleCancel, scheduleNow } from '@/lib/rpmail/schedule'
+import { searchAll, searchAllFurther } from '@/lib/rpmail/search'
 import { setEnabled, disconnect, oauthStart, adminState, adminSetUser, adminSaveShared, adminDeleteShared, adminGrant } from '@/lib/rpmail/connect'
 
 // RPMail API. One address per action: /api/rpmail/<op>.
@@ -43,6 +44,7 @@ const GETS: Record<string, { any?: boolean; run: (who: Me, q: Q, req: NextReques
   draft_prep: { run: (who, q) => draftPrep(who, q) },
   drafts: { run: (who, q) => draftList(who, q) },
   scheduled: { run: (who, q) => scheduledList(who, q) },
+  search_all: { run: (who, q) => searchAll(who, q) },
   draft_open: { run: (who, q) => draftOpen(who, q) },
   // `back=mail`: started from the mail window, so Google's answer comes back to the window (a short cookie, read once).
   connect: { any: true, run: async (who, q, req) => {
@@ -61,6 +63,7 @@ const POSTS: Record<string, { any?: boolean; run: (who: Me, b: B) => Promise<unk
   disconnect: { any: true, run: (who, b) => disconnect(who, b) },
   sync: { run: async (who, b) => syncMailbox(await mailboxFor(who, b.mailbox)) },
   search: { run: (who, b) => searchGmail(who, b) },
+  search_all_further: { run: (who, b) => searchAllFurther(who, b) },
   mark: { run: (who, b) => markRead(who, b) },
   file: { run: (who, b) => fileMessage(who, b) },
   undo: { run: (who, b) => undoMove(who, b) },
