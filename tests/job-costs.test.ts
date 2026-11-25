@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildJobCosts, classifyPurchase, refTokens, subjectAmount, type InboxDocRow, type ExpenseRow, type BuildInput } from '@/lib/job-costs'
+import { buildJobCosts, classifyPurchase, disposablesFor, refTokens, subjectAmount, type InboxDocRow, type ExpenseRow, type BuildInput } from '@/lib/job-costs'
 
 const doc = (o: Partial<InboxDocRow> & { id: string }): InboxDocRow => ({
   con_job_id: 'job', inbox: 'constructionreceipts', kind: 'vendor_invoice', vendor: null, reference: null, subject: null,
@@ -122,5 +122,36 @@ describe('what a job cost', () => {
     expect(own.laborCost).toBe(270)
     expect(own.laborRateSource).toBe('company')
     expect(own.totalCost).toBe(270)
+  })
+
+  it('previews the invoice: labor at the customer rate, a trip per tech per day, one disposables line, parts +20%, the rest +15%', () => {
+    const c = buildJobCosts({ ...base, billingLaborRate: 80, tripRate: 120,
+      expenses: [
+        exp({ id: 'e1', amount: 1000, description: 'SU-8001 icon order', vendor: 'Icon Containment Solutions' }),
+        exp({ id: 'e2', amount: 200, description: 'unistrut nuts', vendor: 'The Home Depot' }),
+        exp({ id: 'e3', amount: 400, description: 'SU-8001 hotel', vendor: 'Holiday Inn Express' }),
+      ],
+      tickets: [
+        { id: 't1', con_job_id: 'job', work_date: '2026-11-17', received_at: null, technician: 'TD', helper: null, onsite_hours: 8, crew_size: 6 },
+        { id: 't2', con_job_id: 'job', work_date: '2026-11-17', received_at: null, technician: 'TD', helper: null, onsite_hours: 11.25, crew_size: 9 },
+        { id: 't3', con_job_id: 'job', work_date: '2026-11-19', received_at: null, technician: 'TD', helper: null, onsite_hours: 10, crew_size: 2 },
+      ],
+    })
+    const v = c.invoice
+    expect(v.labor).toBe((48 + 101.25 + 20) * 80)
+    expect(v.tripCount).toBe(9 + 2) // two tickets on the 17th are the same crew: the bigger one counts
+    expect(v.trips).toBe(11 * 120)
+    expect(v.disposables).toBe(75)
+    expect(v.materials).toBe(1000 * 1.2 + 200 * 1.15)
+    expect(v.other).toBe(460)
+    expect(v.total).toBe(v.labor + v.trips + v.disposables + v.materials + v.other)
+    expect(c.materials.find((p) => p.vendor === 'The Home Depot')!.markupPct).toBe(0.15)
+  })
+
+  it('sizes the one disposables line by the job', () => {
+    expect(disposablesFor(0, 0)).toBe(0)
+    expect(disposablesFor(6, 1)).toBe(17.5)
+    expect(disposablesFor(15, 1)).toBe(35)
+    expect(disposablesFor(120, 7)).toBe(75)
   })
 })

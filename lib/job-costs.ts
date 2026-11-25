@@ -114,6 +114,9 @@ export type Purchase = {
   documentId: string | null
   receiptUrl: string | null
   notes: string[]
+  /** what it would go on the invoice for: cost plus the markup (parts +20%, everything else +15%) */
+  billed: number | null
+  markupPct: number
 }
 
 export type LaborDay = {
@@ -126,6 +129,49 @@ export type LaborDay = {
   cost: number
   manualId: string | null
   note: string | null
+  /** people on site that day (a trip is billed per tech per day) */
+  crew: number
+}
+
+/**
+ * What the job would bill at time and material, the way Starsky builds an invoice (Trae, 11/25/26: the Cost
+ * Summary is a sneak peek at the invoice). Labor = man-hours x the customer's rate; one trip per tech per day;
+ * one disposables line for the job; manufacturer parts at cost +20%, everything else at cost +15%.
+ */
+export type InvoicePreview = {
+  laborRate: number | null
+  tripRate: number | null
+  labor: number
+  tripCount: number
+  trips: number
+  disposables: number
+  materialsCost: number
+  materials: number
+  otherCost: number
+  other: number
+  total: number
+}
+
+/** Starsky's rates on finished invoices (same table as ~/rps-jobs/jobctl.py RATES). */
+export const INVOICE_RATES: Record<string, { labor: number; trip: number }> = {
+  '7-Eleven': { labor: 78, trip: 102.5 },
+  Sunoco: { labor: 80, trip: 120 },
+  Global: { labor: 82.5, trip: 82.5 },
+  Wawa: { labor: 78, trip: 102.5 },
+  Independent: { labor: 95, trip: 110 },
+}
+export const PART_MARKUP = 0.2
+export const OTHER_MARKUP = 0.15
+
+/** Vendors that sell manufacturer-numbered parts (billed at cost +20%); hardware, fittings and supplies are +15%. */
+const PARTS_VENDOR = /\b(icon|source|sna|spatco|habhegger|opw|veeder|franklin|fe petro|gilbarco|wayne|dover|emco|fibrelite|universal valve|morrison|husky|red jacket|omntec|pmp|guardian|national petroleum|jf petroleum|petroleum equipment)\b/i
+
+/** One disposables line per job, sized by the job: $17.50 small, $35 bigger, $75 big multi-day. */
+export function disposablesFor(manHours: number, days: number): number {
+  if (manHours <= 0) return 0
+  if (manHours <= 12) return 17.5
+  if (manHours <= 60 && days <= 3) return 35
+  return 75
 }
 
 export type JobCosts = {
@@ -144,6 +190,7 @@ export type JobCosts = {
   laborRate: number | null
   laborRateSource: 'company' | 'billing' | 'none'
   totalCost: number
+  invoice: InvoicePreview
 }
 
 // ───────────────────────────────────────────── small helpers
@@ -252,6 +299,8 @@ export type BuildInput = {
   ignoreRefs?: string[]
   companyLaborRate?: number | null
   billingLaborRate?: number | null
+  /** what a trip bills at per tech per day for this customer */
+  tripRate?: number | null
 }
 
 /** Everything a single job cost, from the rows that belong to it. */
@@ -259,7 +308,8 @@ export function buildJobCosts(input: BuildInput): JobCosts {
   const ignore = new Set((input.ignoreRefs ?? []).map((s) => s.replace(/\D/g, '')).filter(Boolean))
   const tokensOf = (ref: string | null | undefined) => refTokens(ref).filter((t) => !ignore.has(t.replace(/\D/g, '')))
   const docsById = new Map(input.docs.map((d) => [d.id, d]))
-  const purchases: (Purchase & { tokens: string[]; vkey: string })[] = []
+  type Draft = Omit<Purchase, 'billed' | 'markupPct'> & { tokens: string[]; vkey: string }
+  const purchases: Draft[] = []
 
   // 1. Money charged to the job (receipts and vendor invoices already in Expenses).
   const docsWithExpense = new Set<string>()
@@ -295,7 +345,7 @@ export function buildJobCosts(input: BuildInput): JobCosts {
 
   // 2. Paperwork tied to the job that never became an expense (older months, packing slips).
   const handKeyed = input.expenses.filter((e) => !e.source_document_id)
-  const slips: (Purchase & { tokens: string[]; vkey: string })[] = []
+  const slips: Draft[] = []
   for (const d of input.docs) {
     if (docsWithExpense.has(d.id) || !PURCHASE_KINDS.has(d.kind ?? '') || d.status === 'dismissed') continue
     const subj = subjectAmount(d.subject)
@@ -380,7 +430,10 @@ export function buildJobCosts(input: BuildInput): JobCosts {
 
   const all: Purchase[] = [...kept, ...openSlips, ...manual]
     .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
-    .map(({ tokens: _t, vkey: _v, ...p }) => p)
+    .map(({ tokens: _t, vkey: _v, ...p }) => {
+      const pct = p.group === 'material' && PARTS_VENDOR.test(p.vendor ?? '') ? PART_MARKUP : OTHER_MARKUP
+      return { ...p, markupPct: pct, billed: p.amount == null ? null : round2(p.amount * (1 + pct)) }
+    })
 
   const materials = all.filter((p) => p.group === 'material')
   const others = all.filter((p) => p.group === 'other')
@@ -416,24 +469,48 @@ export function buildJobCosts(input: BuildInput): JobCosts {
     seenTickets.add(dup)
     if (date) ticketDays.add(date)
     const manHours = round2(hours * crew)
-    labor.push({ date, who: crew > 1 ? `${who} (crew of ${crew})` : who, manHours, source: 'Field ticket', rate, cost: round2(manHours * (rate ?? 0)), manualId: null, note: crew > 1 ? `${hours} hr on site x ${crew}` : null })
+    labor.push({ date, who: crew > 1 ? `${who} (crew of ${crew})` : who, manHours, source: 'Field ticket', rate, cost: round2(manHours * (rate ?? 0)), manualId: null, note: crew > 1 ? `${hours} hr on site x ${crew}` : null, crew })
   }
   for (const d of input.dailyTechs) {
     const hours = num(d.hours)
     if (hours <= 0 || (d.work_date && ticketDays.has(d.work_date))) continue
-    labor.push({ date: d.work_date, who: clean(d.tech_name) || 'Crew', manHours: hours, source: 'Daily update', rate, cost: round2(hours * (rate ?? 0)), manualId: null, note: null })
+    labor.push({ date: d.work_date, who: clean(d.tech_name) || 'Crew', manHours: hours, source: 'Daily update', rate, cost: round2(hours * (rate ?? 0)), manualId: null, note: null, crew: 1 })
   }
   for (const l of input.manualLabor) {
     const hours = num(l.hours)
     const own = numOrNull(l.labor_rate)
     const r = own && own > 0 ? own : rate
-    labor.push({ date: l.work_date, who: clean(l.crew_member) || '—', manHours: hours, source: 'Labor log', rate: r, cost: round2(hours * (r ?? 0)), manualId: l.id, note: clean(l.task_note) || null })
+    labor.push({ date: l.work_date, who: clean(l.crew_member) || '—', manHours: hours, source: 'Labor log', rate: r, cost: round2(hours * (r ?? 0)), manualId: l.id, note: clean(l.task_note) || null, crew: 0 })
   }
   labor.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
   const laborHours = round2(labor.reduce((a, l) => a + l.manHours, 0))
   const laborCost = round2(labor.reduce((a, l) => a + l.cost, 0))
 
+  // ── What it would bill for. Trips: one per tech per day (two tickets on one day are the same men, so the
+  // bigger crew counts; daily-update techs are one each).
+  const crewByDay = new Map<string, { ticket: number; techs: number }>()
+  for (const l of labor) {
+    if (!l.date || l.crew <= 0) continue
+    const d = crewByDay.get(l.date) ?? { ticket: 0, techs: 0 }
+    if (l.source === 'Field ticket') d.ticket = Math.max(d.ticket, l.crew); else d.techs += l.crew
+    crewByDay.set(l.date, d)
+  }
+  const tripCount = [...crewByDay.values()].reduce((a, d) => a + Math.max(d.ticket, d.techs), 0)
+  const tripRate = input.tripRate && input.tripRate > 0 ? input.tripRate : null
+  const billRate = billingRate ?? rate
+  const invLabor = round2(labor.reduce((a, l) => a + l.manHours * ((l.source === 'Labor log' ? l.rate : billRate) ?? 0), 0))
+  const invTrips = round2(tripCount * (tripRate ?? 0))
+  const invDisp = disposablesFor(laborHours, crewByDay.size)
+  const invMaterials = round2(materials.reduce((a, p) => a + (p.billed ?? 0), 0))
+  const invOther = round2(others.reduce((a, p) => a + (p.billed ?? 0), 0))
+  const invoice: InvoicePreview = {
+    laborRate: billRate, tripRate, labor: invLabor, tripCount, trips: invTrips, disposables: invDisp,
+    materialsCost: materialCost, materials: invMaterials, otherCost, other: invOther,
+    total: round2(invLabor + invTrips + invDisp + invMaterials + invOther),
+  }
+
   return {
+    invoice,
     purchases: all, materials, others, materialCost, otherCost,
     otherByLabel: [...byLabel.values()].sort((a, b) => b.amount - a.amount),
     unpricedOrders: openSlips.length,
@@ -465,15 +542,22 @@ function rateCardName(brandOrCustomer: string | null | undefined): string {
   const b = (brandOrCustomer ?? '').toLowerCase()
   if (/7.?eleven|7.?11|\bsei\b/.test(b)) return '7-Eleven'
   if (/global/.test(b)) return 'Global'
-  if (/sunoco/.test(b)) return 'Sunoco'
+  if (/sunoco|exxon/.test(b)) return 'Sunoco'
+  if (/wawa/.test(b)) return 'Wawa'
   return 'Independent'
+}
+
+/** The customer's invoice rates: by the job's brand, else its customer, else the site number's shape. */
+export function invoiceRatesFor(job: { gas_brand: string | null; customer: string | null; site_number: string | null }) {
+  const name = rateCardName(job.gas_brand || job.customer || (/^SU/i.test(job.site_number ?? '') ? 'Sunoco' : /^\d{5}$/.test(job.site_number ?? '') ? '7-Eleven' : /wawa/i.test(job.site_number ?? '') ? 'Wawa' : ''))
+  return INVOICE_RATES[name]
 }
 
 export type JobForCosts = { id: string; site_number: string | null; po_number: string | null; gas_brand: string | null; customer: string | null }
 
 /** Costs for one job (the job page). */
 export async function loadJobCosts(admin: Admin, companyId: string, job: JobForCosts, labor?: ManualLaborRow[]): Promise<JobCosts & { billedLabor: number }> {
-  const [expenses, docs, materials, tickets, daily, manualLabor, invoices, company, cards] = await Promise.all([
+  const [expenses, docs, materials, tickets, daily, manualLabor, invoices, company] = await Promise.all([
     admin.from('expenses').select(EXPENSE_COLS).eq('company_id', companyId).eq('con_job_id', job.id).limit(2000),
     admin.from('billing_inbox_documents').select(DOC_COLS).eq('company_id', companyId).eq('con_job_id', job.id).limit(2000),
     admin.from('con_job_materials').select('id, job_id, description, part_number, quantity, unit_cost, status, vendor, ordered_date').eq('company_id', companyId).eq('job_id', job.id),
@@ -482,7 +566,6 @@ export async function loadJobCosts(admin: Admin, companyId: string, job: JobForC
     labor ? Promise.resolve({ data: labor }) : admin.from('con_job_labor').select('id, job_id, work_date, crew_member, hours, labor_rate, task_note').eq('company_id', companyId).eq('job_id', job.id),
     admin.from('con_invoices').select('id, labor_rate').eq('company_id', companyId).eq('job_id', job.id),
     admin.from('companies').select('labor_cost_rate').eq('id', companyId).maybeSingle(),
-    admin.from('billing_rate_cards').select('name, labor_rate').eq('company_id', companyId),
   ])
 
   let expenseRows = (expenses.data ?? []) as unknown as ExpenseRow[]
@@ -515,8 +598,7 @@ export async function loadJobCosts(admin: Admin, companyId: string, job: JobForC
     billedLabor = round2((li ?? []).reduce((a, l) => a + num(l.total_labor), 0))
   }
   const invoiceRate = (invoices.data ?? []).map((i) => num(i.labor_rate)).find((r) => r > 0) ?? null
-  const cardName = rateCardName(job.gas_brand || job.customer)
-  const cardRate = num((cards.data ?? []).find((c) => c.name === cardName)?.labor_rate) || null
+  const rates = invoiceRatesFor(job)
 
   const dailyTechs: DailyTechRow[] = ((daily.data ?? []) as unknown as { work_date: string | null; con_daily_update_techs: { tech_name: string | null; hours: number | null }[] | null }[])
     .flatMap((u) => (u.con_daily_update_techs ?? []).map((t) => ({ job_id: job.id, work_date: u.work_date, tech_name: t.tech_name, hours: t.hours })))
@@ -530,16 +612,17 @@ export async function loadJobCosts(admin: Admin, companyId: string, job: JobForC
     manualLabor: (manualLabor.data ?? []) as unknown as ManualLaborRow[],
     ignoreRefs: [job.site_number ?? '', job.po_number ?? ''],
     companyLaborRate: numOrNull((company.data as { labor_cost_rate?: number | null } | null)?.labor_cost_rate),
-    billingLaborRate: invoiceRate ?? cardRate,
+    billingLaborRate: invoiceRate ?? rates.labor,
+    tripRate: rates.trip,
   })
   return { ...costs, billedLabor }
 }
 
-export type JobCostTotals = { materialCost: number; otherCost: number; laborHours: number; laborCost: number; totalCost: number }
+export type JobCostTotals = { materialCost: number; otherCost: number; laborHours: number; laborCost: number; totalCost: number; invoicePreview: number }
 
 /** Cost totals for every job in the company (the Construction reports). Same rules as the job page. */
 export async function loadAllJobCosts(admin: Admin, companyId: string, jobs: JobForCosts[]): Promise<Map<string, JobCostTotals>> {
-  const [expenses, docs, materials, tickets, daily, manualLabor, invoices, company, cards] = await Promise.all([
+  const [expenses, docs, materials, tickets, daily, manualLabor, invoices, company] = await Promise.all([
     allRows<ExpenseRow>((f, t) => admin.from('expenses').select(EXPENSE_COLS).eq('company_id', companyId).or('con_job_id.not.is.null,source_document_id.not.is.null').order('id').range(f, t)),
     allRows<InboxDocRow>((f, t) => admin.from('billing_inbox_documents').select(DOC_COLS).eq('company_id', companyId).in('kind', [...PURCHASE_KINDS]).order('id').range(f, t)),
     allRows<ManualMaterialRow>((f, t) => admin.from('con_job_materials').select('id, job_id, description, part_number, quantity, unit_cost, status, vendor, ordered_date').eq('company_id', companyId).order('id').range(f, t)),
@@ -548,7 +631,6 @@ export async function loadAllJobCosts(admin: Admin, companyId: string, jobs: Job
     allRows<ManualLaborRow>((f, t) => admin.from('con_job_labor').select('id, job_id, work_date, crew_member, hours, labor_rate, task_note').eq('company_id', companyId).order('id').range(f, t)),
     allRows<{ job_id: string | null; labor_rate: number | null }>((f, t) => admin.from('con_invoices').select('job_id, labor_rate').eq('company_id', companyId).order('id').range(f, t)),
     admin.from('companies').select('labor_cost_rate').eq('id', companyId).maybeSingle(),
-    admin.from('billing_rate_cards').select('name, labor_rate').eq('company_id', companyId),
   ])
 
   const by = <T,>(rows: T[], key: (r: T) => string | null | undefined) => {
@@ -567,7 +649,6 @@ export async function loadAllJobCosts(admin: Admin, companyId: string, jobs: Job
   const invRate = new Map<string, number>()
   for (const i of invoices) if (i.job_id && num(i.labor_rate) > 0 && !invRate.has(i.job_id)) invRate.set(i.job_id, num(i.labor_rate))
   const companyRate = numOrNull((company.data as { labor_cost_rate?: number | null } | null)?.labor_cost_rate)
-  const cardRate = (name: string) => num((cards.data ?? []).find((c) => c.name === name)?.labor_rate) || null
 
   const out = new Map<string, JobCostTotals>()
   for (const job of jobs) {
@@ -590,9 +671,10 @@ export async function loadAllJobCosts(admin: Admin, companyId: string, jobs: Job
       manualLabor: lab,
       ignoreRefs: [job.site_number ?? '', job.po_number ?? ''],
       companyLaborRate: companyRate,
-      billingLaborRate: invRate.get(job.id) ?? cardRate(rateCardName(job.gas_brand || job.customer)),
+      billingLaborRate: invRate.get(job.id) ?? invoiceRatesFor(job).labor,
+      tripRate: invoiceRatesFor(job).trip,
     })
-    out.set(job.id, { materialCost: c.materialCost, otherCost: c.otherCost, laborHours: c.laborHours, laborCost: c.laborCost, totalCost: c.totalCost })
+    out.set(job.id, { materialCost: c.materialCost, otherCost: c.otherCost, laborHours: c.laborHours, laborCost: c.laborCost, totalCost: c.totalCost, invoicePreview: c.invoice.total })
   }
   return out
 }
