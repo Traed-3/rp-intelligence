@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   async redirects() {
     // Quotes and invoices moved from the Construction module to the shared Billing module.
     return [
+      // Maintenance & Fleet: Oil Changes / Brakes / Tires became one "Service Due" list (11/25/26).
+      { source: '/maintenance/oil-changes', destination: '/maintenance/service-due', permanent: true },
+      { source: '/maintenance/brakes', destination: '/maintenance/service-due', permanent: true },
+      { source: '/maintenance/tires', destination: '/maintenance/service-due', permanent: true },
       { source: '/construction/quotes', destination: '/billing/quotes', permanent: true },
       { source: '/construction/quotes/:path*', destination: '/billing/quotes/:path*', permanent: true },
       { source: '/construction/invoices', destination: '/billing/invoices', permanent: true },

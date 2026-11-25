@@ -7,7 +7,7 @@ import { calcOilChangeDue, sortByUrgency } from '@/lib/maintenance'
 import { Droplet } from 'lucide-react'
 import { TitleIcon } from '@/components/ui/title-icon'
 
-export default async function OilChangesPage() {
+export default async function ServiceDuePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const admin = createAdminClient()
@@ -33,7 +33,7 @@ export default async function OilChangesPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link href="/maintenance" className="text-sm text-gray-500 hover:text-gray-700">← Maintenance</Link>
         <span className="text-gray-300">/</span>
-        <h1 className="rp-title"><TitleIcon icon={Droplet} tone="warning" />Oil Changes</h1>
+        <h1 className="rp-title"><TitleIcon icon={Droplet} tone="warning" />Service Due <span className="text-sm font-normal text-gray-500 ml-2">OCD (oil change due)</span></h1>
       </div>
 
       <div className="rp-card overflow-hidden">

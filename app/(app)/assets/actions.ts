@@ -191,9 +191,7 @@ export async function deleteAsset(id: string): Promise<void> {
   // doesn't linger in Next.js's cache
   revalidatePath('/assets')
   revalidatePath('/maintenance')
-  revalidatePath('/maintenance/oil-changes')
-  revalidatePath('/maintenance/brakes')
-  revalidatePath('/maintenance/tires')
+  revalidatePath('/maintenance/service-due')
   revalidatePath('/maintenance/inspections')
   revalidatePath('/maintenance/registrations')
   revalidatePath('/dashboard'); revalidatePath('/maintenance')
