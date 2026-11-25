@@ -55,7 +55,7 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
       <aside className="dark rp-sidebar hidden md:flex print:hidden sticky top-0 h-screen w-60 shrink-0 flex-col border-r border-sidebar-border text-foreground">
         {/* Brand */}
         <div className="px-4 pt-4 pb-3">
-          <Link href="/dashboard" aria-label="RP Intelligence home" className="inline-block rounded-lg bg-white px-1.5 py-1 dark:ring-1 dark:ring-white/10">
+          <Link href="/dashboard" aria-label="RP Intelligence home" className="rp-flat inline-block rounded-lg bg-white px-1.5 py-1 dark:ring-1 dark:ring-white/10">
             <Image
               src="/logo-full-v4.png"
               alt="RP Intelligence"

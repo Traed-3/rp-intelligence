@@ -245,6 +245,15 @@ employee, expense, etc.) MUST make the WHOLE row clickable — not just a "View 
   Employee Status), and all maintenance lists (oil-changes, brakes, tires, inspections,
   registrations). New tables must match this.
 
+**Round look on everything you click (Trae, 2026-11-25).** Buttons, button-like links, clickable labels, the filter chips
+(.rp-chip) and the navy icon boxes (.rp-icon-navy, .rp-title-chip, .rp-band-icon) are drawn raised and round: a highlight in
+the middle, a darker edge, a light top line, a soft shadow. It comes from ONE block in app/globals.css ("ROUND LOOK ON
+EVERYTHING YOU CLICK") that matches a clickable element by its own background class (bg-primary, bg-card, bg-emerald-600 ...),
+so new buttons get it with no extra class. A button in a color not on that list: add the class there. Keep something flat
+with `rp-flat` (the logo links do). Text links, see-through icon buttons, menu rows, `.rp-card` cards and big padded tiles
+(p-4 and up) stay flat. `.rp-round-button` + `rp-round-gold|green|red|navy` is the fuller version (New message, My plate,
+Done, Clock In/Out, Ask RPS).
+
 ---
 
 ## SESSION RULES

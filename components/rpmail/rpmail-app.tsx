@@ -705,7 +705,7 @@ function MailSidebar({ boxes, view, filter, needs, stamp, newMessage, canWrite, 
   return (
     <aside className="dark rp-sidebar hidden md:flex print:hidden h-dvh w-64 shrink-0 flex-col border-r border-sidebar-border text-foreground">
       <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
-        <button onClick={() => showInMain('/dashboard')} aria-label="Go to RP Intelligence" title="Go to RP Intelligence" className="inline-block shrink-0 rounded-lg bg-white px-1.5 py-1 dark:ring-1 dark:ring-white/10">
+        <button onClick={() => showInMain('/dashboard')} aria-label="Go to RP Intelligence" title="Go to RP Intelligence" className="rp-flat inline-block shrink-0 rounded-lg bg-white px-1.5 py-1 dark:ring-1 dark:ring-white/10">
           <Image src="/logo-full-v4.png" alt="RP Intelligence" width={220} height={100} priority className="h-11 w-auto" />
         </button>
         <span className="text-2xl font-bold uppercase tracking-wide text-foreground [font-family:var(--font-display)]">RPMail</span>
