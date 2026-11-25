@@ -187,6 +187,21 @@ class Filing(unittest.TestCase):
         self.assertEqual(sorted(c[1] for c in self.w.calls if c[0] == 'move'), [30, 31])
 
 
+class FolderList(unittest.TestCase):
+    def test_each_mailbox_shows_its_own_folders_like_the_local_rpmail(self):
+        w, p, work, pers = views()
+        for login in (w, p):
+            login.folders = ['Folders/RPS', 'Folders/RPS/Project Folders', 'Folders/Personal', 'Folders/Personal/Turbo Tenant', 'Folders/Poker', 'Labels/Urgent']
+        w.add(1, 'iidWorkInTurboTen1', {'Folders/Personal/Turbo Tenant'})     # work mail filed in a personal folder
+        p.add(2, 'iidPersonalPoker01', {'Folders/Poker'})
+        p.add(3, 'iidPersonalLabel01', {'INBOX', 'Labels/Urgent'})
+        names = lambda v: [l['name'] for l in v.labels_list()['labels'] if l['type'] == 'user']
+        # Work: its own RPS tree, plus the folders its mail is in (and their parents). Not Poker.
+        self.assertEqual(names(work), ['Personal', 'Personal/Turbo Tenant', 'RPS', 'RPS/Project Folders'])
+        # Personal: every folder outside Work's RPS tree (it has no home of its own), and the labels on its mail.
+        self.assertEqual(names(pers), ['Personal', 'Personal/Turbo Tenant', 'Poker', 'Urgent'])
+
+
 class Sending(unittest.TestCase):
     def setUp(self):
         self.w, self.p, self.work, self.pers = views()

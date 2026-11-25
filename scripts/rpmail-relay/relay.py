@@ -728,8 +728,30 @@ class View:
         return {'history': [{'id': str(self.hid), 'messages': [{'id': i} for i in ids]}] if ids else [], 'historyId': str(self.hid)}
 
     def labels_list(self):
+        """The folders and labels this mailbox shows, picked the way the local RPMail picks them (box_folders): Proton keeps one set
+        of folders for both logins, so a mailbox shows a folder only when it holds this mailbox's mail, or it is in this
+        mailbox's own home tree (Work Proton: Folders/RPS), or the mailbox has no home of its own; never another mailbox's
+        home tree. A folder's parents stay so the tree is whole."""
         self.refresh()
-        names = sorted({f for _, login, _ in self.parts for f in login.folders})
+        every = sorted({f for _, login, _ in self.parts for f in login.folders})
+        mine = [h for h, a in self.router.homes if a == self.address] if self.router else []
+        others = [h for h, a in self.router.homes if a != self.address] if self.router else []
+        used = set()
+        for _, login, uid in self.members():
+            used |= login.folders_of(uid)
+        show = set()
+        for f in every:
+            if any(under(f, h) for h in others):
+                continue
+            if f in used or (f.startswith('Folders/') and (not mine or any(under(f, h) for h in mine))):
+                show.add(f)
+        for f in list(show):
+            parts = f.split('/')
+            for d in range(2, len(parts)):
+                parent = '/'.join(parts[:d])
+                if parent in every:
+                    show.add(parent)
+        names = sorted(show)
         sys_ = [{'id': i, 'name': i, 'type': 'system'} for i in ('INBOX', 'SENT', 'DRAFT', 'SPAM', 'TRASH', 'STARRED', 'UNREAD')]
         return {'labels': sys_ + [{'id': lid(f), 'name': f.split('/', 1)[1], 'type': 'user'} for f in names]}
 
