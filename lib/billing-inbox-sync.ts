@@ -18,6 +18,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+import sharp from 'sharp'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   type BillingInbox, connectedInboxes, listMessages, getMessage, getThread, getAttachment,
@@ -359,6 +360,30 @@ function mediaTypeFor(att: { name: string; mime: string }): { block: 'document' 
   return null
 }
 
+const PHOTO_EDGE = 2200
+
+/** The real image type from the bytes: phones mislabel photos (a JPEG named .png), and the reader refuses a mismatch. */
+export function sniffImage(buf: Buffer, fallback: string): string {
+  if (buf[0] === 0xff && buf[1] === 0xd8) return 'image/jpeg'
+  if (buf[0] === 0x89 && buf[1] === 0x50) return 'image/png'
+  if (buf.subarray(0, 4).toString() === 'RIFF' && buf.subarray(8, 12).toString() === 'WEBP') return 'image/webp'
+  if (buf.subarray(0, 3).toString() === 'GIF') return 'image/gif'
+  return fallback
+}
+
+/** Turn a receipt photo upright, shrink it and re-save it as JPEG, so a 12 MB phone photo or a mislabelled file still reads.
+ *  When the photo cannot be opened, the original goes as it is, labelled by its real type. */
+async function preparePhoto(buf: Buffer, media: string): Promise<{ data: Buffer; media: string }> {
+  try {
+    const data = await sharp(buf, { failOn: 'none' }).rotate()
+      .resize({ width: PHOTO_EDGE, height: PHOTO_EDGE, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 82 }).toBuffer()
+    return { data, media: 'image/jpeg' }
+  } catch {
+    return { data: buf, media: sniffImage(buf, media) }
+  }
+}
+
 /** Run Claude over one document's attachments and store the extracted, catalog-matched lines. */
 export async function extractDocument(docId: string): Promise<{ ok: boolean; lines?: number; error?: string }> {
   const admin = createAdminClient()
@@ -380,12 +405,14 @@ export async function extractDocument(docId: string): Promise<{ ok: boolean; lin
   for (const { a, kind } of atts) {
     const { data, error } = await admin.storage.from(INBOX_BUCKET).download(a.path)
     if (error || !data) continue
-    const buf = Buffer.from(await data.arrayBuffer())
+    let buf: Buffer = Buffer.from(await data.arrayBuffer())
+    let media = kind!.media
+    if (kind!.block === 'image') ({ data: buf, media } = await preparePhoto(buf, media))
     if (buf.length > budget) continue
     budget -= buf.length
     content.push({ type: 'text', text: `Attachment: ${a.name}` })
     if (kind!.block === 'document') content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buf.toString('base64') } })
-    else if (kind!.block === 'image') content.push({ type: 'image', source: { type: 'base64', media_type: kind!.media as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: buf.toString('base64') } })
+    else if (kind!.block === 'image') content.push({ type: 'image', source: { type: 'base64', media_type: media as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: buf.toString('base64') } })
     else content.push({ type: 'text', text: buf.toString('utf8').slice(0, 60_000) })
   }
   content.push({ type: 'text', text: `Email subject: ${doc.subject ?? ''}\nFrom: ${doc.sender ?? ''} <${doc.sender_email ?? ''}>\nInbox: ${doc.inbox}\n\nRecord this paperwork with record_document.` })

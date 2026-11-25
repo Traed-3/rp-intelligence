@@ -31,6 +31,15 @@ export function canWriteConstruction(profile?: ConGateProfile) {
   return !!profile?.id && CON_WRITE_ROLES.includes(profile.role ?? '')
 }
 
+// Daily updates from the phone (/mobile/daily-update): the crews post their own without having the Construction module.
+// Construction techs only; they may post to a job a crew could be standing on today, nothing else in the module opens.
+export const DAILY_UPDATE_TECH_ROLES: readonly string[] = ['construction_tech']
+/** Stages where a crew is realistically standing on the site today. */
+export const DAILY_UPDATE_ACTIVE_STAGES: readonly string[] = ['scheduled', 'in_progress', 'return_needed', 'on_hold']
+export function canPostDailyUpdate(profile?: ConGateProfile) {
+  return canWriteConstruction(profile) || (!!profile?.id && DAILY_UPDATE_TECH_ROLES.includes(profile.role ?? ''))
+}
+
 export type ConProfile = { id: string; company_id: string; role: string }
 
 // ── Pipeline stages ─────────────────────────────────────────
