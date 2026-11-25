@@ -75,7 +75,7 @@ const ago = (iso: string | null) => {
 const size = (n: number) => n > 1_048_576 ? (n / 1_048_576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'
 const btn = (variant: 'default' | 'outline' | 'ghost' | 'destructive' = 'outline', sz: 'sm' | 'default' | 'xs' = 'sm') => buttonVariants({ variant, size: sz })
 /** The Done button on the dashboard lists (My Plate, Your jobs, Needs you): one look everywhere, a green pill (Trae, 11/24/26) in the
- *  same green as the My Plate count (the theme's `success`), rounded like the New message button (11/25/26: .rp-round-green). */
+ *  same bright LED green as the Done buttons on My Plate, rounded like the New message button (11/25/26: .rp-round-green). */
 const DONE_BTN = cn(buttonVariants({ size: 'xs' }), 'rp-round-button rp-round-green self-center shrink-0 rounded-full px-3 focus-visible:ring-success/40')
 
 export function RpmailApp({ localUrl, connected, connectError, windowed = false }: { localUrl: string | null; connected?: string; connectError?: string
