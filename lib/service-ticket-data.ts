@@ -17,7 +17,7 @@ export async function loadTicket(id: string, company_id: string, opts: { hideSel
   return {
     ticket: ticket as TicketRecord,
     labor: (labor ?? []).map(l => ({ id: l.id, work_date: l.work_date, kind: l.kind, hours: Number(l.hours), tech_name: (l as { profiles?: { full_name: string } | null }).profiles?.full_name ?? null })) as LaborRow[],
-    parts: (parts ?? []).map(p => ({ id: p.id, description: p.description, quantity: Number(p.quantity), unit_cost: p.unit_cost, sell_price: opts.hideSell ? null : p.sell_price, charge_type: p.charge_type,
+    parts: (parts ?? []).map(p => ({ id: p.id, description: p.description, quantity: Number(p.quantity), unit_cost: opts.hideSell ? null : p.unit_cost, sell_price: opts.hideSell ? null : p.sell_price,   // the ticket form shows a tech no money at all charge_type: p.charge_type,
       part_number: (p as { parts?: { part_number: string | null } | null }).parts?.part_number ?? null, location_name: (p as { stock_locations?: { name: string } | null }).stock_locations?.name ?? null })) as PartRow[],
     photos: (photos ?? []) as PhotoRow[],
     trucks: (trucks ?? []).map(t => ({ id: t.id, name: t.name })),
