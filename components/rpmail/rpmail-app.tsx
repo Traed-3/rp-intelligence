@@ -74,9 +74,9 @@ const ago = (iso: string | null) => {
 }
 const size = (n: number) => n > 1_048_576 ? (n / 1_048_576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'
 const btn = (variant: 'default' | 'outline' | 'ghost' | 'destructive' = 'outline', sz: 'sm' | 'default' | 'xs' = 'sm') => buttonVariants({ variant, size: sz })
-/** The Done button on the dashboard lists (My Plate, Your jobs, Needs you): one look everywhere, a solid green pill (Trae, 11/24/26),
- *  in the same green as the My Plate count (the theme's `success`). In dark mode that green is brighter, so the words turn dark. */
-const DONE_BTN = cn(buttonVariants({ size: 'xs' }), 'self-center shrink-0 rounded-full px-3 border-transparent bg-success text-white hover:bg-success/90 focus-visible:ring-success/40 dark:text-[oklch(0.2_0.04_160)]')
+/** The Done button on the dashboard lists (My Plate, Your jobs, Needs you): one look everywhere, a green pill (Trae, 11/24/26) in the
+ *  same green as the My Plate count (the theme's `success`), rounded like the New message button (11/25/26: .rp-round-green). */
+const DONE_BTN = cn(buttonVariants({ size: 'xs' }), 'rp-round-button rp-round-green self-center shrink-0 rounded-full px-3 focus-visible:ring-success/40')
 
 export function RpmailApp({ localUrl, connected, connectError, windowed = false }: { localUrl: string | null; connected?: string; connectError?: string
   /** The mail window (/mail): mailboxes and folders fill the navy menu on the left, like the main RP Intelligence menu. */
@@ -711,7 +711,7 @@ function MailSidebar({ boxes, view, filter, needs, stamp, newMessage, canWrite, 
         <span className="text-2xl font-bold uppercase tracking-wide text-foreground [font-family:var(--font-display)]">RPMail</span>
       </div>
       <div className="px-3 pb-2">
-        <button className="rp-gold-button flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#1d1a12] transition disabled:opacity-50" onClick={newMessage} disabled={!canWrite} title={writeTitle}><PenSquare className="size-4" />New message</button>
+        <button className="rp-round-button rp-round-gold flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#1d1a12] transition disabled:opacity-50" onClick={newMessage} disabled={!canWrite} title={writeTitle}><PenSquare className="size-4" />New message</button>
       </div>
       <nav aria-label="Mailboxes" className="flex-1 overflow-y-auto px-3 py-1">
         <button className={cn(row(view.kind === 'dash'), 'mb-2 !py-2 !text-sm font-semibold')} style={{ paddingLeft: 10 }} onClick={goDash}>

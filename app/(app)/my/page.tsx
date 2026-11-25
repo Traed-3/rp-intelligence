@@ -376,7 +376,7 @@ function TaskCard({ t, today, urls, partner = null, waiting = false }: { t: Task
             <form action={answerTask.bind(null, t.id)}><input type="hidden" name="answer" value="No" /><button title="Answer No and close" className="min-w-[4.25rem] px-4 py-2 sm:py-1.5 rounded-md bg-card border border-gray-400 text-foreground text-[13px] font-semibold hover:bg-gray-100">No</button></form>
           </div>
         )}
-        <form action={completeTask.bind(null, t.id)}><button className="px-4 py-2 sm:py-1.5 rounded-md bg-emerald-600 border border-emerald-700 text-white text-[13px] font-semibold hover:bg-emerald-600/90">Done</button></form>
+        <form action={completeTask.bind(null, t.id)}><button className="rp-round-button rp-round-green px-4 py-2 sm:py-1.5 rounded-md text-[13px] font-semibold">Done</button></form>
       </div>
       <div className="sm:col-span-2 border-t border-border pt-1.5 flex flex-wrap items-start gap-x-4 gap-y-1.5">
         {partner && <AssignTo action={assignTask.bind(null, t.id)} people={[partner]} />}
@@ -396,11 +396,12 @@ function TaskCard({ t, today, urls, partner = null, waiting = false }: { t: Task
 
 /** My plate / partner's plate switch. */
 function PlateSwitch({ partner, count, mine }: { partner: Partner; count: number; mine: boolean }) {
-  const tab = (on: boolean) => `px-3.5 py-1.5 text-[13px] font-semibold ${on ? 'bg-violet-700 text-white' : 'bg-card text-foreground hover:bg-violet-50'}`
+  // The open side is the rounded amber button, like RPMail's New message (Trae, 11/25/26; it was purple).
+  const tab = (on: boolean) => `px-3.5 py-1.5 text-[13px] font-semibold ${on ? 'rp-round-button rp-round-gold' : 'bg-card text-foreground hover:bg-raised'}`
   return (
-    <div className="mb-4 inline-flex overflow-hidden rounded-md border border-violet-300" role="group" aria-label="Whose plate">
+    <div className="mb-4 inline-flex overflow-hidden rounded-md border border-[#c8901f]" role="group" aria-label="Whose plate">
       <Link href="/my" className={tab(mine)}>My plate</Link>
-      <Link href="/my?who=partner" className={`${tab(!mine)} border-l border-violet-300`}>{partner.name}&apos;s plate <span className="tabular-nums opacity-70">{count}</span></Link>
+      <Link href="/my?who=partner" className={`${tab(!mine)} border-l border-[#c8901f]`}>{partner.name}&apos;s plate <span className="tabular-nums opacity-70">{count}</span></Link>
     </div>
   )
 }
