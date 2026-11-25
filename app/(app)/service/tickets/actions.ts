@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { computeDocumentTotals } from '@/lib/billing'
 import { sellPriceForLine } from '@/lib/inventory'
+import { noAccountingOrHr } from '@/lib/role-access'
 import { brandFromWorkOrder, buildInvoiceLines, canWriteServiceTickets, rateCardNameForBrand, DEFAULT_SERVICE_TAX } from '@/lib/service-tickets'
 
 export type ActionState = { error?: string; ok?: boolean }
@@ -158,7 +159,8 @@ export async function setTicketStatus(id: string, status: string): Promise<void>
 
 /** Build the invoice from the ticket exactly the way Peggy lays it out, priced from the brand's rate card. */
 export async function convertTicketToInvoice(id: string): Promise<void> {
-  const p = await me(); if (!p || !canWriteServiceTickets(p.role)) return
+  // Invoicing is accounting: techs and mechanics can write tickets but never build the invoice (role lockdown, lib/role-access.ts).
+  const p = await me(); if (!p || !canWriteServiceTickets(p.role) || noAccountingOrHr(p.role)) return
   const admin = createAdminClient()
   const [{ data: t }, { data: labor }, { data: parts }] = await Promise.all([
     admin.from('service_tickets').select('*').eq('id', id).eq('company_id', p.company_id).single(),

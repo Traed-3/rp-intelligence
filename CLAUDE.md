@@ -124,6 +124,14 @@ ROLE LOCKDOWN (Trae, 2026-11-13) — `lib/role-access.ts`, enforced in proxy.ts 
 - A NEW page or API route is closed to these roles until it is added to the lists in lib/role-access.ts. The menu
   (lib/nav-items.ts) filters through the same function. Check: `npx tsx scripts/role-access-check.mts`.
 
+TECH ACCESS FIXES (Trae, 2026-11-25):
+- Daily Update from the phone (/mobile/daily-update) is open to construction techs: `canPostDailyUpdate` in lib/construction.ts
+  (the construction write roles + DAILY_UPDATE_TECH_ROLES). A tech may only post to a job in DAILY_UPDATE_ACTIVE_STAGES
+  (checked again in `addDailyUpdate`, which now also checks the job is the company's). Nothing else in Construction opens.
+  The phone home tile shows only for people who can post.
+- "Create invoice" on a field ticket is closed to techs and mechanics (`noAccountingOrHr`), on the page and in
+  `convertTicketToInvoice`. They still write, sign and finish tickets; the office builds the invoice.
+
 LOGIN, SETTINGS AND FORMS (Trae, 2026-11-13):
 - NO GOOGLE SIGN-IN. Email + password only. /api/auth/google and /auth/callback just redirect to /login?google=off, and
   proxy.ts signs out any session whose token says it was started by an outside provider (`amr` method `oauth`).

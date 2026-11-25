@@ -1,4 +1,5 @@
 import { isShopOnly } from '@/lib/role-access'
+import { canPostDailyUpdate } from '@/lib/construction'
 import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
@@ -200,7 +201,7 @@ export default async function MobilePage() {
             <span className="text-sm font-semibold text-gray-800">Log Mileage</span>
           </Link>
 
-          {!shopOnly && <Link href="/mobile/daily-update" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
+          {canPostDailyUpdate({ id: profile?.id, role: profile?.role }) && <Link href="/mobile/daily-update" className="rp-card rp-card-link px-4 py-5 flex flex-col items-center gap-2">
             <span className="text-3xl">📋</span>
             <span className="text-sm font-semibold text-gray-800">Daily Update</span>
           </Link>}

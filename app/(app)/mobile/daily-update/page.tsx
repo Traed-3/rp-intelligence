@@ -1,14 +1,11 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { canWriteConstruction } from '@/lib/construction'
+import { canPostDailyUpdate, DAILY_UPDATE_ACTIVE_STAGES } from '@/lib/construction'
 import { DailyUpdateForm, type JobOption } from '@/components/construction/daily-update-form'
 import { addDailyUpdateForPickedJob } from '@/app/(app)/construction/actions'
 import { CalendarCheck } from 'lucide-react'
 import { TitleIcon } from '@/components/ui/title-icon'
-
-// Stages where a crew is realistically standing on the site today.
-const ACTIVE_STAGES = ['scheduled', 'in_progress', 'return_needed', 'on_hold']
 
 export default async function MobileDailyUpdatePage() {
   const supabase = await createClient()
@@ -18,7 +15,7 @@ export default async function MobileDailyUpdatePage() {
   const { data: profile } = await admin
     .from('profiles').select('id, company_id, role').eq('id', user!.id).single()
 
-  if (!profile || !canWriteConstruction(profile as any)) {
+  if (!profile || !canPostDailyUpdate(profile)) {
     return (
       <div className="min-h-screen p-6">
         <div className="max-w-sm mx-auto">
@@ -27,7 +24,7 @@ export default async function MobileDailyUpdatePage() {
             <Link href="/mobile" className="text-sm text-blue-600">← Home</Link>
           </div>
           <p className="rp-card p-5 text-sm text-gray-500">
-            You don&apos;t have access to construction jobs. Ask the office to turn it on for you.
+            Daily updates are for the construction crews. Ask the office to turn it on for you.
           </p>
         </div>
       </div>
@@ -38,7 +35,7 @@ export default async function MobileDailyUpdatePage() {
     .from('con_jobs')
     .select('id, site_number, job_number, scope_of_work, stage')
     .eq('company_id', profile.company_id)
-    .in('stage', ACTIVE_STAGES)
+    .in('stage', DAILY_UPDATE_ACTIVE_STAGES as string[])
     .order('site_number')
 
   const options: JobOption[] = (jobs ?? []).map((j) => ({
