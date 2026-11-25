@@ -13,7 +13,7 @@ export async function ClockButton({ profileId }: { profileId: string }) {
   const clockedIn = data?.clock_status === 'clocked_in'
   return (
     <div className="mb-3 flex justify-end">
-      <Link href="/shop/clock" title={clockedIn ? 'You are clocked in' : 'You are clocked out'} className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white shadow-sm ${clockedIn ? 'bg-red-500 hover:bg-red-600' : 'bg-green-600 hover:bg-green-700'}`}>
+      <Link href="/shop/clock" title={clockedIn ? 'You are clocked in' : 'You are clocked out'} className={`rp-round-button inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${clockedIn ? 'rp-round-red' : 'rp-round-green'}`}>
         {clockedIn ? 'Clock Out' : 'Clock In'}
       </Link>
     </div>
@@ -114,7 +114,7 @@ function Card({ t, today }: { t: TaskRow; today: string }) {
           {t.detail && <p className="mt-1.5 text-sm text-foreground whitespace-pre-wrap break-words">{t.detail}</p>}
         </div>
         <form action={completeTask.bind(null, t.id)} className="shrink-0">
-          <button className="rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700">Done</button>
+          <button className="rp-round-button rp-round-green rounded-md px-3 py-2 text-sm font-semibold">Done</button>
         </form>
       </div>
       <form action={saveNote.bind(null, t.id)} className="mt-2 flex gap-2">
