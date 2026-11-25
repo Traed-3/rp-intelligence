@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { BookOpen } from 'lucide-react'
 import { TitleIcon } from '@/components/ui/title-icon'
+import { IS_DEMO } from '@/lib/demo'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -214,7 +215,9 @@ export default async function GuidePage() {
       </div>
 
       <div className="bg-gray-50 rounded-2xl border border-gray-200 shadow-sm p-5 text-sm text-gray-600 text-center">
-        <p>Need help? Contact Trae at <strong>finance.trae@proton.me</strong></p>
+        {IS_DEMO
+          ? <p>Want software like this for your business? <a className="font-semibold underline" href="https://prestigesitestudio.com">PrestigeSite Studio</a></p>
+          : <p>Need help? Contact Trae at <strong>finance.trae@proton.me</strong></p>}
       </div>
     </div>
   )

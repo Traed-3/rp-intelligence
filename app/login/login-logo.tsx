@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { IS_DEMO } from '@/lib/demo'
 
 // The logo is one picture; three clipped copies (mark, divider line, wordmark)
 // let each part arrive on its own beat while the ring draws around the mark.
@@ -15,7 +16,7 @@ export function LoginLogo() {
           <circle cx="415" cy="445" r="306" stroke="var(--navy)" strokeWidth="9" pathLength={100} />
         </svg>
       </div>
-      <p className="rp-logo-tag mt-3 text-sm text-gray-500">Rappahannock Petroleum Operations Platform</p>
+      <p className="rp-logo-tag mt-3 text-sm text-gray-500">{IS_DEMO ? 'Field Operations Platform — Live Demo' : 'Rappahannock Petroleum Operations Platform'}</p>
     </div>
   )
 }

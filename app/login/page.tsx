@@ -1,5 +1,7 @@
 import { LoginLogo } from './login-logo'
 import { PasswordLoginForm } from './password-form'
+import { DemoSignInButton } from './demo-button'
+import { IS_DEMO } from '@/lib/demo'
 
 export default async function LoginPage({
   searchParams,
@@ -32,8 +34,22 @@ export default async function LoginPage({
           </div>
         )}
 
+        {IS_DEMO && (
+          <div className="rp-card p-8 space-y-4 mb-5">
+            <div>
+              <p className="text-base font-semibold text-gray-900">Explore RP Intelligence</p>
+              <p className="text-sm text-gray-600 mt-1">
+                A live demo with a made-up fuel-systems company: service dispatch, construction jobs and permits,
+                fleet maintenance, inventory, DQF compliance and billing. No sign-up needed.
+              </p>
+            </div>
+            <DemoSignInButton />
+            <p className="text-xs text-center text-gray-400">All names, stores and numbers are fictional. Data resets nightly.</p>
+          </div>
+        )}
+
         {/* Card */}
-        <div className="rp-card p-8 space-y-5">
+        <div className={`rp-card p-8 space-y-5${IS_DEMO ? ' hidden' : ''}`}>
 
           {/* Email + password is the only way in (Google sign-in was removed 11/13/26). */}
           <div>

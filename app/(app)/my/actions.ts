@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { applyQuoteLinePrice } from '@/lib/quote-line-price'
 import { buildOrderDraft, type OrderVendorKey } from '@/lib/order-email'
 import { PLATE_PARTNERS } from '@/lib/my-plate'
+import { PO_CONTACT_NAME } from '@/lib/demo'
 
 const KINDS = new Set(['quote', 'price', 'order', 'bid', 'survey', 'followup', 'admin'])
 
@@ -249,7 +250,7 @@ export async function draftOrderEmail(id: string, formData: FormData): Promise<v
 export async function markOrderSent(id: string, formData: FormData): Promise<void> {
   const { admin, task } = await myTask(id)
   const a = (task.action ?? {}) as Record<string, unknown>
-  const who = str(formData.get('who')) ?? 'Shannon (PO#)'
+  const who = str(formData.get('who')) ?? `${PO_CONTACT_NAME} (PO#)`
   await admin.from('con_tasks').update({ action: { ...a, draft_status: 'sent', sent_at: new Date().toISOString() }, status: 'waiting', waiting_on: who, waiting_since: today(), updated_at: new Date().toISOString() }).eq('id', id)
   revalidatePath('/my')
 }

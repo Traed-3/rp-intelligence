@@ -6,6 +6,7 @@ import { WorkOrderArchiveTable } from '@/components/svc/work-order-archive-table
 import { WorkOrderBoard } from '@/components/svc/work-order-board'
 import { loadConstructionLinks } from '@/lib/svc-construction-link'
 import { isTicketSender } from '@/lib/svc-work-order-parser'
+import { IS_DEMO } from '@/lib/demo'
 
 // 'new' / 'accepted' / 'en_route' are retired (everything is auto-accepted under
 // contract); 'new' stays in the query only so a straggler row is still counted.
@@ -21,9 +22,9 @@ const STATUS_FILTERS = [
 
 const CLIENT_FILTERS = [
   { value: '',                label: 'All Clients' },
-  { value: '7help',           label: '7-Eleven' },
-  { value: 'wtsc',            label: 'Wawa' },
-  { value: 'it_service_desk', label: 'Sunoco' },
+  { value: '7help',           label: IS_DEMO ? 'QuickStop' : '7-Eleven' },
+  { value: 'wtsc',            label: IS_DEMO ? 'Valley Plazas' : 'Wawa' },
+  { value: 'it_service_desk', label: IS_DEMO ? 'Hilltop' : 'Sunoco' },
 ]
 
 // Rank 1 = most urgent .. 4 = routine (matches PriorityBadge's PRIORITY_CLASS).
@@ -237,7 +238,7 @@ export default async function ServiceDispatchPage({
             Completed ticket review{needsReviewCount ? <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-[11px] font-bold rounded-full bg-amber-500 text-white">{needsReviewCount}</span> : ' →'}
           </Link>
           <p className="text-sm text-gray-500 mt-0.5">
-            7-Eleven, Wawa & Sunoco work orders — synced automatically from rpdispatcher and rpinvoicing; calls handed to construction follow their job
+            {IS_DEMO ? 'Customer portal' : '7-Eleven, Wawa & Sunoco'} work orders — synced automatically from rpdispatcher and rpinvoicing; calls handed to construction follow their job
           </p>
         </div>
         {!showArchived && !oldOnly && (

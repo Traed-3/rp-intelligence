@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { IS_DEMO } from '@/lib/demo'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -835,6 +836,7 @@ export async function emailInvoice(id: string, _state: EmailState, formData: For
   const number = invoice.invoice_number ?? 'Invoice'
   const total = Number(invoice.invoice_grand_total) || 0
 
+  if (IS_DEMO || !process.env.RESEND_API_KEY) return { error: IS_DEMO ? 'Emailing invoices is turned off in the demo.' : 'Email is not set up (RESEND_API_KEY).' }
   const { Resend } = await import('resend')
   const resend = new Resend(process.env.RESEND_API_KEY)
   const from = process.env.RESEND_INVOICE_FROM ?? process.env.RESEND_FROM_EMAIL ?? 'RPS <invoices@rpsmaintenance.com>'

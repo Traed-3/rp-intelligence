@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { ChangeFlash } from '@/components/ui/change-flash'
 import { CON_DONE_STAGES, CON_STAGE_LABEL, type ConstructionTag } from '@/lib/con-stage'
+import { IS_DEMO } from '@/lib/demo'
 
 // ── Status ────────────────────────────────────────────────────────────────────
 
@@ -64,11 +65,13 @@ export function StaleBadge({ lastUpdateAt, status }: { lastUpdateAt: string | nu
   )
 }
 
-const SOURCE_LABEL: Record<string, string> = {
-  '7help': '7-Eleven',
-  wtsc: 'Wawa',
-  it_service_desk: 'Sunoco',
-}
+const SOURCE_LABEL: Record<string, string> = IS_DEMO
+  ? { '7help': 'QuickStop', wtsc: 'Valley Plazas', it_service_desk: 'Hilltop' }
+  : {
+      '7help': '7-Eleven',
+      wtsc: 'Wawa',
+      it_service_desk: 'Sunoco',
+    }
 
 export function clientLabel(sourcePortal: string, clientName: string | null): string {
   return clientName ?? SOURCE_LABEL[sourcePortal] ?? sourcePortal
