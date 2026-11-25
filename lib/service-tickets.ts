@@ -16,6 +16,32 @@ export const TICKET_STATUSES = [
   { value: 'void',       label: 'Void',        className: 'bg-gray-100 text-gray-400 border-gray-200' },
 ] as const
 export type TicketStatus = (typeof TICKET_STATUSES)[number]['value']
+/** Statuses a tech may pick himself. Work done comes from turning the ticket in; Signed, Invoiced and Void are the office's. */
+export const TECH_STATUSES: readonly string[] = ['open', 'dispatched', 'on_site']
+/** A ticket nobody may edit any more (short of the office reopening it). */
+export const LOCKED_STATUSES: readonly string[] = ['signed', 'invoiced', 'void']
+
+/** What the tech says when he turns the ticket in. Same two answers the paper ticket email carries (COMPLETE / RTN). */
+export const COMPLETIONS = [
+  { value: 'complete', label: 'Job complete' },
+  { value: 'rtn',      label: 'Return trip needed' },
+] as const
+export type Completion = (typeof COMPLETIONS)[number]['value']
+export function completionLabel(v: string | null | undefined) { return COMPLETIONS.find(c => c.value === v)?.label ?? null }
+
+/** What is still missing before a ticket can be turned in. Empty = good to go. */
+export function turnInProblems(t: { work_performed?: string | null; store_number?: string | null }, laborDays: number, completion: string | null, rtnReason: string | null): string[] {
+  const out: string[] = []
+  if (!COMPLETIONS.some(c => c.value === completion)) out.push('Pick Job complete or Return trip needed.')
+  if (completion === 'rtn' && !rtnReason?.trim()) out.push('Say why a return trip is needed.')
+  if (!t.store_number?.trim()) out.push('Add the store number.')
+  if (!t.work_performed?.trim()) out.push('Fill in Work performed and press Save details.')
+  if (laborDays < 1) out.push('Add your hours.')
+  return out
+}
+
+/** Today in Eastern time as YYYY-MM-DD (the server and a late-evening phone can both be on tomorrow's UTC date). */
+export function todayEastern(now: Date = new Date()) { return now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) }
 export function ticketStatusMeta(v: string) { return TICKET_STATUSES.find(s => s.value === v) ?? TICKET_STATUSES[0] }
 
 export const CHARGE_TYPES = [

@@ -124,6 +124,21 @@ ROLE LOCKDOWN (Trae, 2026-11-13) — `lib/role-access.ts`, enforced in proxy.ts 
 - A NEW page or API route is closed to these roles until it is added to the lists in lib/role-access.ts. The menu
   (lib/nav-items.ts) filters through the same function. Check: `npx tsx scripts/role-access-check.mts`.
 
+FIELD TICKET ON THE PHONE, MADE USABLE (Trae, 2026-11-25: "I want it to be usable"):
+- Finding the call: /mobile/service-ticket has "Find a call" (WO #, store #, street, city; every word must match) over ALL open
+  calls, "Dispatched to me" (needs svc_technicians.profile_id = the login; 14 were linked by exact name on 11/25/26, logins with
+  no dispatch row still have none), "My open tickets" and "Turned in, last 14 days".
+- TURN IN is the last step (`turnInTicket`): Job complete or Return trip needed + why, same two answers as the paper ticket email.
+  Columns service_tickets.completion complete|rtn, rtn_reason, finished_at, finished_by (migration service_ticket_finish.sql,
+  APPLIED 2026-11-25). Needs store #, Work performed and at least one labor day (`turnInProblems`). Status goes to Work done
+  (stays Signed if both already signed). The tech can Reopen until both signed or the office invoiced. Office: Field Tickets ->
+  "Turned in by the tech". Turning in does NOT change the service call's status; the office closes calls.
+- Techs and mechanics (`fieldRole` on TicketForm) never see or type a sell price on a ticket: `loadTicket(..., { hideSell })`
+  nulls it before the page gets it, `addPart` ignores a price they post, the "Sell $" box is not drawn. They may only pick
+  Open / Dispatched / On site (`TECH_STATUSES`); Signed / Invoiced / Void are the office's.
+- Every ticket change goes through `ticketFor` in tickets/actions.ts (ticket must be the company's; not locked; not turned in for a tech).
+- Photos: several at once, camera or library.
+
 TECH ACCESS FIXES (Trae, 2026-11-25):
 - Daily Update from the phone (/mobile/daily-update) is open to construction techs: `canPostDailyUpdate` in lib/construction.ts
   (the construction write roles + DAILY_UPDATE_TECH_ROLES). A tech may only post to a job in DAILY_UPDATE_ACTIVE_STAGES

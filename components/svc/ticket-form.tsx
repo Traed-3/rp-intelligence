@@ -6,8 +6,8 @@ import { RingLoader } from '@/components/ui/ring-loader'
 import { PartPicker, type PickedPart } from '@/components/construction/part-picker'
 import { SignaturePad } from '@/components/svc/signature-pad'
 import { money } from '@/lib/inventory'
-import { BRANDS, CHARGE_TYPES, TICKET_STATUSES, ticketStatusMeta } from '@/lib/service-tickets'
-import { saveTicketDetails, addLabor, removeLabor, addPart, removePart, addPhoto, signTicket, type ActionState } from '@/app/(app)/service/tickets/actions'
+import { BRANDS, CHARGE_TYPES, COMPLETIONS, LOCKED_STATUSES, TECH_STATUSES, TICKET_STATUSES, completionLabel, ticketStatusMeta, todayEastern } from '@/lib/service-tickets'
+import { saveTicketDetails, addLabor, removeLabor, addPart, removePart, addPhoto, signTicket, turnInTicket, reopenTicket, type ActionState } from '@/app/(app)/service/tickets/actions'
 
 const inp = 'w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500'
 const lbl = 'block text-xs font-medium text-gray-600 mb-1'
@@ -17,6 +17,7 @@ export type TicketRecord = {
   id: string; ticket_number: string; status: string; brand: string | null; store_number: string | null; csr_number: string | null; po_number: string | null
   site_address: string | null; city_state_zip: string | null; problem_reported: string | null; work_performed: string | null
   truck_location_id: string | null; technician_id: string | null; charge_type: string | null; needs_quote: boolean | null
+  completion?: string | null; rtn_reason?: string | null; finished_at?: string | null
   tech_signature_url: string | null; tech_signed_at: string | null; site_signature_url: string | null; site_signer_name: string | null; site_signer_title: string | null; site_signed_at: string | null
 }
 export type LaborRow = { id: string; work_date: string; kind: string; hours: number; tech_name?: string | null }
@@ -24,11 +25,14 @@ export type PartRow = { id: string; description: string; quantity: number; unit_
 export type PhotoRow = { id: string; url: string; kind: string | null }
 type Opt = { id: string; name: string }
 
-export function TicketForm({ ticket, labor, parts, photos, trucks, techs, canWrite, compact }: {
-  ticket: TicketRecord; labor: LaborRow[]; parts: PartRow[]; photos: PhotoRow[]; trucks: Opt[]; techs: Opt[]; canWrite: boolean; compact?: boolean
+/** `fieldRole` = a tech or mechanic: no sell prices anywhere, and only the statuses a tech may pick. */
+export function TicketForm({ ticket, labor, parts, photos, trucks, techs, canWrite, compact, fieldRole }: {
+  ticket: TicketRecord; labor: LaborRow[]; parts: PartRow[]; photos: PhotoRow[]; trucks: Opt[]; techs: Opt[]; canWrite: boolean; compact?: boolean; fieldRole?: boolean
 }) {
-  const locked = ['signed', 'invoiced', 'void'].includes(ticket.status)
-  const editable = canWrite && !locked
+  const locked = LOCKED_STATUSES.includes(ticket.status)
+  const turnedIn = !!ticket.finished_at
+  const editable = canWrite && !locked && !(fieldRole && turnedIn)
+  const statusChoices = fieldRole ? TICKET_STATUSES.filter(s => TECH_STATUSES.includes(s.value) || s.value === ticket.status) : TICKET_STATUSES
   const [state, formAction, pending] = useActionState(saveTicketDetails.bind(null, ticket.id), {} as ActionState)
   const st = ticketStatusMeta(ticket.status)
   const laborHours = labor.filter(l => l.kind !== 'trip').reduce((a, l) => a + Number(l.hours), 0)
@@ -44,6 +48,12 @@ export function TicketForm({ ticket, labor, parts, photos, trucks, techs, canWri
         </div>
         <div className="mt-1 text-lg font-bold text-gray-900">{ticket.brand ?? 'Customer'} {ticket.store_number ? `· Store ${ticket.store_number}` : ''}</div>
         {ticket.site_address && <div className="text-sm text-gray-500">{ticket.site_address}{ticket.city_state_zip ? `, ${ticket.city_state_zip}` : ''}</div>}
+        {turnedIn && (
+          <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${ticket.completion === 'rtn' ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-green-50 border-green-200 text-green-800'}`}>
+            <b>Turned in: {completionLabel(ticket.completion) ?? 'done'}</b> · {new Date(ticket.finished_at!).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+            {ticket.completion === 'rtn' && ticket.rtn_reason && <div className="mt-0.5">{ticket.rtn_reason}</div>}
+          </div>
+        )}
         {locked && <div className="mt-2 text-xs text-green-700">Locked: this ticket is {st.label.toLowerCase()}. Ask the office to reopen it if something is wrong.</div>}
       </div>
 
@@ -67,13 +77,13 @@ export function TicketForm({ ticket, labor, parts, photos, trucks, techs, canWri
           <div><label className={lbl} htmlFor="t-charge">Charge type</label>
             <select id="t-charge" name="charge_type" className={inp} defaultValue={ticket.charge_type ?? 'billable'} disabled={!editable}>{CHARGE_TYPES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
           <div><label className={lbl} htmlFor="t-status">Status</label>
-            <select id="t-status" name="status" className={inp} defaultValue={ticket.status} disabled={!canWrite}>{TICKET_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+            <select id="t-status" name="status" className={inp} defaultValue={ticket.status} disabled={fieldRole ? !editable : !canWrite}>{statusChoices.map(s => <option key={s.value} value={s.value} disabled={!!fieldRole && !TECH_STATUSES.includes(s.value)}>{s.label}</option>)}</select></div>
         </div>
         <div><label className={lbl} htmlFor="t-problem">Problem reported</label><textarea id="t-problem" name="problem_reported" rows={2} className={inp} defaultValue={ticket.problem_reported ?? ''} disabled={!editable} /></div>
-        <div><label className={lbl} htmlFor="t-work">Work performed <span className="text-gray-400">(this becomes the invoice description)</span></label>
+        <div><label className={lbl} htmlFor="t-work">Work performed{!fieldRole && <span className="text-gray-400"> (this becomes the invoice description)</span>}</label>
           <textarea id="t-work" name="work_performed" rows={4} className={inp} defaultValue={ticket.work_performed ?? ''} disabled={!editable} placeholder="Arrived on site. Found… Replaced… Tested, all functions normal." /></div>
         <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="needs_quote" defaultChecked={!!ticket.needs_quote} disabled={!editable} className="w-4 h-4 rounded border-gray-300" />Needs a quote before more work (over NTE)</label>
-        {canWrite && <button type="submit" disabled={pending} className="w-full rounded-xl bg-primary text-primary-foreground text-sm font-semibold py-2.5 disabled:opacity-50">{pending ? 'Saving…' : 'Save details'}</button>}
+        {(fieldRole ? editable : canWrite) && <button type="submit" disabled={pending} className="w-full rounded-xl bg-primary text-primary-foreground text-sm font-semibold py-2.5 disabled:opacity-50">{pending ? 'Saving…' : 'Save details'}</button>}
       </form>
 
       {/* Labor */}
@@ -91,7 +101,7 @@ export function TicketForm({ ticket, labor, parts, photos, trucks, techs, canWri
         )}
         {editable && (
           <form action={addLabor.bind(null, ticket.id)} className="grid grid-cols-3 gap-2 items-end">
-            <div><label className={lbl} htmlFor="l-date">Date</label><input id="l-date" name="work_date" type="date" className={inp} defaultValue={new Date().toISOString().slice(0, 10)} required /></div>
+            <div><label className={lbl} htmlFor="l-date">Date</label><input id="l-date" name="work_date" type="date" className={inp} defaultValue={todayEastern()} required /></div>
             <div><label className={lbl} htmlFor="l-hours">On-site hrs</label><input id="l-hours" name="hours" type="number" step="0.5" inputMode="decimal" className={inp} required placeholder="8" /></div>
             <div><label className={lbl} htmlFor="l-trip">Trip hrs</label><input id="l-trip" name="trip_hours" type="number" step="0.5" inputMode="decimal" className={inp} placeholder="2" /></div>
             <div className="col-span-3"><button type="submit" className="w-full rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold py-2">+ Add day</button></div>
@@ -107,12 +117,12 @@ export function TicketForm({ ticket, labor, parts, photos, trucks, techs, canWri
             {parts.map(p => (
               <li key={p.id} className="flex items-start justify-between py-1.5 text-sm gap-2">
                 <span className="min-w-0"><span className="text-gray-900">{p.description}</span>{p.part_number && <span className="ml-1 font-mono text-xs text-blue-700">{p.part_number}</span>}<div className="text-xs text-gray-500">{p.location_name ?? 'no location'}{p.charge_type && p.charge_type !== 'billable' ? ` · ${p.charge_type}` : ''}</div></span>
-                <span className="flex items-center gap-3 tabular-nums whitespace-nowrap">{Number(p.quantity)} × {p.sell_price != null ? money(p.sell_price) : <span className="text-pink-600">price?</span>}{editable && <RemoveButton action={() => removePart(ticket.id, p.id)} />}</span>
+                <span className="flex items-center gap-3 tabular-nums whitespace-nowrap">{fieldRole ? <>Qty {Number(p.quantity)}</> : <>{Number(p.quantity)} × {p.sell_price != null ? money(p.sell_price) : <span className="text-pink-600">price?</span>}</>}{editable && <RemoveButton action={() => removePart(ticket.id, p.id)} />}</span>
               </li>
             ))}
           </ul>
         )}
-        {editable && <AddPartForm ticketId={ticket.id} trucks={trucks} defaultTruck={ticket.truck_location_id} />}
+        {editable && <AddPartForm ticketId={ticket.id} trucks={trucks} defaultTruck={ticket.truck_location_id} fieldRole={fieldRole} />}
       </div>
 
       {/* Photos */}
@@ -137,6 +147,8 @@ export function TicketForm({ ticket, labor, parts, photos, trucks, techs, canWri
           signedLabel={ticket.site_signed_at ? `${ticket.site_signer_name ?? ''}${ticket.site_signer_title ? `, ${ticket.site_signer_title}` : ''} · ${new Date(ticket.site_signed_at).toLocaleString()}` : null}
           onSave={(d, n, t) => signTicket(ticket.id, 'site', d, n, t)} disabled={!canWrite} />
       </div>
+
+      {canWrite && !['invoiced', 'void'].includes(ticket.status) && <TurnIn ticket={ticket} canReopen={turnedIn && !locked} />}
     </div>
   )
 }
@@ -146,7 +158,36 @@ function RemoveButton({ action }: { action: () => Promise<void> }) {
   return <button type="button" onClick={() => start(action)} disabled={pending} className="text-gray-300 hover:text-red-500" aria-label="Remove"><Trash2 className="w-4 h-4" /></button>
 }
 
-function AddPartForm({ ticketId, trucks, defaultTruck }: { ticketId: string; trucks: Opt[]; defaultTruck: string | null }) {
+/** The last step: Job complete or Return trip needed. Until this is pressed the office does not see the ticket as done. */
+function TurnIn({ ticket, canReopen }: { ticket: TicketRecord; canReopen: boolean }) {
+  const [state, action, pending] = useActionState(turnInTicket.bind(null, ticket.id), {} as ActionState)
+  const [choice, setChoice] = useState<string>('complete')
+  const [reopening, start] = useTransition()
+  if (ticket.finished_at) return canReopen ? (
+    <div className={card}>
+      <p className="text-sm text-gray-600 mb-2">This ticket is turned in. Need to fix something?</p>
+      <button type="button" disabled={reopening} onClick={() => start(() => reopenTicket(ticket.id))} className="w-full rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 py-2.5 disabled:opacity-50">{reopening ? 'Reopening…' : 'Reopen ticket'}</button>
+    </div>
+  ) : null
+  return (
+    <form action={action} className={`${card} space-y-3 border-2 border-primary/30`}>
+      <h2 className="font-semibold text-gray-900">Turn in ticket</h2>
+      <p className="text-xs text-gray-500">Save your details, hours, parts and photos above first. The office sees the ticket as done once you turn it in.</p>
+      {state?.error && <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{state.error}</div>}
+      <div className="grid grid-cols-2 gap-2">
+        {COMPLETIONS.map(c => (
+          <label key={c.value} className={`flex items-center justify-center text-center rounded-xl border px-3 py-3 text-sm font-semibold cursor-pointer ${choice === c.value ? (c.value === 'rtn' ? 'bg-amber-100 border-amber-400 text-amber-900' : 'bg-green-100 border-green-500 text-green-900') : 'bg-card border-gray-300 text-gray-700'}`}>
+            <input type="radio" name="completion" value={c.value} checked={choice === c.value} onChange={() => setChoice(c.value)} className="sr-only" />{c.label}
+          </label>
+        ))}
+      </div>
+      {choice === 'rtn' && <div><label className={lbl} htmlFor="t-rtn">Why is a return trip needed?</label><textarea id="t-rtn" name="rtn_reason" rows={2} className={inp} placeholder="Waiting on part, need second tech, store closed…" required /></div>}
+      <button type="submit" disabled={pending} className="w-full rounded-xl bg-primary text-primary-foreground text-sm font-semibold py-3 disabled:opacity-50">{pending ? 'Turning in…' : 'Turn in ticket'}</button>
+    </form>
+  )
+}
+
+function AddPartForm({ ticketId, trucks, defaultTruck, fieldRole }: { ticketId: string; trucks: Opt[]; defaultTruck: string | null; fieldRole?: boolean }) {
   const [desc, setDesc] = useState('')
   const [partId, setPartId] = useState<string | null>(null)
   const [price, setPrice] = useState('')
@@ -156,9 +197,9 @@ function AddPartForm({ ticketId, trucks, defaultTruck }: { ticketId: string; tru
       <input type="hidden" name="part_id" value={partId ?? ''} />
       <input type="hidden" name="description" value={desc} />
       <PartPicker prefer="sell" value={desc} onChange={t => { setDesc(t); setPartId(null) }} onPick={(p: PickedPart) => { setDesc(p.part_number ? `${p.description} (${p.part_number})` : p.description); setPartId(p.id); setPrice(p.suggested_price != null ? String(p.suggested_price) : '') }} className={inp} placeholder="Part number or description" />
-      <div className="grid grid-cols-3 gap-2">
+      <div className={`grid gap-2 ${fieldRole ? 'grid-cols-2' : 'grid-cols-3'}`}>
         <div><label className={lbl} htmlFor="p-qty">Qty</label><input id="p-qty" name="quantity" type="number" step="any" inputMode="decimal" className={inp} defaultValue="1" /></div>
-        <div><label className={lbl} htmlFor="p-sell">Sell $</label><input id="p-sell" name="sell_price" type="number" step="any" inputMode="decimal" className={inp} value={price} onChange={e => setPrice(e.target.value)} placeholder="auto" /></div>
+        {!fieldRole && <div><label className={lbl} htmlFor="p-sell">Sell $</label><input id="p-sell" name="sell_price" type="number" step="any" inputMode="decimal" className={inp} value={price} onChange={e => setPrice(e.target.value)} placeholder="auto" /></div>}
         <div><label className={lbl} htmlFor="p-loc">From</label><select id="p-loc" name="from_location" className={inp} defaultValue={defaultTruck ?? ''}><option value="">—</option>{trucks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
       </div>
       <button type="submit" disabled={!desc.trim()} className="w-full rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold py-2 disabled:opacity-50">+ Add part</button>
@@ -171,19 +212,22 @@ function PhotoButton({ ticketId }: { ticketId: string }) {
   const [err, setErr] = useState<string | null>(null)
   const [, start] = useTransition()
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]; if (!file) return
+    const files = Array.from(e.target.files ?? []).slice(0, 12); if (!files.length) return
     setBusy(true); setErr(null)
     try {
-      const fd = new FormData(); fd.append('file', file); fd.append('bucket', 'ticket-attachments')
-      const r = await fetch('/api/upload', { method: 'POST', body: fd }); const j = await r.json()
-      if (!r.ok || !j.url) throw new Error(j.error ?? 'Upload failed')
-      start(() => addPhoto(ticketId, j.url, 'after'))
+      for (const file of files) {
+        const fd = new FormData(); fd.append('file', file); fd.append('bucket', 'ticket-attachments')
+        const r = await fetch('/api/upload', { method: 'POST', body: fd }); const j = await r.json()
+        if (!r.ok || !j.url) throw new Error(j.error ?? 'Upload failed')
+        await addPhoto(ticketId, j.url, 'after')
+      }
+      start(() => {})
     } catch (x) { setErr((x as Error).message) } finally { setBusy(false); e.target.value = '' }
   }
   return (
     <label className="flex items-center justify-center gap-2 w-full rounded-xl border border-dashed border-gray-300 py-3 text-sm text-gray-600 cursor-pointer hover:border-blue-300">
-      {busy ? <RingLoader /> : <Camera className="w-4 h-4" />}{busy ? 'Uploading…' : 'Take or add a photo'}
-      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} disabled={busy} />
+      {busy ? <RingLoader /> : <Camera className="w-4 h-4" />}{busy ? 'Uploading…' : 'Take or add photos'}
+      <input type="file" accept="image/*" multiple className="hidden" onChange={onFile} disabled={busy} />
       {err && <span className="text-red-600 text-xs">{err}</span>}
     </label>
   )

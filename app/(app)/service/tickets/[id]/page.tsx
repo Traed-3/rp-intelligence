@@ -16,7 +16,7 @@ export default async function ServiceTicketDetailPage({ params }: { params: Prom
   const { data: { user } } = await supabase.auth.getUser()
   const admin = createAdminClient()
   const { data: profile } = await admin.from('profiles').select('id, company_id, role').eq('id', user!.id).single()
-  const data = await loadTicket(id, profile!.company_id)
+  const data = await loadTicket(id, profile!.company_id, { hideSell: noAccountingOrHr(profile?.role) })
   if (!data) notFound()
   const canWrite = canWriteServiceTickets(profile?.role)
   const t = data.ticket
@@ -44,7 +44,7 @@ export default async function ServiceTicketDetailPage({ params }: { params: Prom
           <p className="text-xs text-gray-500 mt-2">The invoice button appears once the ticket is marked <b>Work done</b> or both signatures are in. Labor is priced from the {t.brand ?? 'Independent'} rate card; disposables are added per tech-day.</p>
         )}
       </div>
-      <TicketForm ticket={t} labor={data.labor} parts={data.parts} photos={data.photos} trucks={data.trucks} techs={data.techs} canWrite={canWrite} />
+      <TicketForm ticket={t} labor={data.labor} parts={data.parts} photos={data.photos} trucks={data.trucks} techs={data.techs} canWrite={canWrite} fieldRole={noAccountingOrHr(profile?.role)} />
     </div>
   )
 }
