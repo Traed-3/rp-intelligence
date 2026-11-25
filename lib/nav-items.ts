@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Truck, Wrench, ClipboardList, Users, BarChart3, Settings, Receipt, FileText, Home, HardHat,
-  CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, Search, LifeBuoy, Mail, GraduationCap, type LucideIcon,
+  CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, Search, LifeBuoy, Mail, GraduationCap, ScrollText, type LucideIcon,
 } from 'lucide-react'
 import { canReadConstruction } from '@/lib/construction'
 import { canUseFieldSurveys, isSurveyOnly } from '@/lib/field-surveys'
@@ -32,6 +32,8 @@ const navItems: NavItem[] = [
   item({ href: '/construction/sites', label: 'Site Lookup', short: 'Sites', icon: Search, construction: true, module: 'construction' }),
   // 7-Eleven / Wawa / Sunoco service calls, synced from rpdispatcher + rpinvoicing.
   item({ href: '/service', label: 'Service Dispatch', short: 'Service', icon: Fuel, module: 'service_dispatch' }),
+  // Every ticket the techs emailed in, typed out and searchable (Trae, 11/25/26: one click from the main menu).
+  item({ href: '/service/tickets/log', label: 'All Tickets', short: 'Tickets', icon: ScrollText, module: 'service_dispatch' }),
   item({ href: '/billing', label: 'Quotes & Invoices', short: 'Quotes', icon: FileText, billing: true, module: 'billing' }),
   item({ href: '/inventory', label: 'Inventory', short: 'Stock', icon: Package, module: 'inventory' }),
   item({ href: '/compliance', label: 'DQF & Certs', short: 'DQF', icon: ShieldCheck, compliance: true, module: 'compliance' }),
