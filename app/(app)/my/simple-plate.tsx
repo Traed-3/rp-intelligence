@@ -48,9 +48,10 @@ export async function SimplePlate({ profile }: { profile: { id: string; company_
           <p className="rp-subtitle">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })} · what is on you</p>
         </div>
         <div className="flex flex-wrap gap-2 font-mono text-xs">
-          <span className="px-2 py-1 rounded border border-info/25 bg-info-soft text-info"><b className="tabular-nums">{open.length}</b> to do</span>
-          {plate.waiting.length > 0 && <span className="px-2 py-1 rounded border border-warning/25 bg-warning-soft text-warning"><b className="tabular-nums">{plate.waiting.length}</b> waiting</span>}
-          <span className="px-2 py-1 rounded border border-success/25 bg-success-soft text-success"><b className="tabular-nums">{plate.doneToday.length}</b> done today</span>
+          {/* Numbers lit like the RPMail dashboard (Trae, 11/25/26): blue = to do, amber = waiting, green = done. */}
+          <span className="px-2 py-1 rounded border border-info/30 bg-card text-muted-foreground"><b className="tabular-nums rp-led rp-led-blue">{open.length}</b> to do</span>
+          {plate.waiting.length > 0 && <span className="px-2 py-1 rounded border border-warning/30 bg-card text-muted-foreground"><b className="tabular-nums rp-led rp-led-amber">{plate.waiting.length}</b> waiting</span>}
+          <span className="px-2 py-1 rounded border border-success/30 bg-card text-muted-foreground"><b className="tabular-nums rp-led rp-led-green">{plate.doneToday.length}</b> done today</span>
         </div>
       </header>
 
