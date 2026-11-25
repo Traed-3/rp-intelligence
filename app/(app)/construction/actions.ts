@@ -6,6 +6,8 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import {
   canWriteConstruction,
+  canPostDailyUpdate,
+  DAILY_UPDATE_ACTIVE_STAGES,
   CON_DOC_CATEGORY_VALUES,
 } from '@/lib/construction'
 import { classifySite } from '@/lib/site-number'
@@ -584,7 +586,13 @@ export async function deleteJobLabor(id: string): Promise<void> {
 export async function addDailyUpdate(jobId: string, _state: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await getProfile()
   if (!profile) return { error: 'Not authenticated.' }
-  if (!canWriteConstruction(profile)) return { error: 'No permission.' }
+  if (!canPostDailyUpdate(profile)) return { error: 'No permission.' }
+
+  // The job has to be one of ours. A construction tech (no Construction module) may only post to a job a crew
+  // could be on today, the same list the phone form offers.
+  const { data: job } = await createAdminClient().from('con_jobs').select('id, stage').eq('id', jobId).eq('company_id', profile.company_id).maybeSingle()
+  if (!job) return { error: 'That job was not found.' }
+  if (!canWriteConstruction(profile) && !DAILY_UPDATE_ACTIVE_STAGES.includes(job.stage ?? '')) return { error: 'That job is not active. Ask the office to schedule it.' }
 
   const workDescription = str(formData.get('work_description'))
   // Tech rows arrive as parallel arrays: tech_name[], initials[], hours[]

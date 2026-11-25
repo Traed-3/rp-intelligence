@@ -4,6 +4,7 @@ import { buildNav, allowedDashboardCards } from '../lib/nav-items'
 import { canReadCompliance } from '../lib/compliance'
 import { canUseFieldSurveys } from '../lib/field-surveys'
 import { moduleForPath } from '../lib/modules'
+import { canPostDailyUpdate, canReadConstruction } from '../lib/construction'
 
 let bad = 0
 const expect = (what: string, got: unknown, want: unknown) => { if (got !== want) { bad++; console.log(`FAIL ${what}: got ${got}, want ${want}`) } }
@@ -62,5 +63,9 @@ for (const role of ['service_tech', 'construction_tech', 'mechanic', 'shop_emplo
   expect(`${role} DQF card`, cards.includes('compliance'), false)
   console.log(role.padEnd(18), 'menu:', nav.sidebar.map(i => i.label).join(', '), '| phone:', nav.defaultTabs.map(i => i.label).join(', '), '| cards:', cards.join(', ') || '-')
 }
+// Daily update from the phone: construction crews post their own; nobody else on the field side, and it opens nothing else in Construction.
+for (const [role, want] of [['construction_tech', true], ['service_tech', false], ['mechanic', false], ['shop_employee', false], ['construction_manager', true]] as const)
+  expect(`${role} may post a daily update`, canPostDailyUpdate({ id: 'x', role }), want)
+expect('construction_tech still has no Construction module', canReadConstruction({ id: 'x', role: 'construction_tech' }), false)
 expect('Peggy (construction_admin, on the list) keeps DQF', canReadCompliance({ id: 'x', role: 'construction_admin' }, true), true)
 console.log(bad ? `${bad} FAILED` : 'ALL PASS'); process.exit(bad ? 1 : 0)
