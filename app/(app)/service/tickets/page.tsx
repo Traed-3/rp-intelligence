@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ClickableRow } from '@/components/clickable-row'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { TICKET_STATUSES, ticketStatusMeta, canWriteServiceTickets, BRANDS } from '@/lib/service-tickets'
+import { TICKET_STATUSES, ticketStatusMeta, canWriteServiceTickets, completionLabel, BRANDS } from '@/lib/service-tickets'
 import { createServiceTicket } from './actions'
 import { fmtDate } from '@/lib/billing'
 import { Plus } from 'lucide-react'
@@ -18,10 +18,11 @@ export default async function ServiceTicketsPage({ searchParams }: { searchParam
   const company_id = profile!.company_id
   const canWrite = canWriteServiceTickets(profile?.role)
 
-  let q = admin.from('service_tickets').select('id, ticket_number, status, brand, store_number, csr_number, work_performed, updated_at, needs_quote, svc_technicians(full_name), site_signed_at, tech_signed_at')
+  let q = admin.from('service_tickets').select('id, ticket_number, status, brand, store_number, csr_number, work_performed, updated_at, needs_quote, completion, rtn_reason, finished_at, svc_technicians(full_name), site_signed_at, tech_signed_at')
     .eq('company_id', company_id).order('updated_at', { ascending: false }).limit(200)
   if (status === 'open') q = q.not('status', 'in', '(invoiced,void)')
   else if (status === 'to_invoice') q = q.eq('status', 'signed')
+  else if (status === 'turned_in') q = q.not('finished_at', 'is', null).not('status', 'in', '(invoiced,void)')
   else if (status) q = q.eq('status', status)
   const { data: rows } = await q
   const list = rows ?? []
@@ -39,7 +40,7 @@ export default async function ServiceTicketsPage({ searchParams }: { searchParam
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        {[{ v: '', l: 'All' }, { v: 'open', l: 'Open' }, { v: 'to_invoice', l: 'Signed · ready to invoice' }, ...TICKET_STATUSES.map(s => ({ v: s.value, l: s.label }))].map(f => (
+        {[{ v: '', l: 'All' }, { v: 'open', l: 'Open' }, { v: 'turned_in', l: 'Turned in by the tech' }, { v: 'to_invoice', l: 'Signed · ready to invoice' }, ...TICKET_STATUSES.map(s => ({ v: s.value, l: s.label }))].map(f => (
           <Link key={f.v} href={f.v ? `/service/tickets?status=${f.v}` : '/service/tickets'} className={`text-xs px-3 py-1.5 rounded-full border ${status === f.v ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-gray-600 border-gray-200 hover:border-blue-300'}`}>{f.l}</Link>
         ))}
       </div>
@@ -55,9 +56,9 @@ export default async function ServiceTicketsPage({ searchParams }: { searchParam
                     <td className="px-4 py-3"><div className="font-mono text-gray-900">{t.ticket_number}</div><div className="text-xs text-gray-400">{fmtDate(t.updated_at)}</div></td>
                     <td className="px-4 py-3"><div className="text-gray-900">{t.brand ?? '—'}{t.store_number ? ` · ${t.store_number}` : ''}</div><div className="text-xs text-gray-400 font-mono">{t.csr_number ?? ''}</div></td>
                     <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{tech?.full_name ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 hidden lg:table-cell max-w-md truncate">{t.work_performed ?? <span className="text-gray-300">—</span>}{t.needs_quote && <span className="ml-2 text-xs text-amber-700">needs quote</span>}</td>
+                    <td className="px-4 py-3 text-gray-600 hidden lg:table-cell max-w-md truncate">{t.work_performed ?? <span className="text-gray-300">—</span>}{t.needs_quote && <span className="ml-2 text-xs text-amber-700">needs quote</span>}{t.finished_at && <div className={`text-xs ${t.completion === 'rtn' ? 'text-amber-700' : 'text-green-700'}`}>{completionLabel(t.completion) ?? 'Turned in'}{t.completion === 'rtn' && t.rtn_reason ? `: ${t.rtn_reason}` : ''}</div>}</td>
                     <td className="px-4 py-3 text-xs text-gray-600">{t.tech_signed_at ? 'Tech ✓' : 'Tech –'} / {t.site_signed_at ? 'Site ✓' : 'Site –'}</td>
-                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full border ${st.className}`}>{st.label}</span></td>
+                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full border ${st.className}`}>{st.label}</span>{t.completion === 'rtn' && <span className="ml-1 text-xs px-2 py-0.5 rounded-full border bg-amber-100 text-amber-800 border-amber-200">RTN</span>}</td>
                     <td className="px-4 py-3 text-right"><span className="text-xs font-medium text-blue-600">Open →</span></td>
                   </ClickableRow>) })}
               </tbody>

@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { computeDocumentTotals } from '@/lib/billing'
 import { sellPriceForLine } from '@/lib/inventory'
 import { noAccountingOrHr } from '@/lib/role-access'
-import { brandFromWorkOrder, buildInvoiceLines, canWriteServiceTickets, rateCardNameForBrand, DEFAULT_SERVICE_TAX } from '@/lib/service-tickets'
+import { brandFromWorkOrder, buildInvoiceLines, canWriteServiceTickets, rateCardNameForBrand, DEFAULT_SERVICE_TAX, TECH_STATUSES, LOCKED_STATUSES, TICKET_STATUSES, turnInProblems } from '@/lib/service-tickets'
 
 export type ActionState = { error?: string; ok?: boolean }
 
@@ -21,6 +21,19 @@ async function me() {
   const admin = createAdminClient()
   const { data } = await admin.from('profiles').select('id, company_id, role, full_name').eq('id', user.id).single()
   return data
+}
+type Me = NonNullable<Awaited<ReturnType<typeof me>>>
+/**
+ * The ticket, only if it is this company's. `edit` also refuses a ticket that is locked (signed / invoiced / void), and for
+ * techs and mechanics one they already turned in: they reopen it first. Every change below goes through this, so a ticket id
+ * from another company, or a stale phone screen, changes nothing.
+ */
+async function ticketFor(p: Me, id: string, edit = true) {
+  const { data: t } = await createAdminClient().from('service_tickets')
+    .select('id, status, store_number, work_performed, finished_at, tech_signature_url, site_signature_url').eq('id', id).eq('company_id', p.company_id).maybeSingle()
+  if (!t) return null
+  if (edit && (LOCKED_STATUSES.includes(t.status) || (noAccountingOrHr(p.role) && t.finished_at))) return null
+  return t
 }
 function paths(id: string) {
   for (const p of ['/service/tickets', `/service/tickets/${id}`, '/mobile/service-ticket', `/mobile/service-ticket/${id}`]) revalidatePath(p)
@@ -61,6 +74,12 @@ export async function createServiceTicket(formData: FormData): Promise<void> {
 export async function saveTicketDetails(id: string, _s: ActionState, formData: FormData): Promise<ActionState> {
   const p = await me()
   if (!p || !canWriteServiceTickets(p.role)) return { error: 'No permission.' }
+  const field = noAccountingOrHr(p.role)
+  const current = await ticketFor(p, id, field)   // the office may still change the status of a locked ticket (that is how it reopens one)
+  if (!current) return { error: field ? 'This ticket is turned in or locked. Reopen it first.' : 'Ticket not found.' }
+  // Techs pick Open / Dispatched / On site only. Work done comes from Turn in; Signed, Invoiced and Void are the office's.
+  const asked = str(formData, 'status')
+  const status = asked && TICKET_STATUSES.some(s => s.value === asked) && (!field || TECH_STATUSES.includes(asked)) ? asked : undefined
   const admin = createAdminClient()
   const { error } = await admin.from('service_tickets').update({
     store_number: str(formData, 'store_number'), csr_number: str(formData, 'csr_number'), po_number: str(formData, 'po_number'),
@@ -68,14 +87,14 @@ export async function saveTicketDetails(id: string, _s: ActionState, formData: F
     problem_reported: str(formData, 'problem_reported'), work_performed: str(formData, 'work_performed'),
     truck_location_id: str(formData, 'truck_location_id'), technician_id: str(formData, 'technician_id'),
     charge_type: str(formData, 'charge_type') ?? 'billable', needs_quote: formData.get('needs_quote') === 'on',
-    status: str(formData, 'status') ?? undefined,
+    status,
   }).eq('id', id).eq('company_id', p.company_id)
   if (error) return { error: error.message }
   paths(id); return { ok: true }
 }
 
 export async function addLabor(id: string, formData: FormData): Promise<void> {
-  const p = await me(); if (!p || !canWriteServiceTickets(p.role)) return
+  const p = await me(); if (!p || !canWriteServiceTickets(p.role) || !(await ticketFor(p, id))) return
   const admin = createAdminClient()
   const hours = num(formData, 'hours'); const work_date = str(formData, 'work_date')
   if (!hours || !work_date) return
@@ -85,36 +104,40 @@ export async function addLabor(id: string, formData: FormData): Promise<void> {
   paths(id)
 }
 export async function removeLabor(id: string, laborId: string): Promise<void> {
-  const p = await me(); if (!p || !canWriteServiceTickets(p.role)) return
+  const p = await me(); if (!p || !canWriteServiceTickets(p.role) || !(await ticketFor(p, id))) return
   await createAdminClient().from('service_ticket_labor').delete().eq('id', laborId).eq('ticket_id', id); paths(id)
 }
 
 export async function addPart(id: string, formData: FormData): Promise<void> {
-  const p = await me(); if (!p || !canWriteServiceTickets(p.role)) return
+  const p = await me(); if (!p || !canWriteServiceTickets(p.role) || !(await ticketFor(p, id))) return
   const admin = createAdminClient()
   const description = str(formData, 'description'); if (!description) return
   const partId = str(formData, 'part_id')
-  let unit_cost = num(formData, 'unit_cost'), sell_price = num(formData, 'sell_price'), is_stock = false
+  // Techs and mechanics never set what we charge: their line is priced from the catalog below, or left for the office.
+  const field = noAccountingOrHr(p.role)
+  let unit_cost = field ? null : num(formData, 'unit_cost'), sell_price = field ? null : num(formData, 'sell_price'), is_stock = false
   if (partId) {
-    const { data: part } = await admin.from('parts').select('unit_cost, freight_per_unit, taxable, markup_pct, sell_price, is_stocked').eq('id', partId).maybeSingle()
+    const { data: part } = await admin.from('parts').select('unit_cost, freight_per_unit, taxable, markup_pct, sell_price, is_stocked').eq('id', partId).eq('company_id', p.company_id).maybeSingle()
     if (part) { unit_cost = unit_cost ?? part.unit_cost; sell_price = sell_price ?? (part.sell_price != null ? Number(part.sell_price) : sellPriceForLine(part, 0)); is_stock = !!part.is_stocked }
   }
   await admin.from('service_ticket_parts').insert({ ticket_id: id, part_id: partId, description, quantity: num(formData, 'quantity') ?? 1, unit_cost, sell_price, charge_type: str(formData, 'charge_type') ?? 'billable', from_location: str(formData, 'from_location'), serial_number: str(formData, 'serial_number'), is_stock })
   paths(id)
 }
 export async function removePart(id: string, partRowId: string): Promise<void> {
-  const p = await me(); if (!p || !canWriteServiceTickets(p.role)) return
+  const p = await me(); if (!p || !canWriteServiceTickets(p.role) || !(await ticketFor(p, id))) return
   await createAdminClient().from('service_ticket_parts').delete().eq('id', partRowId).eq('ticket_id', id); paths(id)
 }
 
 export async function addPhoto(id: string, url: string, kind: string): Promise<void> {
-  const p = await me(); if (!p || !canWriteServiceTickets(p.role) || !url) return
+  const p = await me(); if (!p || !canWriteServiceTickets(p.role) || !url || !(await ticketFor(p, id))) return
   await createAdminClient().from('service_ticket_photos').insert({ ticket_id: id, url, kind: kind || 'after' }); paths(id)
 }
 
 /** Save a drawn signature (PNG data URL) and, once both parties have signed, lock the ticket and post the stock issues. */
 export async function signTicket(id: string, who: 'tech' | 'site', dataUrl: string, signerName?: string, signerTitle?: string): Promise<{ error?: string }> {
   const p = await me(); if (!p || !canWriteServiceTickets(p.role)) return { error: 'No permission.' }
+  const own = await ticketFor(p, id, false)
+  if (!own || ['invoiced', 'void'].includes(own.status)) return { error: 'This ticket can no longer be signed.' }
   const m = /^data:image\/png;base64,(.+)$/.exec(dataUrl ?? '')
   if (!m) return { error: 'Signature is empty.' }
   const admin = createAdminClient()
@@ -152,8 +175,40 @@ async function postStockIssues(ticketId: string, companyId: string, userId: stri
   if (rows.length) await admin.from('inventory_transactions').insert(rows)
 }
 
-export async function setTicketStatus(id: string, status: string): Promise<void> {
+/**
+ * Turn the ticket in: the tech says Job complete or Return trip needed (with why), the same two answers the paper ticket
+ * email carries. The ticket goes to Work done (a ticket both people already signed stays Signed) and shows under
+ * "Turned in" on the office's Field Tickets list. It does NOT change the service call: the office closes calls.
+ */
+export async function turnInTicket(id: string, _s: ActionState, formData: FormData): Promise<ActionState> {
+  const p = await me(); if (!p || !canWriteServiceTickets(p.role)) return { error: 'No permission.' }
+  const t = await ticketFor(p, id, false)
+  if (!t || ['invoiced', 'void'].includes(t.status)) return { error: 'This ticket can no longer be changed.' }
+  if (t.finished_at) return { error: 'This ticket is already turned in.' }
+  const admin = createAdminClient()
+  const completion = str(formData, 'completion'), rtn_reason = str(formData, 'rtn_reason')
+  const { count } = await admin.from('service_ticket_labor').select('id', { count: 'exact', head: true }).eq('ticket_id', id).neq('kind', 'trip')
+  const problems = turnInProblems(t, count ?? 0, completion, rtn_reason)
+  if (problems.length) return { error: problems.join(' ') }
+  const { error } = await admin.from('service_tickets').update({
+    completion, rtn_reason: completion === 'rtn' ? rtn_reason : null, finished_at: new Date().toISOString(), finished_by: p.id,
+    status: t.status === 'signed' ? 'signed' : 'complete',
+  }).eq('id', id).eq('company_id', p.company_id)
+  if (error) return { error: error.message }
+  paths(id); return { ok: true }
+}
+
+/** Take a turned-in ticket back to fix something. Not once both people signed it or the office invoiced it. */
+export async function reopenTicket(id: string): Promise<void> {
   const p = await me(); if (!p || !canWriteServiceTickets(p.role)) return
+  const t = await ticketFor(p, id, false)
+  if (!t || !t.finished_at || LOCKED_STATUSES.includes(t.status)) return
+  await createAdminClient().from('service_tickets').update({ completion: null, rtn_reason: null, finished_at: null, finished_by: null, status: 'on_site' }).eq('id', id).eq('company_id', p.company_id)
+  paths(id)
+}
+
+export async function setTicketStatus(id: string, status: string): Promise<void> {
+  const p = await me(); if (!p || !canWriteServiceTickets(p.role) || noAccountingOrHr(p.role) || !TICKET_STATUSES.some(s => s.value === status)) return
   await createAdminClient().from('service_tickets').update({ status }).eq('id', id).eq('company_id', p.company_id); paths(id)
 }
 
