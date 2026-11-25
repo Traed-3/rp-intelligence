@@ -20,12 +20,15 @@ import { ConfirmButton } from '@/components/construction/confirm-button'
 import { AssignSubcontractor } from '@/components/construction/assign-subcontractor'
 import { Button } from '@/components/ui/button'
 import { TicketDocsCard, TICKET_DOC_COLUMNS, type TicketDocRow } from '@/components/svc/ticket-docs-card'
+import { loadJobCosts, type JobCosts } from '@/lib/job-costs'
+import { JobMaterialOrders, JobCostBreakdown, type SiblingPurchases } from '@/components/construction/job-costs-view'
+import { LaborRateForm } from '@/components/construction/labor-rate-form'
 import { Pencil, Plus, FileText, Image as ImageIcon } from 'lucide-react'
 import {
   changeJobStage, saveMaterial, setMaterialStatus, deleteMaterial,
   saveScheduleEntry, deleteScheduleEntry,
   toggleCloseoutTask, deleteCloseoutTask, addCloseoutTask, seedCloseoutTasks,
-  addJobLabor, deleteJobLabor, deleteDocument,
+  addJobLabor, deleteJobLabor, deleteDocument, saveLaborCostRate,
   addDailyUpdate, deleteDailyUpdate, confirmFieldTicketDraft, addDisposablesForm, deleteDisposablesForm,
   assignSubcontractor, unassignSubcontractor,
 } from '../../actions'
@@ -52,7 +55,7 @@ export default async function JobDetailPage({
 }) {
   const { id } = await params
   const { tab = 'overview' } = await searchParams
-  const { company_id, canWrite } = await requireConstruction()
+  const { company_id, canWrite, role } = await requireConstruction()
   const admin = createAdminClient()
 
   const { data: job } = await admin
@@ -113,6 +116,27 @@ export default async function JobDetailPage({
   const customerName = (job as any).con_customers?.name
   const managerName = (job as any).profiles?.full_name
   const vendorNames = (vendorRows ?? []).map(v => v.name).filter(Boolean)
+
+  // What the job has cost so far (Materials tab + Cost Summary): purchases, other expenses and labor.
+  const needsCosts = tab === 'materials' || tab === 'cost'
+  const costs: (JobCosts & { billedLabor: number }) | null = needsCosts
+    ? await loadJobCosts(admin, company_id, {
+        id, site_number: job.site_number, po_number: job.po_number, gas_brand: job.gas_brand, customer: customerName ?? null,
+      }, (labor ?? []) as any)
+    : null
+  // Purchases filed on this site's other projects, so nothing looks missing when a site runs two jobs.
+  let siblingPurchases: SiblingPurchases = []
+  if (needsCosts && siteJobIds.length) {
+    const [{ data: sibExp }, { data: sibDocs }, { data: sibJobs }] = await Promise.all([
+      admin.from('expenses').select('con_job_id').eq('company_id', company_id).in('con_job_id', siteJobIds),
+      admin.from('billing_inbox_documents').select('con_job_id, id').eq('company_id', company_id).in('con_job_id', siteJobIds).in('kind', ['vendor_invoice', 'packing_slip', 'receipt']),
+      admin.from('con_jobs').select('id, job_number, site_number, work_order_number').in('id', siteJobIds),
+    ])
+    const n = new Map<string, number>()
+    for (const r of [...(sibExp ?? []), ...(sibDocs ?? [])]) if (r.con_job_id) n.set(r.con_job_id, (n.get(r.con_job_id) ?? 0) + 1)
+    siblingPurchases = (sibJobs ?? []).filter(j => n.has(j.id))
+      .map(j => ({ jobId: j.id, label: j.job_number ?? j.work_order_number ?? j.site_number ?? 'Job', count: n.get(j.id)! }))
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -290,10 +314,14 @@ export default async function JobDetailPage({
       {/* ── MATERIALS ──────────────────────────────────────── */}
       {tab === 'materials' && (
         <div className="space-y-5">
+          {costs && <JobMaterialOrders costs={costs} siblings={siblingPurchases} />}
           <div className="rp-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Materials ({materials?.length ?? 0})</h2></div>
+            <div className="px-4 py-3 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">Materials typed in ({materials?.length ?? 0})</h2>
+              <p className="text-xs text-gray-400 mt-0.5">For material that is needed or ordered before any paperwork comes in.</p>
+            </div>
             {!materials?.length ? (
-              <p className="px-4 py-6 text-sm text-gray-400">No materials listed.</p>
+              <p className="px-4 py-6 text-sm text-gray-400">Nothing typed in.</p>
             ) : (
               <table className="rp-table w-full text-sm">
                 <tbody className="divide-y divide-gray-50">
@@ -691,7 +719,7 @@ export default async function JobDetailPage({
 
       {/* ── COST SUMMARY ───────────────────────────────────── */}
       {tab === 'cost' && (
-        <CostSummary jobId={id} companyId={company_id} canWrite={canWrite} labor={labor ?? []} />
+        <CostSummary jobId={id} companyId={company_id} canWrite={canWrite} labor={labor ?? []} costs={costs!} siblings={siblingPurchases} canSetRate={role === 'owner' || role === 'manager'} />
       )}
     </div>
   )
@@ -736,66 +764,72 @@ function DocList({ title, newHref, canWrite, empty, rows }: { title: string; new
   )
 }
 
-async function CostSummary({ jobId, companyId, canWrite, labor }: { jobId: string; companyId: string; canWrite: boolean; labor: any[] }) {
+async function CostSummary({ jobId, companyId, canWrite, labor, costs, siblings, canSetRate }: {
+  jobId: string; companyId: string; canWrite: boolean; labor: any[]
+  costs: JobCosts & { billedLabor: number }; siblings: SiblingPurchases; canSetRate: boolean
+}) {
   const admin = createAdminClient()
-  const [{ data: quotes }, { data: invoices }, { data: materials }] = await Promise.all([
+  const [{ data: quotes }, { data: invoices }] = await Promise.all([
     admin.from('con_quotes').select('final_total, status').eq('job_id', jobId).eq('company_id', companyId),
     admin.from('con_invoices').select('id, invoice_grand_total').eq('job_id', jobId).eq('company_id', companyId),
-    admin.from('con_job_materials').select('quantity, unit_cost, status').eq('job_id', jobId).eq('company_id', companyId),
   ])
-
-  const invoiceIds = (invoices ?? []).map(i => i.id)
-  let invoiceLaborCost = 0
-  if (invoiceIds.length) {
-    const { data: liLabor } = await admin.from('con_invoice_line_items').select('total_labor').in('invoice_id', invoiceIds)
-    invoiceLaborCost = (liLabor ?? []).reduce((a, l) => a + (Number(l.total_labor) || 0), 0)
-  }
 
   const quotedTotal = (quotes ?? []).reduce((a, q) => a + (Number(q.final_total) || 0), 0)
   const invoicedTotal = (invoices ?? []).reduce((a, i) => a + (Number(i.invoice_grand_total) || 0), 0)
-  const materialCost = (materials ?? [])
-    .filter(m => ['ordered', 'received', 'in_stock'].includes(m.status))
-    .reduce((a, m) => a + (Number(m.quantity) || 0) * (Number(m.unit_cost) || 0), 0)
-  const manualLaborCost = (labor ?? []).reduce((a, l) => a + (Number(l.hours) || 0) * (Number(l.labor_rate) || 0), 0)
-  const laborCost = invoiceLaborCost + manualLaborCost
-  const margin = invoicedTotal - (materialCost + laborCost)
+  const margin = invoicedTotal - costs.totalCost
   const marginPct = invoicedTotal > 0 ? (margin / invoicedTotal) * 100 : null
+  const rateNote = costs.laborRateSource === 'company'
+    ? `${costs.laborHours} man-hours at ${money(costs.laborRate)}/hr`
+    : costs.laborRateSource === 'billing'
+      ? `${costs.laborHours} man-hours at the ${money(costs.laborRate)}/hr billing rate`
+      : `${costs.laborHours} man-hours, no rate set`
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         <Stat label="Quoted" value={money(quotedTotal)} />
-        <Stat label="Invoiced" value={money(invoicedTotal)} />
-        <Stat label="Material Cost" value={money(materialCost)} />
-        <Stat label="Labor Cost" value={money(laborCost)} />
-        <Stat label="Margin" value={money(margin)} accent={margin >= 0 ? 'text-green-700' : 'text-red-700'} sub={marginPct != null ? `${marginPct.toFixed(1)}%` : undefined} />
+        <Stat label="Invoiced" value={money(invoicedTotal)} sub={costs.billedLabor > 0 ? `${money(costs.billedLabor)} of it labor` : undefined} />
+        <Stat label="Materials" value={money(costs.materialCost)} sub={`${costs.materials.length} purchase${costs.materials.length === 1 ? '' : 's'}${costs.unpricedOrders ? `, ${costs.unpricedOrders} with no total yet` : ''}`} />
+        <Stat label="Other expenses" value={money(costs.otherCost)} sub={costs.otherByLabel.slice(0, 2).map(l => l.label).join(', ') || undefined} />
+        <Stat label="Labor" value={money(costs.laborCost)} sub={rateNote} />
+        <Stat label="Total cost" value={money(costs.totalCost)} />
+        <Stat label="Margin" value={invoicedTotal > 0 ? money(margin) : '—'} accent={invoicedTotal > 0 ? (margin >= 0 ? 'text-green-700' : 'text-red-700') : undefined} sub={marginPct != null ? `${marginPct.toFixed(1)}%` : 'Not invoiced yet'} />
       </div>
 
-      <div className="rp-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100"><h2 className="font-semibold text-gray-900">Manual Labor Log</h2></div>
-        {!labor?.length ? (
-          <p className="px-4 py-6 text-sm text-gray-400">No manual labor logged. (Invoice labor is included in the totals above.)</p>
-        ) : (
-          <table className="rp-table w-full text-sm">
-            <tbody className="divide-y divide-gray-50">
-              {labor.map(l => (
-                <tr key={l.id}>
-                  <td className="px-4 py-2.5 whitespace-nowrap text-gray-600">{fmtDate(l.work_date)}</td>
-                  <td className="px-4 py-2.5 text-gray-900">{l.crew_member ?? '—'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{l.hours} hr{l.labor_rate ? ` @ ${money(l.labor_rate)}` : ''}</td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs">{l.task_note ?? ''}</td>
-                  {canWrite && <td className="px-4 py-2.5 text-right"><DeleteButton action={deleteJobLabor.bind(null, l.id)} confirm="Remove this labor entry?" iconOnly /></td>}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {canWrite && (
-          <div className="px-4 py-4 border-t border-gray-100 bg-gray-50">
-            <JobLaborForm action={addJobLabor.bind(null, jobId)} />
-          </div>
-        )}
-      </div>
+      {costs.laborRateSource !== 'company' && (
+        <p className="text-xs text-gray-500 px-1">
+          Labor is figured at the customer&apos;s billing rate until the company&apos;s own labor cost per hour is set, so the margin below is on the low side.
+        </p>
+      )}
+      {canSetRate && <LaborRateForm action={saveLaborCostRate} current={costs.laborRateSource === 'company' ? costs.laborRate : null} />}
+
+      <JobCostBreakdown
+        costs={costs}
+        siblings={siblings}
+        laborAction={
+          <>
+            {labor.length > 0 && (
+              <div className="px-5 py-3 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-500 mb-1.5">Labor log entries</p>
+                <ul className="space-y-1 text-sm">
+                  {labor.map(l => (
+                    <li key={l.id} className="flex items-center justify-between gap-3">
+                      <span className="text-gray-700">{fmtDate(l.work_date)} · {l.crew_member ?? '—'} · {l.hours} hr{l.labor_rate ? ` @ ${money(l.labor_rate)}` : ''}{l.task_note ? ` · ${l.task_note}` : ''}</span>
+                      {canWrite && <DeleteButton action={deleteJobLabor.bind(null, l.id)} confirm="Remove this labor entry?" iconOnly />}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {canWrite && (
+              <div className="px-5 py-4 border-t border-gray-100 bg-gray-50">
+                <p className="text-xs font-medium text-gray-500 mb-2">Add labor that is not on a ticket</p>
+                <JobLaborForm action={addJobLabor.bind(null, jobId)} />
+              </div>
+            )}
+          </>
+        }
+      />
     </div>
   )
 }

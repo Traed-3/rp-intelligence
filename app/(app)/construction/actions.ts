@@ -569,6 +569,20 @@ export async function addJobLabor(jobId: string, _state: ActionState, formData: 
   return null
 }
 
+/** What an hour of crew labor costs the company. Owner / manager only; blank clears it. */
+export async function saveLaborCostRate(_state: ActionState, formData: FormData): Promise<ActionState> {
+  const profile = await getProfile()
+  if (!profile) return { error: 'Not authenticated.' }
+  if (!['owner', 'manager'].includes(profile.role)) return { error: 'Only an owner or manager can set the labor cost.' }
+  const rate = num(formData.get('labor_cost_rate'))
+  if (rate != null && (rate <= 0 || rate > 500)) return { error: 'Enter a dollar figure per hour, like 45.' }
+  const admin = createAdminClient()
+  const { error } = await admin.from('companies').update({ labor_cost_rate: rate }).eq('id', profile.company_id)
+  if (error) return { error: error.message }
+  revalidatePath('/construction', 'layout')
+  return null
+}
+
 export async function deleteJobLabor(id: string): Promise<void> {
   const profile = await getProfile()
   if (!profile || !canWriteConstruction(profile)) return

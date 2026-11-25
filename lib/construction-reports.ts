@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { loadAllJobCosts, allRows } from '@/lib/job-costs'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -18,40 +19,37 @@ export type JobCostRow = {
 
 const num = (v: any) => (typeof v === 'number' ? v : Number(v) || 0)
 
-/** Compute per-job cost rows (quoted vs invoiced vs material vs labor + margin). */
+/**
+ * Per-job cost rows (quoted vs invoiced vs cost + margin). Costs come from lib/job-costs.ts, the same rules as
+ * the job's Cost Summary tab: materialCost = material purchases + other job expenses, laborCost = man-hours x rate.
+ */
 export async function jobCostRows(admin: Admin, companyId: string): Promise<JobCostRow[]> {
-  const [{ data: jobs }, { data: quotes }, { data: invoices }, { data: materials }, { data: jobLabor }] = await Promise.all([
-    // Explicit limit — an unfiltered select silently caps at Supabase's
-    // default 1000 rows once completed jobs pile up, and this report needs
-    // every job, complete ones included.
-    admin.from('con_jobs').select('id, site_number, program, stage, con_customers(name)').eq('company_id', companyId).limit(5000),
-    admin.from('con_quotes').select('job_id, final_total').eq('company_id', companyId),
-    admin.from('con_invoices').select('id, job_id, invoice_grand_total').eq('company_id', companyId),
-    admin.from('con_job_materials').select('job_id, quantity, unit_cost, status').eq('company_id', companyId),
-    admin.from('con_job_labor').select('job_id, hours, labor_rate').eq('company_id', companyId),
+  // Read page by page: the database hands back at most 1,000 rows per request whatever limit is asked for, and
+  // there are more jobs than that, so a single request silently dropped a third of them from this report.
+  type JobRow = { id: string; site_number: string | null; po_number: string | null; gas_brand: string | null; program: string | null; stage: string; con_customers: { name: string | null } | null }
+  const [jobs, quotes, invoices] = await Promise.all([
+    allRows<JobRow>((f, t) => admin.from('con_jobs').select('id, site_number, po_number, gas_brand, program, stage, con_customers(name)').eq('company_id', companyId).order('id').range(f, t)),
+    allRows<{ job_id: string | null; final_total: number | null }>((f, t) => admin.from('con_quotes').select('job_id, final_total').eq('company_id', companyId).order('id').range(f, t)),
+    allRows<{ id: string; job_id: string | null; invoice_grand_total: number | null }>((f, t) => admin.from('con_invoices').select('id, job_id, invoice_grand_total').eq('company_id', companyId).order('id').range(f, t)),
   ])
 
-  // invoice line-item labor, keyed back to job through the invoice → job map
-  const invoiceJob = new Map<string, string | null>()
-  for (const inv of invoices ?? []) invoiceJob.set(inv.id, inv.job_id)
-  const invoiceIds = (invoices ?? []).map(i => i.id)
-  const invLaborByJob = new Map<string, number>()
-  if (invoiceIds.length) {
-    const { data: liLabor } = await admin.from('con_invoice_line_items').select('invoice_id, total_labor').in('invoice_id', invoiceIds)
-    for (const li of liLabor ?? []) {
-      const jid = invoiceJob.get(li.invoice_id)
-      if (jid) invLaborByJob.set(jid, (invLaborByJob.get(jid) ?? 0) + num(li.total_labor))
-    }
+  const costs = await loadAllJobCosts(admin, companyId, (jobs ?? []).map(j => ({
+    id: j.id, site_number: j.site_number, po_number: j.po_number, gas_brand: j.gas_brand, customer: (j as any).con_customers?.name ?? null,
+  })))
+  const sumByJob = (rows: { job_id: string | null }[] | null, value: (r: any) => number) => {
+    const m = new Map<string, number>()
+    for (const r of rows ?? []) if (r.job_id) m.set(r.job_id, (m.get(r.job_id) ?? 0) + value(r))
+    return m
   }
+  const quotedBy = sumByJob(quotes, q => num(q.final_total))
+  const invoicedBy = sumByJob(invoices, i => num(i.invoice_grand_total))
 
   const rows: JobCostRow[] = (jobs ?? []).map(j => {
-    const quoted = (quotes ?? []).filter(q => q.job_id === j.id).reduce((a, q) => a + num(q.final_total), 0)
-    const invoiced = (invoices ?? []).filter(i => i.job_id === j.id).reduce((a, i) => a + num(i.invoice_grand_total), 0)
-    const materialCost = (materials ?? [])
-      .filter(m => m.job_id === j.id && ['ordered', 'received', 'in_stock'].includes(m.status))
-      .reduce((a, m) => a + num(m.quantity) * num(m.unit_cost), 0)
-    const manualLabor = (jobLabor ?? []).filter(l => l.job_id === j.id).reduce((a, l) => a + num(l.hours) * num(l.labor_rate), 0)
-    const laborCost = (invLaborByJob.get(j.id) ?? 0) + manualLabor
+    const quoted = quotedBy.get(j.id) ?? 0
+    const invoiced = invoicedBy.get(j.id) ?? 0
+    const c = costs.get(j.id)
+    const materialCost = (c?.materialCost ?? 0) + (c?.otherCost ?? 0)
+    const laborCost = c?.laborCost ?? 0
     const margin = invoiced - (materialCost + laborCost)
     return {
       jobId: j.id,

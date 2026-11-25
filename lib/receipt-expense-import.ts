@@ -43,6 +43,8 @@ export type ReceiptDoc = {
   attachments: { name: string; mime: string; path: string }[] | null
   extracted: { total?: number | null; vendor?: string | null; reference?: string | null; document_date?: string | null } | null
   extract_status: string | null
+  /** the job the paperwork was tied to when it was filed (migration job_purchase_links.sql) */
+  con_job_id?: string | null
 }
 
 export type ParsedReceipt = {
@@ -170,7 +172,7 @@ export async function importReceiptExpenses(opts: { since?: string; until?: stri
   const skip = (why: string) => { out.skipped[why] = (out.skipped[why] ?? 0) + 1 }
 
   let q = admin.from('billing_inbox_documents')
-    .select('id, company_id, inbox, gmail_message_id, gmail_thread_id, sender, sender_email, subject, received_at, kind, vendor, reference, document_date, primary_path, attachments, extracted, extract_status')
+    .select('id, company_id, inbox, gmail_message_id, gmail_thread_id, sender, sender_email, subject, received_at, kind, vendor, reference, document_date, primary_path, attachments, extracted, extract_status, con_job_id')
     .in('inbox', RECEIPT_INBOXES as unknown as string[])
     .gte('received_at', since)
     .order('received_at')
@@ -241,7 +243,13 @@ export async function importReceiptExpenses(opts: { since?: string; until?: stri
 
       const unit = p.unit ? (assets ?? []).find(a => a.company_id === d.company_id && a.unit_number?.toUpperCase() === p.unit!.toUpperCase()) : null
       let job: { id: string; job_number: string | null } | null = null
-      if (p.store) {
+      // The database already worked out the job when the email was filed (site, PO number, the job's year).
+      // Use that, so the expense and the paperwork always sit on the same job.
+      if (d.con_job_id) {
+        const { data: linked } = await admin.from('con_jobs').select('id, job_number').eq('id', d.con_job_id).eq('company_id', d.company_id).maybeSingle()
+        job = linked ?? null
+      }
+      if (!job && p.store) {
         const jk = `${d.company_id}|${p.store}`
         if (!jobCache.has(jk)) {
           const docDay = plausibleDate(validDate(ex.document_date), d.received_at)
