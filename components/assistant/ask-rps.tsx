@@ -110,8 +110,8 @@ export function AskRps({ suggestions, userId }: { suggestions: string[]; userId:
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 md:bottom-5 right-4 z-40 inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all print:hidden"
-        style={{ background: NAVY }}
+        // Rounded like the other main buttons (Trae, 11/25/26): navy at the edges, lighter toward the middle.
+        className="rp-round-button rp-round-navy fixed bottom-20 md:bottom-5 right-4 z-40 inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all print:hidden"
       >
         <Sparkles className="w-4 h-4" /> Ask RPS
       </button>

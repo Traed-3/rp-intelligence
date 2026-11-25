@@ -473,6 +473,10 @@
 .rp-round-green, .rp-round-red { --round-hi: 68%; --round-mid: 88%; color: #fff; text-shadow: 0 1px 1px oklch(0 0 0 / 0.3); }
 .rp-round-green { --round: var(--success); }
 .rp-round-red { --round: var(--danger); }
+/* Navy (the floating Ask RPS button): the middle of the --hero navy, the same in light and dark, white words, and a deeper
+   shadow because it floats over the page. */
+.rp-round-navy { --round: #1e3558; --round-hi: 62%; --round-mid: 84%; color: #fff; text-shadow: 0 1px 1px oklch(0 0 0 / 0.35);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -1px 0 oklch(0 0 0 / 0.2), 0 6px 16px oklch(0 0 0 / 0.3); }
 .dark .rp-round-green, .dark .rp-round-red { --round-hi: 55%; --round-mid: 82%; color: oklch(0.2 0.04 160); text-shadow: none; }
 .dark .rp-round-red { color: oklch(0.2 0.05 25); }
 .rp-sidebar { background: var(--sidebar-navy); --sidebar-accent: oklch(1 0 0 / 0.1); --sidebar-border: oklch(1 0 0 / 0.1); --border: oklch(1 0 0 / 0.12); --muted: oklch(1 0 0 / 0.07); --card: oklch(1 0 0 / 0.16); --brand: var(--amber); }
