@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { WorkOrderStatusBadge, PriorityBadge, clientLabel } from '@/components/svc/work-order-badges'
 import { createServiceTicket } from '@/app/(app)/service/tickets/actions'
+import { completionLabel, ticketStatusMeta } from '@/lib/service-tickets'
 import { createJobFromWorkOrder } from '@/app/(app)/construction/actions'
 import { linkConstructionJob } from '@/app/(app)/service/actions'
 import { loadConstructionLinks, woTokens } from '@/lib/svc-construction-link'
@@ -39,7 +40,7 @@ export default async function WorkOrderDetailPage({
     .single()
 
   if (!w) notFound()
-  const { data: existingTicket } = await admin.from('service_tickets').select('id, ticket_number, status').eq('work_order_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const { data: existingTicket } = await admin.from('service_tickets').select('id, ticket_number, status, completion, rtn_reason, finished_at').eq('work_order_id', id).neq('status', 'void').order('created_at', { ascending: false }).limit(1).maybeSingle()
 
   // Construction users can spin this dispatched WO up as a construction job (site + address auto-filled).
   const canConstruction = canWriteConstruction({ id: user?.id, role: (profile as { role?: string } | null)?.role })
@@ -81,8 +82,8 @@ export default async function WorkOrderDetailPage({
         </div>
       </div>
 
-      {(() => { const existing = (existingTicket as { id: string; ticket_number: string; status: string } | null); return existing ? (
-        <Link href={`/service/tickets/${existing.id}`} className="block bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-900">Field ticket <b className="font-mono">{existing.ticket_number}</b> · {existing.status} →</Link>
+      {(() => { const existing = (existingTicket as { id: string; ticket_number: string; status: string; completion: string | null; rtn_reason: string | null; finished_at: string | null } | null); return existing ? (
+        <Link href={`/service/tickets/${existing.id}`} className="block bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-900">Field ticket <b className="font-mono">{existing.ticket_number}</b> · {existing.finished_at ? `turned in: ${completionLabel(existing.completion) ?? 'done'}${existing.completion === 'rtn' && existing.rtn_reason ? ` (${existing.rtn_reason})` : ''}` : ticketStatusMeta(existing.status).label} →</Link>
       ) : (
         <form action={createServiceTicket} className="mb-5"><input type="hidden" name="work_order_id" value={w.id} /><button type="submit" className="rounded-lg bg-primary text-primary-foreground text-sm font-medium px-4 py-2 hover:bg-primary/90">Start field ticket</button></form>
       ) })()}

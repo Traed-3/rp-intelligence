@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { computeDocumentTotals } from '@/lib/billing'
 import { sellPriceForLine } from '@/lib/inventory'
 import { noAccountingOrHr } from '@/lib/role-access'
+import { reconcileWorkOrders, fieldTicketSource } from '@/lib/svc-reconcile'
 import { brandFromWorkOrder, buildInvoiceLines, canWriteServiceTickets, rateCardNameForBrand, DEFAULT_SERVICE_TAX, TECH_STATUSES, LOCKED_STATUSES, TICKET_STATUSES, turnInProblems } from '@/lib/service-tickets'
 
 export type ActionState = { error?: string; ok?: boolean }
@@ -30,10 +31,32 @@ type Me = NonNullable<Awaited<ReturnType<typeof me>>>
  */
 async function ticketFor(p: Me, id: string, edit = true) {
   const { data: t } = await createAdminClient().from('service_tickets')
-    .select('id, status, store_number, work_performed, finished_at, tech_signature_url, site_signature_url').eq('id', id).eq('company_id', p.company_id).maybeSingle()
+    .select('id, status, store_number, work_performed, finished_at, tech_signature_url, site_signature_url, ticket_number, work_order_id, portal_wo_number, csr_number, technician_id').eq('id', id).eq('company_id', p.company_id).maybeSingle()
   if (!t) return null
   if (edit && (LOCKED_STATUSES.includes(t.status) || (noAccountingOrHr(p.role) && t.finished_at))) return null
   return t
+}
+/** The open-or-closed service call a field ticket belongs to: the one it was started from, else the WO number typed on it. */
+async function callFor(p: Me, t: { work_order_id: string | null; portal_wo_number: string | null; csr_number: string | null }) {
+  const admin = createAdminClient()
+  const cols = 'id, portal_wo_number, status, notes, assigned_technician_id'
+  if (t.work_order_id) {
+    const { data } = await admin.from('svc_work_orders').select(cols).eq('id', t.work_order_id).eq('company_id', p.company_id).maybeSingle()
+    if (data?.portal_wo_number) return data
+  }
+  for (const n of [t.portal_wo_number, t.csr_number].map(v => (v ?? '').trim().toUpperCase()).filter(v => /^[A-Z0-9-]{5,30}$/.test(v))) {
+    const { data } = await admin.from('svc_work_orders').select(cols).eq('company_id', p.company_id).eq('portal_wo_number', n).eq('archived', false).order('dispatched_at', { ascending: false }).limit(1).maybeSingle()
+    if (data) return data
+  }
+  return null
+}
+/**
+ * Apply the ticket to its service call the way an emailed ticket is applied (lib/svc-reconcile.ts: the latest ticket of
+ * either kind decides, a construction job still under way keeps the call open). Never throws: the ticket is already saved.
+ */
+async function applyToCall(p: Me, woNumber: string) {
+  try { await reconcileWorkOrders({ dryRun: false, archivedBy: p.id, onlyWo: woNumber }) } catch { /* the 15-minute pass picks it up */ }
+  for (const path of ['/service', '/mobile/service-ticket']) revalidatePath(path)
 }
 function paths(id: string) {
   for (const p of ['/service/tickets', `/service/tickets/${id}`, '/mobile/service-ticket', `/mobile/service-ticket/${id}`]) revalidatePath(p)
@@ -53,6 +76,11 @@ export async function createServiceTicket(formData: FormData): Promise<void> {
   if (!truck) ({ data: truck } = await admin.from('stock_locations').select('id').eq('company_id', p.company_id).eq('kind', 'truck').eq('assigned_tech', p.id).maybeSingle())
 
   const row: Record<string, unknown> = { company_id: p.company_id, department: 'service', status: 'open', created_by: p.id, technician_id: tech?.id ?? null, truck_location_id: truck?.id ?? null }
+  // One ticket per call: a call that already has a ticket opens that ticket instead of starting a second one.
+  if (workOrderId) {
+    const { data: has } = await admin.from('service_tickets').select('id').eq('company_id', p.company_id).eq('work_order_id', workOrderId).neq('status', 'void').order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (has) redirect(mobile ? `/mobile/service-ticket/${has.id}` : `/service/tickets/${has.id}`)
+  }
   if (workOrderId) {
     const { data: w } = await admin.from('svc_work_orders').select('*').eq('id', workOrderId).eq('company_id', p.company_id).single()
     if (w) Object.assign(row, {
@@ -177,8 +205,8 @@ async function postStockIssues(ticketId: string, companyId: string, userId: stri
 
 /**
  * Turn the ticket in: the tech says Job complete or Return trip needed (with why), the same two answers the paper ticket
- * email carries. The ticket goes to Work done (a ticket both people already signed stays Signed) and shows under
- * "Turned in" on the office's Field Tickets list. It does NOT change the service call: the office closes calls.
+ * email carries. The ticket goes to Work done (a ticket both people already signed stays Signed), shows under
+ * "Turned in" on the office's Field Tickets list, and is applied to its service call exactly like an emailed ticket.
  */
 export async function turnInTicket(id: string, _s: ActionState, formData: FormData): Promise<ActionState> {
   const p = await me(); if (!p || !canWriteServiceTickets(p.role)) return { error: 'No permission.' }
@@ -195,6 +223,13 @@ export async function turnInTicket(id: string, _s: ActionState, formData: FormDa
     status: t.status === 'signed' ? 'signed' : 'complete',
   }).eq('id', id).eq('company_id', p.company_id)
   if (error) return { error: error.message }
+  const call = await callFor(p, t)
+  if (call) {
+    // The tech who turned it in is the call's technician when nobody is on it yet.
+    if (!call.assigned_technician_id && t.technician_id) await admin.from('svc_work_orders').update({ assigned_technician_id: t.technician_id }).eq('id', call.id)
+    await applyToCall(p, call.portal_wo_number!)
+    revalidatePath(`/service/${call.id}`)
+  }
   paths(id); return { ok: true }
 }
 
@@ -203,7 +238,20 @@ export async function reopenTicket(id: string): Promise<void> {
   const p = await me(); if (!p || !canWriteServiceTickets(p.role)) return
   const t = await ticketFor(p, id, false)
   if (!t || !t.finished_at || LOCKED_STATUSES.includes(t.status)) return
-  await createAdminClient().from('service_tickets').update({ completion: null, rtn_reason: null, finished_at: null, finished_by: null, status: 'on_site' }).eq('id', id).eq('company_id', p.company_id)
+  const admin = createAdminClient()
+  await admin.from('service_tickets').update({ completion: null, rtn_reason: null, finished_at: null, finished_by: null, status: 'on_site' }).eq('id', id).eq('company_id', p.company_id)
+  // If this ticket is what last set the call's status, the call goes back to in progress; then whatever other tickets
+  // are on file decide again. A call some later email already moved on is left alone.
+  const call = await callFor(p, t)
+  if (call) {
+    const lastAuto = (call.notes ?? '').split('\n').filter((l: string) => l.startsWith('[auto ')).pop() ?? ''
+    if (['completed', 'rtn_needed'].includes(call.status) && lastAuto.includes(`${fieldTicketSource(t.ticket_number)}.`)) {
+      const stamp = `[auto ${new Date().toISOString().slice(0, 10)}] Status → in_progress — ${fieldTicketSource(t.ticket_number)} reopened by the tech.`
+      await admin.from('svc_work_orders').update({ status: 'in_progress', completed_at: null, return_trip_needed: false, return_trip_reason: null, last_update_at: new Date().toISOString(), notes: [call.notes, stamp].filter(Boolean).join('\n') }).eq('id', call.id)
+    }
+    await applyToCall(p, call.portal_wo_number!)
+    revalidatePath(`/service/${call.id}`)
+  }
   paths(id)
 }
 
