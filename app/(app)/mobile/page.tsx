@@ -1,5 +1,6 @@
 import { isShopOnly } from '@/lib/role-access'
 import { canPostDailyUpdate } from '@/lib/construction'
+import { canWriteServiceTickets } from '@/lib/service-tickets'
 import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
@@ -166,7 +167,7 @@ export default async function MobilePage() {
         )}
 
         {/* Field service ticket — sign on the phone, invoice from the office */}
-        {!shopOnly && <Link
+        {canWriteServiceTickets(profile?.role) && <Link
           href="/mobile/service-ticket"
           className="rp-card flex items-center justify-between w-full px-6 py-4 font-semibold text-gray-900"
         >

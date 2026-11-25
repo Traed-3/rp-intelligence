@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { canWriteServiceTickets, ticketStatusMeta, completionLabel, BRANDS } from '@/lib/service-tickets'
 import { createServiceTicket } from '@/app/(app)/service/tickets/actions'
+import { canPostDailyUpdate } from '@/lib/construction'
 import { Wrench, Search } from 'lucide-react'
 import { TitleIcon } from '@/components/ui/title-icon'
 
@@ -16,6 +17,22 @@ export default async function MobileServiceTicketsPage({ searchParams }: { searc
   const { data: profile } = await admin.from('profiles').select('id, company_id, role').eq('id', user!.id).single()
   const canWrite = canWriteServiceTickets(profile?.role)
   const company_id = profile!.company_id
+  // Service tickets are the service department's (one ticket per call). Everyone else is pointed to their own screen.
+  if (!canWrite) return (
+    <div className="min-h-screen p-5">
+      <div className="max-w-sm mx-auto space-y-5">
+        <div className="flex items-center justify-between">
+          <h1 className="rp-title"><TitleIcon icon={Wrench} tone="info" />Service Tickets</h1>
+          <Link href="/mobile" className="text-sm text-blue-600">← Home</Link>
+        </div>
+        <div className="rp-card p-5 text-sm text-gray-600 space-y-3">
+          <p>Service tickets are for the service department: one ticket for each service call.</p>
+          {canPostDailyUpdate({ id: profile?.id, role: profile?.role }) && <p>On a construction job, send your ticket with a Daily Update. Each day&apos;s ticket goes on the job.</p>}
+          {canPostDailyUpdate({ id: profile?.id, role: profile?.role }) && <Link href="/mobile/daily-update" className="block text-center rounded-xl bg-primary text-primary-foreground text-sm font-semibold py-2.5">Daily Update</Link>}
+        </div>
+      </div>
+    </div>
+  )
 
   const { data: tech } = await admin.from('svc_technicians').select('id').eq('company_id', company_id).eq('profile_id', profile!.id).maybeSingle()
 

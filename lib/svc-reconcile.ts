@@ -53,6 +53,9 @@ export interface ReconcileResult {
 
 const INV_RE = /\bINV\d+\b/
 
+/** How a turned-in field ticket is named in a call's notes. The reopen step looks for this exact text. */
+export const fieldTicketSource = (ticketNumber: string | null | undefined) => `field ticket ${ticketNumber ?? ''}`.trim()
+
 function targetFor(kind: EventKind): 'completed' | 'rtn_needed' | 'in_progress' | 'closed' {
   switch (kind) {
     case 'complete': case 'approved': case 'construction_done': return 'completed'
@@ -134,6 +137,23 @@ async function replayStatuses(
       tickets.set(p.woNumber, t)
     }
   }
+  // 1b. Field tickets turned in from the phone (Trae, 2026-11-25): the same two answers as the emailed ticket, so they
+  //     count exactly like a tech ticket in rpinvoicing: Job complete completes the call, Return trip needed flags it,
+  //     and the latest ticket of either kind decides. A ticket the tech reopened (finished_at cleared) or a void one
+  //     is no evidence at all. Matched by the call it was started from, else by the WO number typed on it.
+  const idToWo = new Map(calls.map(c => [c.id, c.portal_wo_number!]))
+  const { data: fieldTickets } = await admin.from('service_tickets')
+    .select('ticket_number, work_order_id, portal_wo_number, csr_number, completion, rtn_reason, work_performed, finished_at, status')
+    .eq('company_id', COMPANY_ID).not('finished_at', 'is', null).neq('status', 'void').in('completion', ['complete', 'rtn']).limit(5000)
+  for (const f of fieldTickets ?? []) {
+    const typed = [f.portal_wo_number, f.csr_number].map(v => (v ?? '').trim().toUpperCase()).find(v => byWo.has(v))
+    const wo = (f.work_order_id && idToWo.get(f.work_order_id)) || typed
+    if (!wo) continue
+    const t = tickets.get(wo) ?? { tech: [], office: [] }
+    t.tech.push({ at: f.finished_at, kind: f.completion === 'rtn' ? 'rtn' : 'complete', source: fieldTicketSource(f.ticket_number), note: (f.completion === 'rtn' ? f.rtn_reason : f.work_performed) ?? null })
+    tickets.set(wo, t)
+  }
+
   const linksEarly = await loadConstructionLinks(admin, COMPANY_ID)
   for (const [wo, t] of tickets) {
     // A construction job still under way is the authority: a routine ticket does not finish it. A return trip still applies.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { turnInProblems, todayEastern, TECH_STATUSES, completionLabel } from '../../lib/service-tickets'
+import { turnInProblems, todayEastern, TECH_STATUSES, completionLabel, canWriteServiceTickets } from '../../lib/service-tickets'
 
 const ok = { work_performed: 'Replaced PUL sensor, tested.', store_number: '41617' }
 
@@ -25,5 +25,10 @@ describe('turning in a field ticket', () => {
   it('names the two answers', () => {
     expect(completionLabel('rtn')).toBe('Return trip needed')
     expect(completionLabel('nope')).toBeNull()
+  })
+  it('is the service department\'s: construction crews and mechanics do not write service tickets', () => {
+    expect(canWriteServiceTickets('service_tech')).toBe(true)
+    expect(canWriteServiceTickets('manager')).toBe(true)
+    for (const r of ['construction_tech', 'mechanic', 'shop_employee', 'viewer', null]) expect(canWriteServiceTickets(r)).toBe(false)
   })
 })

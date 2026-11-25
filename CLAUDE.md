@@ -132,7 +132,16 @@ FIELD TICKET ON THE PHONE, MADE USABLE (Trae, 2026-11-25: "I want it to be usabl
   Columns service_tickets.completion complete|rtn, rtn_reason, finished_at, finished_by (migration service_ticket_finish.sql,
   APPLIED 2026-11-25). Needs store #, Work performed and at least one labor day (`turnInProblems`). Status goes to Work done
   (stays Signed if both already signed). The tech can Reopen until both signed or the office invoiced. Office: Field Tickets ->
-  "Turned in by the tech". Turning in does NOT change the service call's status; the office closes calls.
+  "Turned in by the tech".
+- SERVICE ONLY, ONE TICKET PER CALL (Trae, 2026-11-25: "one ticket per call is Service Department; multiple tickets with a
+  closeout and reconciliation cost summary is construction"). SERVICE_TICKET_WRITE_ROLES no longer has construction_tech or
+  mechanic; the phone tile shows only for people who can write one, and a construction tech who opens the page is pointed to
+  Daily Update. `createServiceTicket` opens the call's existing ticket instead of starting a second.
+- TURN-IN APPLIES TO THE CALL like an emailed ticket: lib/svc-reconcile.ts step 1b reads turned-in field tickets as tech-ticket
+  evidence (Job complete -> completed, Return trip needed -> rtn_needed with the reason; latest ticket of either kind decides;
+  a construction job still under way keeps its call open; completed archives the dispatch email, the standing rule).
+  `turnInTicket` runs the reconcile for that one call right away. `reopenTicket` puts the call back to in progress only when
+  the call's last "[auto ...]" note names that ticket (`fieldTicketSource`), then lets the other tickets on file decide.
 - Techs and mechanics (`fieldRole` on TicketForm) never see or type a sell price on a ticket: `loadTicket(..., { hideSell })`
   nulls it before the page gets it, `addPart` ignores a price they post, the "Sell $" box is not drawn. They may only pick
   Open / Dispatched / On site (`TECH_STATUSES`); Signed / Invoiced / Void are the office's.

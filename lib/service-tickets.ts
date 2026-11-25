@@ -107,6 +107,10 @@ export function buildInvoiceLines(labor: TicketLabor[], parts: TicketPart[], car
   return lines.map((l, i) => ({ ...l, line_no: i + 1 }))
 }
 
-/** Roles that can create, edit and sign field tickets. */
-export const SERVICE_TICKET_WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'construction_manager', 'estimator', 'service_tech', 'construction_tech', 'mechanic']
+/**
+ * Roles that can create, edit and sign field tickets. SERVICE ONLY (Trae, 2026-11-25): a service call is one ticket per
+ * call. Construction is many tickets per job with a closeout and a cost reconciliation, so construction crews post a
+ * Daily Update on the job instead; mechanics work repair tickets.
+ */
+export const SERVICE_TICKET_WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'construction_manager', 'estimator', 'service_tech']
 export function canWriteServiceTickets(role: string | null | undefined) { return !!role && SERVICE_TICKET_WRITE_ROLES.includes(role) }
