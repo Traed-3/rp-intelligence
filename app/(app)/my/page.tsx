@@ -147,7 +147,7 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
 
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <div className="flex flex-wrap gap-1.5 text-xs">
-          <Link href={filterHref({ ...filters, kind: null })} className={`px-2.5 py-1 rounded-full border ${!kindFilter ? 'bg-foreground text-background border-foreground' : 'border-gray-300 text-gray-600 bg-card hover:bg-gray-50'}`}>All types {allCount}</Link>
+          <Link href={filterHref({ ...filters, kind: null })} className={`px-2.5 py-1 rounded-full border ${!kindFilter ? 'bg-foreground text-background border-foreground' : 'border-gray-300 text-gray-600 bg-card hover:bg-gray-50'}`}>All types {/* the count in the bright LED green (Trae, 11/25/26), a lighter shade on the navy chip */}<span className={`tabular-nums rp-led ${!kindFilter ? 'text-[#3ee58a] dark:text-[#12a150]' : 'text-[#1fbf6a] dark:text-[#3edc8a]'}`}>{allCount}</span></Link>
           {(Object.keys(KIND_LABEL) as TaskKind[]).filter(k => kindCounts.get(k)).map(k => (
             <Link key={k} href={filterHref({ ...filters, kind: k })} className={`px-2.5 py-1 rounded-full border ${kindFilter === k ? 'ring-2 ring-offset-1 ring-gray-900 ' : ''}${KIND_CLASS[k]}`}>{KIND_LABEL[k]} {kindCounts.get(k)}</Link>
           ))}

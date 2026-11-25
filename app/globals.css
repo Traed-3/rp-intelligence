@@ -462,8 +462,9 @@
    unlayered and after .dark so these values win. ── */
 /* Rounded buttons (Trae, 11/25/26): full color at the edges, lighter toward the middle, with a soft highlight and a darker
    rim, so they look round and raised. One look, three colors: .rp-round-gold (the amber of the mail window's New message
-   button, also My plate), .rp-round-green (Done, Clock In) and .rp-round-red (Clock Out). Green and red come from the theme,
-   so they follow light and dark; on the brighter dark-mode colors the words turn dark so they stay readable. */
+   button, also My plate), .rp-round-green (Done, Clock In) and .rp-round-red (Clock Out). Red comes from the theme; green is
+   the bright LED green (Trae, 11/25/26: "the hot green"), lightened less in the middle so it stays bright. On the brighter
+   dark-mode colors the words turn dark so they stay readable. */
 .rp-round-button {
   --round: #f0b43a; --round-hi: 45%; --round-mid: 80%;
   background: radial-gradient(ellipse 75% 95% at 50% 42%, color-mix(in oklab, var(--round) var(--round-hi), white) 0%, color-mix(in oklab, var(--round) var(--round-mid), white) 38%, var(--round) 72%, color-mix(in oklab, var(--round) 86%, black) 100%);
@@ -475,7 +476,7 @@
 .rp-round-button:active:not(:disabled) { filter: brightness(0.96); transform: translateY(0.5px); }
 .rp-round-gold { --round: #f0b43a; color: #1d1a12; }
 .rp-round-green, .rp-round-red { --round-hi: 68%; --round-mid: 88%; color: #fff; text-shadow: 0 1px 1px oklch(0 0 0 / 0.3); }
-.rp-round-green { --round: var(--success); }
+.rp-round-green { --round: #1fbf6a; --round-hi: 86%; --round-mid: 94%; }
 .rp-round-red { --round: var(--danger); }
 /* Navy (the floating Ask RPS button): the middle of the --hero navy, the same in light and dark, white words, and a deeper
    shadow because it floats over the page. */
@@ -483,6 +484,7 @@
   box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -1px 0 oklch(0 0 0 / 0.2), 0 6px 16px oklch(0 0 0 / 0.3); }
 .dark .rp-round-green, .dark .rp-round-red { --round-hi: 55%; --round-mid: 82%; color: oklch(0.2 0.04 160); text-shadow: none; }
 .dark .rp-round-red { color: oklch(0.2 0.05 25); }
+.dark .rp-round-green { --round: #2fd27c; --round-hi: 80%; --round-mid: 92%; }
 /* RPMail dashboard numbers lit like LEDs (Trae, 11/25/26): Need you in the same bright amber as the unread counts in the
    mail menu (the New message gold), Hot / Unread in a brighter red and blue, each with a soft glow of its own color. */
 .rp-led { text-shadow: 0 0 12px color-mix(in srgb, currentColor 38%, transparent); }
