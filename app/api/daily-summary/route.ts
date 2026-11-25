@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { sendAlertEmail } from '@/lib/email'
 import { summaryMarkdownToHtml } from '@/lib/summary-email'
 import { syncGmailToTickets } from '@/lib/gmail-sync'
+import { renderAttention } from '@/lib/summary-attention'
 import { checkProjectNotifications } from '@/lib/notifications'
 
 const COMPANY_ID    = 'f3d06874-2e21-40f3-a7d0-a1d86bad02e7'
@@ -188,7 +189,7 @@ export async function GET(request: NextRequest) {
       tickets_completed_in_window,
       unassigned_new_tickets,
       review_queue: (reviewRes.data ?? []).map((g: any) => ({
-        sender: g.sender, subject: g.subject,
+        sender: g.sender, subject: g.subject, received_at: g.received_at,
       })),
     }
 
@@ -429,21 +430,11 @@ function renderSummary(ctx: any): string {
     }
   }
 
-  // ── 3) Still needs attention ─────────────────────────────────────────────
-  const review     = ctx.review_queue ?? []
-  const unassigned = ctx.unassigned_new_tickets ?? []
-  if (review.length || unassigned.length) {
-    out.push('## Still needs attention', '')
-    for (const r of review) {
-      const subj = (r.subject ?? '').replace(/\s+/g, ' ').slice(0, 120)
-      out.push(`- Review queue (${r.sender}): ${subj}`)
-    }
-    for (const t of unassigned) {
-      const asset = t.asset ?? '(no asset)'
-      const title = (t.title ?? '').replace(/\s+/g, ' ').slice(0, 100)
-      out.push(`- **${asset}** unassigned (${statusLabel(t.status)}): ${title}`)
-    }
-  }
+  // ── 3) Still needs attention (grouped; see lib/summary-attention.ts) ─────
+  out.push(...renderAttention(ctx.review_queue ?? [], ctx.unassigned_new_tickets ?? [], {
+    initialsOf: (email: string) => whoIs(email).initials,
+    statusLabel,
+  }))
 
   return out.join('\n').trim()
 }
