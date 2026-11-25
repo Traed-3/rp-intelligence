@@ -54,3 +54,15 @@ describe('search every mailbox', () => {
     expect(world.gmail.calls.filter(c => c.account === 'bob@gmail.com')).toEqual([])
   })
 })
+
+describe('the notice at the top of the page', () => {
+  it('only tells a person with no mailbox at all that their login is not a Gmail address', async () => {
+    const { state } = await import('@/lib/rpmail/overview')
+    const tom = addPerson(A, 'owner', 'Tom Owner', 'tom@proton.me')
+    world.user = tom.id
+    const tomMe = await requireMe()
+    expect((await state(tomMe)).note).toMatch(/not a Gmail address/)          // nothing here yet: worth saying
+    addBox(A, 'shared@gmail.com', 'shared', [tom])
+    expect((await state(tomMe)).note).toBeNull()                            // has a mailbox: no notice
+  })
+})

@@ -53,11 +53,13 @@ export async function state(who: Me) {
   if (who.enabled) {
     // The person's own mailbox is set up here, so an address Trae changes in Settings takes effect on their next visit.
     try { await ensurePersonalMailbox(who) } catch (e) { note = e instanceof UserError ? e.message : null }
-    if (!personalAddress(who)) note = isMailAdmin(who.role)
-      ? 'Your login is not a Gmail address, so you have no mailbox of your own here yet. To add one, set your Gmail address under your name in Settings, RPMail. Shared mailboxes work without it.'
-      : 'Your login is not a Gmail address, so RPMail does not know which mailbox is yours. Ask an owner to set your Gmail address in Settings, RPMail.'
   }
   const boxes = who.enabled ? await myMailboxes(who) : []
+  // "No mailbox of your own" only matters to someone with no mailbox at all. With shared ones it was just noise at the top
+  // of the page (Trae, 11/25/26: "please remove the warning notice from the top of my dashboard").
+  if (who.enabled && !note && !personalAddress(who) && !boxes.length) note = isMailAdmin(who.role)
+    ? 'Your login is not a Gmail address, so you have no mailbox of your own here yet. To add one, set your Gmail address under your name in Settings, RPMail, or give yourself a shared mailbox there.'
+    : 'Your login is not a Gmail address, so RPMail does not know which mailbox is yours. Ask an owner to set your Gmail address in Settings, RPMail.'
   return {
     enabled: who.enabled, name: who.name, role: who.role, googleReady: !!googleClient(), personalAddress: personalAddress(who), loginEmail: who.email,
     boxes: who.enabled ? await boxInfos(who, boxes) : [], note, prefs: await getPrefs(who),
