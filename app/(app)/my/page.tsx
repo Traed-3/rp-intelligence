@@ -128,10 +128,11 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
           <p className="rp-subtitle">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })} · top card is the next thing to do</p>
         </div>
         <div className="flex flex-wrap gap-2 font-mono text-xs">
-          <span className="px-2 py-1 rounded border border-info/25 bg-info-soft text-info"><b className="tabular-nums">{openCount}</b> your move</span>
-          <span className="px-2 py-1 rounded border border-warning/25 bg-warning-soft text-warning"><b className="tabular-nums">{plate.waiting.length}</b> waiting</span>
-          {overCount > 0 && <span className="px-2 py-1 rounded border border-red-200 bg-red-50 text-red-700"><b className="tabular-nums">{overCount}</b> overdue</span>}
-          <span className="px-2 py-1 rounded border border-success/25 bg-success-soft text-success"><b className="tabular-nums">{plate.doneToday.length}</b> done today</span>
+          {/* Numbers lit like the RPMail dashboard (Trae, 11/25/26): blue = yours to do, amber = waiting, red = overdue, green = done. */}
+          <span className="px-2 py-1 rounded border border-info/30 bg-card text-muted-foreground"><b className="tabular-nums rp-led rp-led-blue">{openCount}</b> your move</span>
+          <span className="px-2 py-1 rounded border border-warning/30 bg-card text-muted-foreground"><b className="tabular-nums rp-led rp-led-amber">{plate.waiting.length}</b> waiting</span>
+          {overCount > 0 && <span className="px-2 py-1 rounded border border-danger/30 bg-card text-muted-foreground"><b className="tabular-nums rp-led rp-led-red">{overCount}</b> overdue</span>}
+          <span className="px-2 py-1 rounded border border-success/30 bg-card text-muted-foreground"><b className="tabular-nums rp-led rp-led-green">{plate.doneToday.length}</b> done today</span>
         </div>
       </header>
 
@@ -142,7 +143,7 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
       <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Filter">
         <Link href={filterHref({ ...filters, sd: false, over: false })} className={chip(!filters.sd && !filters.over)}>Everything open</Link>
         <Link href={filterHref({ ...filters, sd: !filters.sd })} className={chip(filters.sd)}>From Starsky <span className="tabular-nums opacity-70">{sdCount}</span></Link>
-        <Link href={filterHref({ ...filters, over: !filters.over })} className={chip(filters.over)}>Overdue <span className="tabular-nums opacity-70">{overCount}</span></Link>
+        <Link href={filterHref({ ...filters, over: !filters.over })} className={chip(filters.over)}>Overdue <span className="tabular-nums rp-led rp-led-red">{overCount}</span></Link>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
@@ -179,7 +180,7 @@ export default async function MyPlatePage({ searchParams }: { searchParams: Prom
           )}
 
           {plate.doneToday.length > 0 && (
-            <Folded title="Done today" count={plate.doneToday.length}>
+            <Folded title="Done today" tone="success" count={plate.doneToday.length}>
               {plate.doneToday.map(t => (
                 <li key={t.id} className="rounded-lg border border-border border-l-[6px] border-l-emerald-600 bg-card px-3 py-2.5 flex items-center gap-3 opacity-70">
                   <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -254,7 +255,7 @@ function LaneHeading({ title, count, hint, tone }: { title: string; count?: numb
   return (
     <h2 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-lg font-bold uppercase tracking-wide text-blue-700">
       {title}
-      {count !== undefined && <span className={`rounded-md px-2 text-sm tabular-nums ${tone === 'warning' ? 'bg-warning-soft text-warning' : 'bg-blue-50'}`}>{count}</span>}
+      {count !== undefined && <span className={`rounded-md bg-raised px-2 text-sm tabular-nums rp-led ${tone === 'warning' ? 'rp-led-amber' : 'rp-led-blue'}`}>{count}</span>}
       {hint && <small className="text-xs font-medium normal-case tracking-normal text-muted-foreground">{hint}</small>}
     </h2>
   )
@@ -271,12 +272,12 @@ function Lane({ title, hint, count, empty, tone, children }: { title: string; hi
 }
 
 /** A lane that starts closed (Snoozed, Done today). */
-function Folded({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+function Folded({ title, count, tone, children }: { title: string; count: number; tone?: 'success'; children: React.ReactNode }) {
   return (
     <details className="group">
       <summary className="cursor-pointer list-none select-none flex items-baseline gap-2.5 text-lg font-bold uppercase tracking-wide text-muted-foreground hover:text-blue-700">
         <span className="inline-block w-3 text-sm transition-transform group-open:rotate-90">▸</span>{title}
-        <span className="rounded-md bg-gray-200/70 px-2 text-sm tabular-nums">{count}</span>
+        <span className={`rounded-md px-2 text-sm tabular-nums ${tone === 'success' ? 'bg-raised rp-led rp-led-green' : 'bg-gray-200/70'}`}>{count}</span>
       </summary>
       <ul className="mt-2.5 flex flex-col gap-2.5">{children}</ul>
     </details>
@@ -444,11 +445,11 @@ function PartnerPlate({ partner, meId, tasks, today }: { partner: Partner; meId:
         <Lane title={`${partner.name}'s move`} hint="his to handle" count={open.length} empty={`Nothing on ${partner.name} right now.`}>
           {open.map(t => card(t))}
         </Lane>
-        <Lane title="Waiting on" hint="sent, no answer yet" count={plate.waiting.length} empty="Nothing waiting.">
+        <Lane tone="warning" title="Waiting on" hint="sent, no answer yet" count={plate.waiting.length} empty="Nothing waiting.">
           {plate.waiting.map(t => card(t, true))}
         </Lane>
         {plate.doneToday.length > 0 && (
-          <Folded title="Done today" count={plate.doneToday.length}>
+          <Folded title="Done today" tone="success" count={plate.doneToday.length}>
             {plate.doneToday.map(t => (
               <li key={t.id} className="rounded-lg border border-border border-l-[6px] border-l-emerald-600 bg-card px-3 py-2.5 flex flex-wrap items-center gap-2 opacity-70">
                 {t.site_number && <SiteTag site={t.site_number} />}
