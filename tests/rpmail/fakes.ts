@@ -145,6 +145,13 @@ export class FakeDb {
       return { data: null, error: null }
     }
     if (name === 'rpmail_outbox_stale') return { data: [...this.files.keys()].filter(k => this.stale.has(k)), error: null }
+    if (name === 'rpmail_label_counts') {
+      const by = new Map<string, { label: string; total: number; unread: number }>()
+      for (const m of this.t('rpmail_messages').filter(m => m.mailbox_id === a.p_mailbox)) for (const l of (m.labels as string[] | undefined) ?? []) {
+        const c = by.get(l) ?? { label: l, total: 0, unread: 0 }; c.total++; if (m.unread) c.unread++; by.set(l, c)
+      }
+      return { data: [...by.values()], error: null }
+    }
     const mine = this.t('rpmail_messages').filter(m => this.allowed(String(a.p_profile), String(m.mailbox_id)))
     if (name === 'rpmail_counts') {
       const by = new Map<string, { mailbox_id: string; inbox: number; unread: number; newest: string | null }>()

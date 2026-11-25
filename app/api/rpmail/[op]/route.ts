@@ -44,7 +44,12 @@ const GETS: Record<string, { any?: boolean; run: (who: Me, q: Q, req: NextReques
   drafts: { run: (who, q) => draftList(who, q) },
   scheduled: { run: (who, q) => scheduledList(who, q) },
   draft_open: { run: (who, q) => draftOpen(who, q) },
-  connect: { any: true, run: async (who, q, req) => NextResponse.redirect(await oauthStart(who, q.mailbox, req.nextUrl.origin)) },
+  // `back=mail`: started from the mail window, so Google's answer comes back to the window (a short cookie, read once).
+  connect: { any: true, run: async (who, q, req) => {
+    const res = NextResponse.redirect(await oauthStart(who, q.mailbox, req.nextUrl.origin))
+    if (q.back === 'mail') res.cookies.set('rpmail_back', 'mail', { path: '/api/rpmail', maxAge: 900, httpOnly: true, sameSite: 'lax', secure: req.nextUrl.protocol === 'https:' })
+    return res
+  } },
   admin_state: { any: true, run: who => adminState(who) },
   admin_activity: { any: true, run: (who, q) => activityList(who, q) },
   admin_activity_export: { any: true, run: (who, q) => activityCsv(who, q) },

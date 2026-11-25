@@ -10,7 +10,8 @@ import { logActivity } from './activity'
 
 const LABEL = /^Label_[A-Za-z0-9_-]{1,40}$/
 export const labelId = (v: unknown): string => { if (typeof v !== 'string' || !LABEL.test(v)) throw new UserError('No such label.'); return v }
-export type Label = { id: string; name: string }
+/** A Gmail label (or a Proton folder or label). `total` / `unread`: how many of RPMail's loaded messages carry it. */
+export type Label = { id: string; name: string; total?: number; unread?: number }
 type GLabel = { id: string; name: string; type?: string }
 
 /**
@@ -35,7 +36,9 @@ function labelName(v: unknown): string {
 
 export async function labelList(who: Me, p: Record<string, string>) {
   const box = await mailboxFor(who, p.mailbox)
-  return { labels: await userLabels(box), can_edit: mayReshape(who, box) }
+  const [labels, { data: counts }] = await Promise.all([userLabels(box), createAdminClient().rpc('rpmail_label_counts', { p_mailbox: box.id })])
+  const by = new Map(((counts ?? []) as { label: string; total: number; unread: number }[]).map(c => [c.label, c]))
+  return { labels: labels.map(l => ({ ...l, total: Number(by.get(l.id)?.total ?? 0), unread: Number(by.get(l.id)?.unread ?? 0) })), can_edit: mayReshape(who, box) }
 }
 
 /** Make a label, or rename one (with `id`). Making one that already exists just hands it back. */

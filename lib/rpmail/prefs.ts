@@ -33,7 +33,9 @@ export type Prefs = {
   lists_off: string[]
 }
 
-const ids = (v: unknown): string[] => Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && UUID.test(x)))].slice(0, 60) : []
+/** The dashboard blocks that are not mailboxes. They can be moved and closed like the mailbox blocks. */
+export const TILE_KEYS = ['plate', 'jobs', 'needs', 'summary'] as const
+const ids = (v: unknown): string[] => Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && (UUID.test(x) || (TILE_KEYS as readonly string[]).includes(x))))].slice(0, 60) : []
 const notifyPrefs = (v: unknown): NotifyPrefs => {
   const d = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
   return { on: d.on === true, what: d.what === 'needs' || d.what === 'all' ? d.what : 'people',

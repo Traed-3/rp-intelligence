@@ -37,6 +37,14 @@ Nothing here needs money. In rough order of how much a person would notice:
 7. Out-of-office: needs one more Google permission, so each person presses Sign in again once. Empty Trash stays set aside (it needs full-mailbox permission, and Gmail empties Trash itself after 30 days).
 9. Two-step sign-in for RP Intelligence (the whole site, not only RPMail).
 
+Mail window (2026-11-25, Trae: "a separate window open for mail so it does not have to keep loading", "look more like this screenshot"):
+the RPMail menu entry opens /mail in a window of its own (named "rpmail"; pressing it again only brings that window forward,
+so it never reloads). In that window the navy menu holds New message, Dashboard and every mailbox with its folder tree
+(Inbox, Needs you, the labels / Proton folders with unread / total, Sent, Drafts, Scheduled, Snoozed, Filed, All mail).
+Dashboard blocks are laid out like Trae's own RPMail (status dot, read-only tag, Unread / Need you / In inbox, Newest ·
+synced) and every block, mailbox or not, can be dragged to a new place or closed. Same graph paper and colors as the app,
+light and dark. Looked at on the try-out page; the live window was opened in Chrome after it went out.
+
 Done from this list: conversation view, pictures inside the text, signatures and templates that keep their formatting, the rough edges, reopening Gmail drafts, the staff how-to (2026-11-23). Schedule send (2026-11-24, Trae: "Yes, build it"). Still plain: a picture (a logo) in a signature.
 
 Proton (2026-11-24): reads since the morning; changes and sending added the same day. What only works while the Mac Studio is on

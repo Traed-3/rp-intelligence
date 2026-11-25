@@ -3,13 +3,14 @@
 //
 //   node scripts/rpmail-tryout/build.mjs [output folder]      (default: .next/rpmail-tryout)
 //   then serve that folder with any static file server and open it, e.g.  python3 -m http.server 8732 --directory .next/rpmail-tryout
+//   Add #window to the address for the mail window (folders in the navy menu), #settings or #help for those pages.
 //
 // The page is the real components/rpmail code and the real styling; only the server answers are made up (entry.tsx).
 // esbuild and postcss come in with the project's other tools (vitest, Tailwind); this script is never part of the site build.
 import { build } from 'esbuild'
 import postcss from 'postcss'
 import tailwind from '@tailwindcss/postcss'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { deflateSync, crc32 } from 'node:zlib'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,7 +25,7 @@ writeFileSync(resolve(out, 'app.css'), css.css)
 
 await build({
   entryPoints: [resolve(here, 'entry.tsx')], bundle: true, outfile: resolve(out, 'out.js'), jsx: 'automatic', logLevel: 'error',
-  alias: { '@/lib/supabase/client': resolve(here, 'supabase-shim.ts'), 'next/link': resolve(here, 'link-shim.tsx'), '@': root },
+  alias: { '@/lib/supabase/client': resolve(here, 'supabase-shim.ts'), 'next/link': resolve(here, 'link-shim.tsx'), 'next/image': resolve(here, 'image-shim.tsx'), '@': root },
   define: { 'process.env.NODE_ENV': '"development"', 'process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY': '""', 'process.env.NEXT_PUBLIC_SUPABASE_URL': '""', 'process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY': '""' },
 })
 
@@ -36,5 +37,6 @@ const head = Buffer.alloc(13); head.writeUInt32BE(W, 0); head.writeUInt32BE(H, 4
 mkdirSync(resolve(out, 'api/rpmail'), { recursive: true })
 writeFileSync(resolve(out, 'api/rpmail/attach_view'), Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', head), chunk('IDAT', deflateSync(Buffer.concat(Array(H).fill(row)))), chunk('IEND', Buffer.alloc(0))]))
 
+copyFileSync(resolve(root, 'public/logo-full-v4.png'), resolve(out, 'logo-full-v4.png'))   // the logo in the mail window's menu
 writeFileSync(resolve(out, 'index.html'), '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RPMail try-out</title><link rel="stylesheet" href="app.css"></head><body class="bg-background text-foreground"><div id="root"></div><script src="out.js"></script></body></html>\n')
 console.log('RPMail try-out built in ' + out)

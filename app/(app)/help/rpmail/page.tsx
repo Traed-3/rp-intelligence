@@ -26,6 +26,12 @@ const PARTS: Part[] = [
     <>Opening a message does <b>not</b> mark it read. Press <b>Mark read</b> when you are done with it.</>,
     <>Pictures from the internet are hidden until you press <b>Show pictures</b>. Under a reply, the mail it answered is folded away: press <b>Show the quoted mail</b> to see it.</>,
   ] },
+  { id: 'window', title: 'RPMail in its own window', steps: [
+    <>Press <b>RPMail</b> in the menu on the left. Mail opens in a window of its own, so it stays open while you use the rest of RP Intelligence.</>,
+    <>Press <b>RPMail</b> again any time to bring that window back to the front. It does not load again, so your mail is where you left it.</>,
+    <>In the mail window the menu on the left is your mail: <b>New message</b>, <b>Dashboard</b>, then each mailbox. Press the arrow beside a mailbox to see its folders, with how many are unread and how many there are.</>,
+    <>On the dashboard, drag a block to move it, or press its <b>X</b> to close it. Closed blocks are listed under the blocks, to put back.</>,
+  ], note: <>If nothing opens, your browser stopped the new window: allow pop-ups for rpintelligence.app and press RPMail again. On a phone RPMail opens in the page as before.</> },
   { id: 'write', title: 'Write, reply and forward', steps: [
     <>Press <b>New message</b>, or <b>Reply</b>, <b>Reply all</b> or <b>Forward</b> on a message.</>,
     <>Type a name in <b>To</b>; RPMail offers people you have emailed. Pick a group to add everyone in it.</>,

@@ -74,7 +74,12 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     return json({ prefs, boxes: [box(), office()], needs: [job], foryou: [{ ...job, why: 'Site 34006' }], plate: { items: plate, error: null }, summary: null, moves: [], now: Date.now() })
   }
   if (op === 'sync') return json({ done: true })
-  if (op === 'labels') return json({ labels: [], can_edit: true })
+  // Folders for the mail window's menu: a small tree, the way Proton folders and Gmail labels with slashes come through.
+  if (op === 'labels') return json({ labels: q.get('mailbox') === BOX ? [
+    { id: 'Label_rps', name: 'RPS', total: 762, unread: 10 }, { id: 'Label_pf', name: 'RPS/Project Folders', total: 13, unread: 0 },
+    { id: 'Label_mt', name: 'RPS/Maintenance', total: 3, unread: 0 }, { id: 'Label_dot', name: 'RPS/DOT Drum Pick Up', total: 6, unread: 1 },
+    { id: 'Label_pe', name: 'Personal', total: 1, unread: 0 }, { id: 'Label_tt', name: 'Personal/Turbo Tenant', total: 40, unread: 0 },
+  ] : [{ id: 'Label_v', name: 'Vendors', total: 4, unread: 1 }], can_edit: true })
   if (op === 'templates') return json({ templates })
   if (op === 'template_save') { const k = keptWording(body.html, body.body, 20_000); templates.push({ id: 't' + (templates.length + 1), name: String(body.name), body: k.text, html: k.html }); sentLog.push({ template: body }); return json({ ok: true }) }
   if (op === 'signature') { const k = keptWording(body.html, body.text, 4000); sig.text = k.text; sig.html = k.html; sentLog.push({ signature: body }); return json({ ok: true, ...k }) }
@@ -125,4 +130,4 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 }
 
 // Add #settings to the address for the person's own Settings page, or #help for the RPMail guide, instead of the mail page.
-createRoot(document.getElementById('root')!).render(<main className="rp-main min-h-screen"><div className="p-4 sm:p-6 max-w-[1500px] mx-auto">{location.hash === '#settings' ? <RpmailSettings /> : location.hash === '#help' ? <RpmailHelpPage /> : <RpmailApp localUrl={null} />}</div></main>)
+createRoot(document.getElementById('root')!).render(location.hash === '#window' ? <div className="flex min-h-dvh w-full bg-surface"><RpmailApp localUrl={null} windowed /></div> : <main className="rp-main min-h-screen"><div className="p-4 sm:p-6 max-w-[1500px] mx-auto">{location.hash === '#settings' ? <RpmailSettings /> : location.hash === '#help' ? <RpmailHelpPage /> : <RpmailApp localUrl={null} />}</div></main>)

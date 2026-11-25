@@ -9,7 +9,13 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
-  const to = (path: string) => NextResponse.redirect(new URL(path, req.nextUrl.origin))
+  // Started from the mail window (/mail): go back there instead of to the RPMail page inside RP Intelligence.
+  const win = req.cookies.get('rpmail_back')?.value === 'mail'
+  const to = (path: string) => {
+    const res = NextResponse.redirect(new URL(win ? path.replace(/^\/rpmail(?=[?/]|$)/, '/mail') : path, req.nextUrl.origin))
+    if (win) res.cookies.delete({ name: 'rpmail_back', path: '/api/rpmail' })
+    return res
+  }
   const who = await me()
   if (!who) return to('/login')
   try {

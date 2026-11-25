@@ -2,9 +2,10 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   Mail, LayoutDashboard, PenSquare, RefreshCw, Paperclip, Check, Archive, Trash2, ShieldAlert, Reply, ReplyAll, Forward, Inbox,
-  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal, AlarmClock, BellRing, Wand2, Settings, CircleHelp, Clock, Send,
+  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal, AlarmClock, BellRing, Wand2, Settings, CircleHelp, Clock, Send, ChevronRight, AppWindow,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -17,7 +18,8 @@ import { buildStack, startOpen, shownOf, isForward, htmlHasQuote, splitPlainQuot
 import { PushToggle } from '@/app/(app)/settings/alerts/push-toggle'
 import { Compose, clearDraft, whenText, type ComposeStart, type Outgoing } from './compose'
 import { useAsk } from './ask'
-import { ClipboardList, HardHat, Newspaper, type LucideIcon } from 'lucide-react'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { openMailWindow, showInMain } from '@/lib/rpmail/window'
 
 // The built-in RPMail page: Dashboard (a tile per mailbox, My Plate, Your jobs, Needs you, Daily summary) and one
 // inbox per mailbox. Unread mail is bold everywhere. Opening a message never marks it read.
@@ -27,6 +29,9 @@ export type Group = { name: string; addrs: string[] }
 export type Prefs = { hidden: string[]; order: string[]; undo_secs?: number; notify?: Notify; sender_name?: string; default_from?: string; start?: string; density?: 'comfortable' | 'compact'; tz?: string; groups?: Group[]; lists_off?: string[] }
 /** Lists drawn tighter (one line less per message) when the person chose Compact in Settings. */
 const Compact = createContext(false)
+/** True inside the mail window (/mail): sign-ins come back to it, and links to the rest of RP Intelligence open in the main window. */
+const Win = createContext(false)
+const connectHref = (id: string, win: boolean) => `/api/rpmail/connect?mailbox=${id}${win ? '&back=mail' : ''}`
 export type State = { prefs?: Prefs; enabled: boolean; name: string; role: string; googleReady: boolean; personalAddress: string | null; loginEmail: string; boxes: BoxInfo[]; note: string | null }
 type PlateItem = { id: string; title: string; detail: string; kind: string; site_number: string | null; priority: number; due_date: string | null; status: string; waiting_on: string | null; mail: Item | null; mail_n: number }
 type SumItem = { mailbox_id: string; id: string; date: number; from_name: string; subject: string; site: string | null; po: string | null; snippet: string; why?: string; unread?: boolean }
@@ -72,7 +77,9 @@ const btn = (variant: 'default' | 'outline' | 'ghost' | 'destructive' = 'outline
  *  in the same green as the My Plate count (the theme's `success`). In dark mode that green is brighter, so the words turn dark. */
 const DONE_BTN = cn(buttonVariants({ size: 'xs' }), 'self-center shrink-0 rounded-full px-3 border-transparent bg-success text-white hover:bg-success/90 focus-visible:ring-success/40 dark:text-[oklch(0.2_0.04_160)]')
 
-export function RpmailApp({ localUrl, connected, connectError }: { localUrl: string | null; connected?: string; connectError?: string }) {
+export function RpmailApp({ localUrl, connected, connectError, windowed = false }: { localUrl: string | null; connected?: string; connectError?: string
+  /** The mail window (/mail): mailboxes and folders fill the navy menu on the left, like the main RP Intelligence menu. */
+  windowed?: boolean }) {
   const [st, setSt] = useState<State | null>(null)
   const [ov, setOv] = useState<Overview | null>(null)
   const [view, setView] = useState<View>(connected ? { kind: 'box', id: connected } : { kind: 'dash' })
@@ -168,7 +175,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
 
   useEffect(() => {
     void boot()
-    if (connected || connectError) window.history.replaceState(null, '', '/rpmail')
+    if (connected || connectError) window.history.replaceState(null, '', windowed ? '/mail' : '/rpmail')
     const t = setInterval(() => { if (document.visibilityState === 'visible') void api<State>('state').then(s => { if (s.enabled) void syncAll(s.boxes) }).catch(() => null) }, 90_000)
     return () => clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -352,7 +359,7 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const setHidden = (id: string, on: boolean) => {
     const next = new Set(hidden); if (on) next.add(id); else next.delete(id)
     void savePrefs({ hidden: [...next] })
-    say(on ? 'Closed. It is still in the list on the left; put it back from the bottom of the dashboard.' : 'Back on the dashboard.')
+    say(on ? (boxes.some(b => b.id === id) ? 'Closed. The mailbox is still in the list on the left; put the block back from under the dashboard blocks.' : 'Closed. Put it back from under the dashboard blocks.') : 'Back on the dashboard.')
   }
 
   // Keyboard shortcuts (press ? for the list). Off while typing in a box or writing a message.
@@ -404,8 +411,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   const boxName = useCallback((id: string) => boxes.find(b => b.id === id)?.name ?? '', [boxes])
   const cur = view.kind === 'box' ? boxes.find(b => b.id === view.id) ?? null : null
 
-  if (!st) return <div className="p-6 text-sm text-muted-foreground">{err || 'Loading RPMail...'}</div>
-  if (!st.enabled) return <Setup st={st} localUrl={localUrl} onOn={boot} />
+  if (!st) return <div className={cn('p-6 text-sm text-muted-foreground', windowed && 'rp-main min-h-dvh')}>{err || 'Loading RPMail...'}</div>
+  if (!st.enabled) return <div className={cn(windowed && 'rp-main min-h-dvh')}><Setup st={st} localUrl={localUrl} onOn={boot} /></div>
 
   const onBoxMenu = (e: React.MouseEvent, b: BoxInfo) => { e.preventDefault(); e.stopPropagation(); setMenu(null); setBoxMenu({ x: e.clientX, y: e.clientY, box: b }) }
   const goBox = (id: string) => { setFilter({ view: 'inbox', q: '', unread: false, att: false }); setView({ kind: 'box', id }); setSel(null); setMsg(null) }
@@ -416,38 +423,43 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
   // In the Drafts list a line opens the draft to finish it; there is no menu or star (a draft is not a received message).
   const draftRows = { onOpen: (it: Item) => setCompose({ mode: 'draft', mailbox: it.mailbox_id, draft: it.id }), onMenu: (e: React.MouseEvent) => e.preventDefault() }
 
-  return (
-    <Compact.Provider value={st.prefs?.density === 'compact'}>
-    <div className="p-3 sm:p-5 max-w-[1500px] mx-auto" onClick={() => { if (menu) setMenu(null); if (boxMenu) setBoxMenu(null) }}>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-        <div>
-          <h1 className="rp-title">RPMail</h1>
-          <p className="rp-subtitle">Your mail, what needs a reply and your jobs, in one place.{localUrl && <> <a className="underline" href={localUrl} target="_blank" rel="noopener noreferrer">Open your own RPMail</a></>}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className={btn('ghost')} onClick={() => setNotifyOpen(true)} title="New-mail notifications"><Bell /><span className="hidden sm:inline">Notifications{st.prefs?.notify?.on ? ' on' : ''}</span></button>
-          <Link className={cn(btn('ghost'), '!text-[0.8rem] !font-semibold')} href="/rpmail/settings" title="Your name on mail, signatures, defaults, time zone and more"><Settings /><span className="hidden sm:inline">Settings</span></Link>
-          <button className={cn(btn('ghost'), 'hidden sm:inline-flex')} onClick={() => setHelp(true)} title="Keyboard shortcuts (press ?)"><Keyboard />Shortcuts</button>
-          <Link className={cn(btn('ghost'), '!text-[0.8rem] !font-semibold hidden sm:inline-flex')} href="/help/rpmail" title="How to use RPMail, step by step"><CircleHelp />Help</Link>
-          <button className={btn('ghost')} onClick={() => void syncAll(boxes)} disabled={busy} title="Check for new mail"><RefreshCw className={cn(busy && 'animate-spin')} />{busy ? 'Checking' : 'Check mail'}</button>
-          <button className={btn('default')} onClick={() => setCompose({ mode: 'new', mailbox: cur?.connected && cur.can_send ? cur.id : boxes.find(b => b.id === st.prefs?.default_from && b.connected && b.can_send)?.id ?? boxes.find(b => b.connected && b.can_send)?.id ?? '' })} disabled={!boxes.some(b => b.connected && b.can_send) || !!pending}
-            title={boxes.some(b => b.connected) && !boxes.some(b => b.connected && b.can_send) ? 'You can read your mailboxes here but not send from them. An owner can change that.' : undefined}><PenSquare />New message</button>
-        </div>
-      </div>
-      {err && <p className="mb-3 rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{err}</p>}
-      {st.note && <p className="mb-3 rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-warning">{st.note}</p>}
+  const newMessage = () => setCompose({ mode: 'new', mailbox: cur?.connected && cur.can_send ? cur.id : boxes.find(b => b.id === st.prefs?.default_from && b.connected && b.can_send)?.id ?? boxes.find(b => b.connected && b.can_send)?.id ?? '' })
+  const canWrite = boxes.some(b => b.connected && b.can_send)
+  const writeTitle = boxes.some(b => b.connected) && !canWrite ? 'You can read your mailboxes here but not send from them. An owner can change that.' : undefined
+  const goDash = () => { setView({ kind: 'dash' }); setSel(null); setMsg(null) }
+  const pickFolder = (id: string, f: Partial<Filter>) => { setFilter({ view: 'inbox', q: '', unread: false, att: false, ...f }); setView({ kind: 'box', id }); setSel(null); setMsg(null) }
+  const closeMenus = () => { if (menu) setMenu(null); if (boxMenu) setBoxMenu(null) }
+  const ownWindow = () => { if (!openMailWindow()) say('Your browser stopped the new window. Allow pop-ups for rpintelligence.app, then press it again.') }
 
-      <div className="flex flex-col lg:flex-row gap-4">
-        <nav className="lg:w-56 shrink-0 flex lg:flex-col gap-1.5 overflow-x-auto pb-1 lg:pb-0">
-          <NavBtn on={view.kind === 'dash'} onClick={() => { setView({ kind: 'dash' }); setSel(null); setMsg(null) }} icon={<LayoutDashboard className="size-4" />} label="Dashboard" />
-          {boxes.map(b => (
-            <NavBtn key={b.id} on={view.kind === 'box' && view.id === b.id} icon={<Mail className="size-4" />} label={b.name} sub={b.connected ? b.address : 'Signed out'} count={b.unread}
-              onClick={() => goBox(b.id)} onContextMenu={e => onBoxMenu(e, b)} />
-          ))}
-        </nav>
-
+  const tools = (
+    <div className="flex flex-wrap items-center gap-2">
+      <button className={btn('ghost')} onClick={() => setNotifyOpen(true)} title="New-mail notifications"><Bell /><span className="hidden sm:inline">Notifications{st.prefs?.notify?.on ? ' on' : ''}</span></button>
+      {windowed
+        ? <button className={btn('ghost')} onClick={() => showInMain('/rpmail/settings')} title="Your name on mail, signatures, defaults, time zone and more (opens in RP Intelligence)"><Settings /><span className="hidden sm:inline">Settings</span></button>
+        : <Link className={cn(btn('ghost'), '!text-[0.8rem] !font-semibold')} href="/rpmail/settings" title="Your name on mail, signatures, defaults, time zone and more"><Settings /><span className="hidden sm:inline">Settings</span></Link>}
+      <button className={cn(btn('ghost'), 'hidden sm:inline-flex')} onClick={() => setHelp(true)} title="Keyboard shortcuts (press ?)"><Keyboard />Shortcuts</button>
+      {windowed
+        ? <button className={cn(btn('ghost'), 'hidden sm:inline-flex')} onClick={() => showInMain('/help/rpmail')} title="How to use RPMail, step by step (opens in RP Intelligence)"><CircleHelp />Help</button>
+        : <Link className={cn(btn('ghost'), '!text-[0.8rem] !font-semibold hidden sm:inline-flex')} href="/help/rpmail" title="How to use RPMail, step by step"><CircleHelp />Help</Link>}
+      {!windowed && <button className={cn(btn('ghost'), 'hidden md:inline-flex')} onClick={ownWindow} title="Open RPMail in its own window. It stays open and loaded while you use the rest of RP Intelligence."><AppWindow />Own window</button>}
+      <button className={btn('ghost')} onClick={() => void syncAll(boxes)} disabled={busy} title="Check for new mail"><RefreshCw className={cn(busy && 'animate-spin')} />{busy ? 'Checking' : 'Check mail'}</button>
+      <button className={cn(btn('default'), windowed && 'md:hidden')} onClick={newMessage} disabled={!canWrite || !!pending} title={writeTitle}><PenSquare />New message</button>
+    </div>
+  )
+  const alerts = <>
+    {err && <p className="mb-3 rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{err}</p>}
+    {st.note && <p className="mb-3 rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-warning">{st.note}</p>}
+  </>
+  const boxButtons = <>
+    <NavBtn on={view.kind === 'dash'} onClick={goDash} icon={<LayoutDashboard className="size-4" />} label="Dashboard" />
+    {boxes.map(b => (
+      <NavBtn key={b.id} on={view.kind === 'box' && view.id === b.id} icon={<Mail className="size-4" />} label={b.name} sub={b.connected ? b.address : 'Signed out'} count={b.unread}
+        onClick={() => goBox(b.id)} onContextMenu={e => onBoxMenu(e, b)} />
+    ))}
+  </>
+  const views = (
         <div className="flex-1 min-w-0">
-          {view.kind === 'dash' && ov && <Dash ov={ov} boxes={boxes} hidden={hidden} onBoxMenu={onBoxMenu} putBack={id => setHidden(id, false)} boxName={boxName} rowProps={rowProps} goBox={goBox}
+          {view.kind === 'dash' && ov && <Dash ov={ov} boxes={boxes} hidden={hidden} order={st.prefs?.order ?? []} reorder={order => void savePrefs({ order })} close={id => setHidden(id, true)} onBoxMenu={onBoxMenu} putBack={id => setHidden(id, false)} boxName={boxName} rowProps={rowProps} goBox={goBox}
             markDone={markDone} plateDone={plateDone} undo={id => void act(async () => { const u = await api<{ back_to: string }>('undo', { move: id }); await refresh(); say('Back in ' + u.back_to + '.') })} />}
           {view.kind === 'dash' && !ov && <p className="text-sm text-muted-foreground">Loading...</p>}
           {view.kind === 'dash' && (
@@ -467,8 +479,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
               disconnect={canSignOut(cur) ? () => signOut(cur) : undefined} />
           )}
         </div>
-      </div>
-
+  )
+  const overlays = <>
       {menu && (
         <div className="fixed z-50 rp-card py-1 text-sm shadow-lg" style={{ left: Math.min(menu.x, window.innerWidth - 190), top: Math.min(menu.y, window.innerHeight - 400) }}>
           <MenuBtn onClick={() => rowProps.onOpen(menu.item)}>Open</MenuBtn>
@@ -494,8 +506,8 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
           <p className="px-4 py-1 text-xs text-muted-foreground truncate max-w-[220px]">{b.address}</p>
           <MenuBtn onClick={() => goBox(b.id)}>Open</MenuBtn>
           {b.connected && <MenuBtn onClick={() => void syncAll([b])}>Check for new mail</MenuBtn>}
-          {!b.connected && st.googleReady && <a className="block w-full px-4 py-1.5 text-left !font-normal hover:bg-raised" href={`/api/rpmail/connect?mailbox=${b.id}`}>Sign in</a>}
-          {b.connected && st.googleReady && <a className="block w-full px-4 py-1.5 text-left !font-normal hover:bg-raised" href={`/api/rpmail/connect?mailbox=${b.id}`}>Sign in again</a>}
+          {!b.connected && st.googleReady && <a className="block w-full px-4 py-1.5 text-left !font-normal hover:bg-raised" href={connectHref(b.id, windowed)}>Sign in</a>}
+          {b.connected && st.googleReady && <a className="block w-full px-4 py-1.5 text-left !font-normal hover:bg-raised" href={connectHref(b.id, windowed)}>Sign in again</a>}
           {canSignOut(b) && <MenuBtn onClick={() => signOut(b)}>Sign out</MenuBtn>}
           {i > 0 && <MenuBtn onClick={() => moveBox(b.id, -1)}>Move earlier</MenuBtn>}
           {i >= 0 && i < boxes.length - 1 && <MenuBtn onClick={() => moveBox(b.id, 1)}>Move later</MenuBtn>}
@@ -516,8 +528,45 @@ export function RpmailApp({ localUrl, connected, connectError }: { localUrl: str
       {pending && !compose && <PendingBar to={pending.out.to} from={pending.out.from} until={pending.until} undo={undoSend} now={sendNow} />}
       {compose && <Compose key={JSON.stringify(compose)} start={compose} boxes={boxes} groups={st.prefs?.groups ?? []} undoSecs={st.prefs?.undo_secs ?? 10} setUndoSecs={n => void savePrefs({ undo_secs: n })}
         onClose={() => setCompose(null)} onDone={text => { setCompose(null); say(text); void refresh() }} onSend={out => queueSend(out, st.prefs?.undo_secs ?? 10)} />}
-    </div>
+  </>
+
+  return (
+    <Win.Provider value={windowed}>
+    <Compact.Provider value={st.prefs?.density === 'compact'}>
+    {windowed ? (
+      <div className="flex h-dvh w-full overflow-hidden" onClick={closeMenus}>
+        <MailSidebar boxes={boxes} view={view} filter={filter} needs={ov?.needs.length ?? 0} stamp={ov?.now ?? 0} newMessage={newMessage} canWrite={canWrite && !pending} writeTitle={writeTitle}
+          goDash={goDash} pick={pickFolder} onBoxMenu={onBoxMenu} />
+        <main className="rp-main flex-1 min-w-0 overflow-y-auto">
+          <div className="p-3 sm:p-5 max-w-[1700px] mx-auto">
+            <div className="mb-3 flex flex-wrap items-center justify-end gap-2">{tools}</div>
+            {/* On a phone the menu on the left steps aside; the mailboxes are a row across the top instead. */}
+            <nav className="md:hidden mb-3 flex gap-1.5 overflow-x-auto pb-1">{boxButtons}</nav>
+            {alerts}
+            {views}
+          </div>
+        </main>
+        {overlays}
+      </div>
+    ) : (
+      <div className="p-3 sm:p-5 max-w-[1500px] mx-auto" onClick={closeMenus}>
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+          <div>
+            <h1 className="rp-title">RPMail</h1>
+            <p className="rp-subtitle">Your mail, what needs a reply and your jobs, in one place.{localUrl && <> <a className="underline" href={localUrl} target="_blank" rel="noopener noreferrer">Open your own RPMail</a></>}</p>
+          </div>
+          {tools}
+        </div>
+        {alerts}
+        <div className="flex flex-col lg:flex-row gap-4">
+          <nav className="lg:w-56 shrink-0 flex lg:flex-col gap-1.5 overflow-x-auto pb-1 lg:pb-0">{boxButtons}</nav>
+          {views}
+        </div>
+        {overlays}
+      </div>
+    )}
     </Compact.Provider>
+    </Win.Provider>
   )
 }
 
@@ -533,6 +582,140 @@ function NavBtn({ on, onClick, onContextMenu, icon, label, sub, count }: { on: b
     </button>
   )
 }
+type FolderNode = { name: string; path: string; label?: Label; kids: FolderNode[] }
+/** Labels named with slashes ("RPS/Project Folders") as a tree, the way Gmail and Proton show them. */
+function folderTree(labels: Label[]): FolderNode[] {
+  const root: FolderNode = { name: '', path: '', kids: [] }
+  for (const l of [...labels].sort((a, b) => a.name.localeCompare(b.name))) {
+    const parts = l.name.split('/').map(x => x.trim()).filter(Boolean)
+    let at = root
+    parts.forEach((part, i) => {
+      const path = parts.slice(0, i + 1).join('/')
+      let n = at.kids.find(k => k.name === part)
+      if (!n) { n = { name: part, path, kids: [] }; at.kids.push(n) }
+      if (i === parts.length - 1) n.label = l
+      at = n
+    })
+  }
+  return root.kids
+}
+const readSet = (key: string, fallback: string[] = []): Set<string> => { try { const v = JSON.parse(localStorage.getItem(key) ?? 'null'); return new Set(Array.isArray(v) ? v.filter(x => typeof x === 'string') : fallback) } catch { return new Set(fallback) } }
+const keepSet = (key: string, v: Set<string>) => { try { localStorage.setItem(key, JSON.stringify([...v])) } catch { /* storage is off: the tree just starts open each time */ } }
+
+/** "10 / 762": unread (in gold) of everything RPMail has loaded there; just the total when nothing is unread. */
+function Count({ unread, total }: { unread?: number; total?: number }) {
+  if (!unread && !total) return null
+  return <span className="ml-auto shrink-0 pl-2 text-[11px] tabular-nums text-gray-500">{unread ? <><b className="font-semibold text-gold">{unread}</b>{total ? ' / ' + total : ''}</> : total}</span>
+}
+
+/**
+ * The navy menu of the mail window: New message, Dashboard, then every mailbox with its folders (the views RPMail keeps,
+ * and the mailbox's own labels or Proton folders as a tree with unread / total). Drawn like the main RP Intelligence menu.
+ */
+function MailSidebar({ boxes, view, filter, needs, stamp, newMessage, canWrite, writeTitle, goDash, pick, onBoxMenu }: {
+  boxes: BoxInfo[]; view: View; filter: Filter; needs: number; stamp: number; newMessage: () => void; canWrite: boolean; writeTitle?: string
+  goDash: () => void; pick: (box: string, f: Partial<Filter>) => void; onBoxMenu: (e: React.MouseEvent, b: BoxInfo) => void }) {
+  // Which mailboxes are opened up, and which folders are folded shut: remembered in this browser.
+  const [open, setOpen] = useState<Set<string>>(() => readSet('rpmail:tree:open', boxes.slice(0, 2).map(b => b.id)))
+  const [shut, setShut] = useState<Set<string>>(() => readSet('rpmail:tree:shut'))
+  const [folders, setFolders] = useState<Record<string, Label[]>>({})
+  const loadedAt = useRef<Record<string, number>>({})
+  useEffect(() => {
+    for (const b of boxes) {
+      if (!b.connected || !open.has(b.id)) continue
+      if (Date.now() - (loadedAt.current[b.id] ?? 0) < 60_000) continue   // counts follow the mail, at most once a minute per mailbox
+      loadedAt.current[b.id] = Date.now()
+      api<{ labels: Label[] }>('labels', undefined, { mailbox: b.id }).then(r => setFolders(f => ({ ...f, [b.id]: r.labels }))).catch(() => { loadedAt.current[b.id] = 0 })
+    }
+  }, [boxes, open, stamp])
+  const flip = (set: Set<string>, key: string, save: (s: Set<string>) => void, store: string) => { const n = new Set(set); if (n.has(key)) n.delete(key); else n.add(key); keepSet(store, n); save(n) }
+  const here = (id: string) => view.kind === 'box' && view.id === id
+  const row = (on: boolean) => cn('group relative flex w-full min-w-0 items-center gap-1.5 rounded-md py-[5px] pr-2 text-left text-[13px] transition-colors',
+    on ? 'bg-sidebar-accent text-foreground' : 'text-gray-600 hover:bg-sidebar-accent hover:text-foreground focus-visible:bg-sidebar-accent focus-visible:text-foreground')
+  const mark = (on: boolean) => on && <span aria-hidden className="absolute -left-3 top-1 bottom-1 w-[3px] rounded-r-full bg-brand" />
+
+  const node = (b: BoxInfo, n: FolderNode, depth: number): React.ReactNode => {
+    const key = b.id + ':' + n.path, closed = shut.has(key), on = !!n.label && here(b.id) && filter.label === n.label.id
+    return (
+      <li key={key}>
+        <div className={row(on)} style={{ paddingLeft: 10 + depth * 14 }}>
+          {mark(on)}
+          {n.kids.length > 0
+            ? <button className="-ml-1 rounded p-0.5 text-gray-500 hover:text-foreground" aria-label={(closed ? 'Open ' : 'Fold ') + n.name} aria-expanded={!closed} onClick={() => flip(shut, key, setShut, 'rpmail:tree:shut')}><ChevronRight className={cn('size-3.5 transition-transform', !closed && 'rotate-90')} /></button>
+            : <span className="w-4 shrink-0" />}
+          <button className="min-w-0 flex-1 truncate text-left" onClick={() => n.label ? pick(b.id, { view: 'all', label: n.label.id }) : flip(shut, key, setShut, 'rpmail:tree:shut')} title={n.path}>{n.name}</button>
+          <Count unread={n.label?.unread} total={n.label?.total} />
+        </div>
+        {!closed && n.kids.length > 0 && <ul>{n.kids.map(k => node(b, k, depth + 1))}</ul>}
+      </li>
+    )
+  }
+  const sys = (b: BoxInfo, v: Filter['view'], label: string, count?: { unread?: number; total?: number }) => {
+    const on = here(b.id) && filter.view === v && !filter.label
+    return <li key={v}><button className={row(on)} style={{ paddingLeft: 24 }} onClick={() => pick(b.id, { view: v })}>{mark(on)}<span className="min-w-0 flex-1 truncate">{label}</span>{count && <Count {...count} />}</button></li>
+  }
+
+  return (
+    <aside className="dark rp-sidebar hidden md:flex print:hidden h-dvh w-64 shrink-0 flex-col border-r border-sidebar-border text-foreground">
+      <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
+        <button onClick={() => showInMain('/dashboard')} aria-label="Go to RP Intelligence" title="Go to RP Intelligence" className="inline-block shrink-0 rounded-lg bg-white px-1.5 py-1 dark:ring-1 dark:ring-white/10">
+          <Image src="/logo-full-v4.png" alt="RP Intelligence" width={220} height={100} priority className="h-11 w-auto" />
+        </button>
+        <span className="text-2xl font-bold uppercase tracking-wide text-foreground [font-family:var(--font-display)]">RPMail</span>
+      </div>
+      <div className="px-3 pb-2">
+        <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-3 py-2.5 text-sm font-semibold text-[#1d1a12] shadow-sm transition hover:brightness-105 disabled:opacity-50" onClick={newMessage} disabled={!canWrite} title={writeTitle}><PenSquare className="size-4" />New message</button>
+      </div>
+      <nav aria-label="Mailboxes" className="flex-1 overflow-y-auto px-3 py-1">
+        <button className={cn(row(view.kind === 'dash'), 'mb-2 !py-2 !text-sm font-semibold')} style={{ paddingLeft: 10 }} onClick={goDash}>
+          {mark(view.kind === 'dash')}<LayoutDashboard className={cn('size-4 shrink-0', view.kind === 'dash' ? 'text-brand' : 'text-gray-400 group-hover:text-gold')} /><span className="flex-1">Dashboard</span>
+          {needs > 0 && <span className="rounded-full bg-white/15 px-2 text-[11px] font-bold tabular-nums">{needs}</span>}
+        </button>
+        <ul className="space-y-2">
+          {boxes.map(b => {
+            const opened = open.has(b.id), labels = folders[b.id] ?? []
+            return (
+              <li key={b.id} onContextMenu={e => onBoxMenu(e, b)}>
+                <div className={cn(row(here(b.id) && filter.view === 'inbox' && !filter.label), '!py-1.5')} style={{ paddingLeft: 4 }}>
+                  {mark(here(b.id) && filter.view === 'inbox' && !filter.label)}
+                  <button className="rounded p-0.5 text-gray-500 hover:text-foreground" aria-label={(opened ? 'Fold ' : 'Open ') + b.name} aria-expanded={opened} onClick={() => flip(open, b.id, setOpen, 'rpmail:tree:open')}><ChevronRight className={cn('size-3.5 transition-transform', opened && 'rotate-90')} /></button>
+                  <button className="min-w-0 flex-1 text-left" onClick={() => pick(b.id, { view: 'inbox' })} title={b.address}>
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden className={cn('size-2 shrink-0 rounded-full', b.connected && !b.last_error ? 'bg-success' : 'bg-danger')} />
+                      <span className={cn('truncate text-sm', b.unread ? 'font-bold text-foreground' : 'font-semibold')}>{b.name}</span>
+                    </span>
+                    <span className="block truncate pl-4 text-[11px] text-gray-500 font-mono">{b.connected ? b.address : 'Not connected'}</span>
+                  </button>
+                  {b.unread > 0 && <span className="shrink-0 rounded-full bg-white/15 px-2 text-[11px] font-bold tabular-nums text-foreground">{b.unread}</span>}
+                </div>
+                {opened && b.connected && (
+                  <ul className="mt-0.5">
+                    {sys(b, 'inbox', 'Inbox', { unread: b.unread, total: b.inbox })}
+                    {sys(b, 'needs', 'Needs you', { total: b.needs })}
+                    {folderTree(labels).map(n => node(b, n, 1))}
+                    {sys(b, 'sent', 'Sent')}
+                    {sys(b, 'drafts', 'Drafts')}
+                    {sys(b, 'scheduled', 'Scheduled')}
+                    {sys(b, 'snoozed', 'Snoozed')}
+                    {sys(b, 'filed', 'Filed')}
+                    {sys(b, 'all', 'All mail')}
+                  </ul>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      </nav>
+      <div className="space-y-2 border-t border-sidebar-border px-3 py-3">
+        <ThemeToggle className="w-full" />
+        <button className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-sm font-medium text-gray-600 transition-colors hover:bg-sidebar-accent hover:text-foreground" onClick={() => showInMain('/dashboard')}>
+          <ExternalLink className="size-[18px] shrink-0 text-gray-400 group-hover:text-gold" strokeWidth={1.9} />Back to RP Intelligence
+        </button>
+      </div>
+    </aside>
+  )
+}
+
 const MenuBtn = ({ onClick, children }: { onClick: () => void; children: React.ReactNode }) => <button className="block w-full px-4 py-1.5 text-left hover:bg-raised" onClick={onClick}>{children}</button>
 
 function Setup({ st, localUrl, onOn }: { st: State; localUrl: string | null; onOn: () => Promise<void> }) {
@@ -561,6 +744,7 @@ function Setup({ st, localUrl, onOn }: { st: State; localUrl: string | null; onO
 }
 
 function Connect({ box, st }: { box: BoxInfo; st: State }) {
+  const win = useContext(Win)
   return (
     <div className="rp-card p-6 max-w-xl space-y-3">
       <h2 className="font-semibold text-foreground">Connect {box.address}</h2>
@@ -568,7 +752,7 @@ function Connect({ box, st }: { box: BoxInfo; st: State }) {
       {box.kind === 'shared' && <p className="text-sm text-muted-foreground">This is a shared mailbox. It only needs signing in once, by anyone who has its Google sign-in.</p>}
       <p className="text-xs text-muted-foreground">Google will show a &ldquo;Google hasn&rsquo;t verified this app&rdquo; page the first time. Choose Advanced, then &ldquo;Go to RP Intelligence&rdquo;. That page appears because this is a private company tool.</p>
       {st.googleReady
-        ? <a className={btn('default', 'default')} href={`/api/rpmail/connect?mailbox=${box.id}`}>Sign in with Google</a>
+        ? <a className={btn('default', 'default')} href={connectHref(box.id, win)}>Sign in with Google</a>
         : <p className="rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-warning">Sign in with Google is not switched on yet. Trae has one Google setup step left; this button will work once that is done.</p>}
       {box.last_error && <p className="text-xs text-danger">{box.last_error}</p>}
     </div>
@@ -633,28 +817,48 @@ const Empty = ({ children }: { children: React.ReactNode }) => <p className="px-
 type Hue = 'info' | 'warning' | 'danger' | 'success'
 const HUE_TEXT: Record<Hue, string> = { info: 'text-info', warning: 'text-warning', danger: 'text-danger', success: 'text-success' }
 const HUE_TOP: Record<Hue, string> = { info: 'border-t-info', warning: 'border-t-warning', danger: 'border-t-danger', success: 'border-t-success' }
-const HUE_CHIP: Record<Hue, string> = { info: 'bg-info-soft text-info', warning: 'bg-warning-soft text-warning', danger: 'bg-danger-soft text-danger', success: 'bg-success-soft text-success' }
 
-function Tile({ title, sub, nums, foot, bold, tone = 'info', icon: Icon, onClick, onMenu }: { title: string; sub: string; nums: [number | string, string, Hue?][]; foot: string; bold?: boolean; tone?: Hue; icon?: LucideIcon; onClick: () => void; onMenu?: (e: React.MouseEvent) => void }) {
+/**
+ * One dashboard block, laid out like Trae's own RPMail (11/25/26): a status dot and the name in capitals, a read-only tag,
+ * big numbers with small capital labels, and a line at the bottom. Every block can be dragged to a new place or closed.
+ */
+function Tile({ title, sub, mono, pill, dot, nums, foot, footTone, bold, tone = 'info', onClick, onMenu, onClose }: {
+  title: string; sub: string; mono?: boolean; pill?: string; dot?: 'ok' | 'bad'; nums: [number | string, string, Hue?][]; foot: string; footTone?: Hue; bold?: boolean; tone?: Hue
+  onClick: () => void; onMenu?: (e: React.MouseEvent) => void; onClose?: () => void }) {
+  const stop = (fn: (e: React.MouseEvent) => void) => (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); fn(e) }
   return (
-    <button onClick={onClick} onContextMenu={onMenu} className={cn('rp-card rp-card-link p-4 text-left relative border-t-[3px]', HUE_TOP[tone])}>
-      {onMenu && <span role="button" tabIndex={0} aria-label={'Options for ' + title} title="Options (or right-click)" className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:bg-raised hover:text-foreground" onClick={onMenu} onKeyDown={e => { if (e.key === 'Enter') onMenu(e as unknown as React.MouseEvent) }}><MoreVertical className="size-4" /></span>}
-      <div className={cn('flex items-center gap-2.5', onMenu && 'pr-6')}>
-        {Icon && <span className={cn('hidden sm:inline-flex size-8 shrink-0 items-center justify-center rounded-lg', HUE_CHIP[tone])} aria-hidden><Icon className="size-4" /></span>}
-        <div className="min-w-0">
-          <div className={cn('text-sm text-foreground truncate', bold ? 'font-bold' : 'font-semibold')}>{title}</div>
-          <div className="text-xs text-muted-foreground truncate">{sub}</div>
-        </div>
+    <div role="button" tabIndex={0} onClick={onClick} onKeyDown={e => { if (e.key === 'Enter') onClick() }} onContextMenu={onMenu}
+      className={cn('rp-card rp-card-link relative flex h-full cursor-pointer flex-col p-4 text-left border-t-[3px]', HUE_TOP[tone])}>
+      <span className="absolute right-1.5 top-1.5 flex items-center opacity-60 transition-opacity group-hover/tile:opacity-100 focus-within:opacity-100">
+        {onMenu && <button aria-label={'Options for ' + title} title="Options (or right-click)" className="rounded p-1 text-muted-foreground hover:bg-raised hover:text-foreground" onClick={stop(onMenu)}><MoreVertical className="size-4" /></button>}
+        {onClose && <button aria-label={'Close ' + title} title="Close this block (put it back from the bottom of the dashboard)" className="rounded p-1 text-muted-foreground hover:bg-raised hover:text-foreground" onClick={stop(() => onClose())}><X className="size-4" /></button>}
+      </span>
+      <div className="flex items-center gap-2 pr-14">
+        {dot && <span aria-hidden className={cn('size-2 shrink-0 rounded-full', dot === 'ok' ? 'bg-success' : 'bg-danger')} />}
+        <span className="rp-card-title !text-[1.1rem] leading-tight">{title}</span>
       </div>
-      <div className="mt-3 flex gap-5">
-        {nums.map(([n, l, h]) => <div key={l}><div className={cn('rp-stat-value text-2xl', h && n !== 0 && HUE_TEXT[h])}>{n}</div><div className="rp-stat-label">{l}</div></div>)}
+      {pill && <span className="mt-1.5 self-start rounded-full bg-raised px-2 py-0.5 text-[11px] font-semibold text-muted-foreground ring-1 ring-border">{pill}</span>}
+      <div className={cn('mt-1 truncate text-xs text-muted-foreground', mono && 'font-mono')}>{sub}</div>
+      {/* The numbers sit side by side; each label wraps word by word under its number ("need / you"), as in Trae's own RPMail. */}
+      <div className={cn('mt-3 flex', nums.length > 3 ? 'gap-x-3' : 'gap-x-5')}>
+        {nums.map(([n, l, h]) => <div key={l} className="w-min min-w-[2.25rem]"><div className={cn('rp-stat-value text-[1.8rem] leading-none', h && n !== 0 && n !== '-' && HUE_TEXT[h])}>{n}</div><div className="mt-1 text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">{l}</div></div>)}
       </div>
-      <div className={cn('mt-3 text-xs truncate', bold ? 'font-bold text-foreground' : 'text-muted-foreground')}>{foot}</div>
-    </button>
+      <div className={cn('mt-auto pt-3 text-xs', footTone ? HUE_TEXT[footTone] : bold ? 'font-bold text-foreground' : 'text-muted-foreground')}>
+        <div className="border-t border-hairline pt-2 line-clamp-2">{foot}</div>
+      </div>
+    </div>
   )
 }
 
-function Dash({ ov, boxes, hidden, onBoxMenu, putBack, boxName, rowProps, goBox, markDone, plateDone, undo }: { ov: Overview; boxes: BoxInfo[]; hidden: Set<string>; onBoxMenu: (e: React.MouseEvent, b: BoxInfo) => void; putBack: (id: string) => void
+/** The blocks on the dashboard that are not mailboxes, and their names for the "closed" list. */
+const TILE_NAMES: Record<string, string> = { plate: 'My Plate', jobs: 'Your jobs', needs: 'Needs you', summary: 'Daily summary' }
+const TILE_DRAG = 'text/x-rpmail-tile'
+const clock = (ms: number | null) => ms ? new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''
+
+function Dash({ ov, boxes, hidden, order, reorder, close, onBoxMenu, putBack, boxName, rowProps, goBox, markDone, plateDone, undo }: { ov: Overview; boxes: BoxInfo[]; hidden: Set<string>
+  /** The person's own order of the blocks (mailbox ids and the names in TILE_NAMES); dragging a block saves a new one. */
+  order: string[]; reorder: (order: string[]) => void; close: (key: string) => void
+  onBoxMenu: (e: React.MouseEvent, b: BoxInfo) => void; putBack: (id: string) => void
   boxName: (id: string) => string; rowProps: RowProps; goBox: (id: string) => void
   markDone: (it: { mailbox_id: string; id: string }, on?: boolean) => void; plateDone: (t: PlateItem) => void; undo: (id: number) => void }) {
   const go = (id: string) => document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
@@ -665,23 +869,67 @@ function Dash({ ov, boxes, hidden, onBoxMenu, putBack, boxName, rowProps, goBox,
   const offCount = (ov.prefs?.lists_off ?? []).filter(id => ov.boxes.some(b => b.id === id)).length
   const leftOut = offCount > 0 ? <Link href="/rpmail/settings" className="text-xs text-muted-foreground hover:text-foreground">Leaving out {offCount} mailbox{offCount === 1 ? '' : 'es'} · Change</Link> : undefined
   const many = ov.boxes.length > 1
-  const closed = boxes.filter(b => hidden.has(b.id))
+  const [dragging, setDragging] = useState('')
+  const [over, setOver] = useState('')
+  const sinceYesterday = s ? s.boxes.reduce((n, b) => n + b.received, 0) : 0
+  const tiles: { key: string; name: string; el: React.ReactNode }[] = [
+    ...boxes.map(b => {
+      const ok = b.connected && !b.last_error
+      return { key: b.id, name: b.name, el: (
+        <Tile title={b.name} sub={b.address} mono pill={b.connected && !b.can_send ? 'read-only' : undefined} dot={ok ? 'ok' : 'bad'} bold={b.unread > 0} tone={ok ? 'info' : 'danger'}
+          onClick={() => goBox(b.id)} onMenu={e => onBoxMenu(e, b)} onClose={() => close(b.id)}
+          nums={[[b.connected ? b.unread : 0, 'unread', 'info'], [b.connected ? b.needs : 0, 'need you', 'warning'], [b.connected ? b.inbox : 0, 'in inbox']]}
+          footTone={!b.connected || b.last_error ? 'danger' : undefined}
+          foot={!b.connected ? 'Not connected. Click to connect.' : b.last_error ? b.last_error : b.loading ? `Loading mail: ${b.loading.total - b.loading.left} of ${b.loading.total}` : (b.newest ? 'Newest ' + clock(b.newest) + ' · ' : '') + 'synced ' + ago(b.last_sync_at)} />
+      ) }
+    }),
+    { key: 'plate', name: TILE_NAMES.plate, el: <Tile title="My Plate" sub="Your tasks from RP Intelligence" tone="success" onClick={() => go('rp-plate')} onClose={() => close('plate')}
+        nums={[[open.length, 'to do', 'info'], [P.length - open.length, 'waiting', 'warning'], [P.filter(t => t.priority === 1).length, 'hot', 'danger']]} foot={open[0] ? 'Next: ' + open[0].title : P[0]?.title ?? 'Nothing on your plate.'} /> },
+    { key: 'jobs', name: TILE_NAMES.jobs, el: <Tile title="Your jobs" sub="Mail tied to your work" bold={waitingJobs > 0} tone="info" onClick={() => go('rp-jobs')} onClose={() => close('jobs')}
+        nums={[[waitingJobs, 'waiting on a reply', 'warning'], [ov.foryou.length, 'last 14 days', 'info']]}
+        foot={ov.foryou[0] ? 'Newest: ' + (ov.foryou[0].from_name || ov.foryou[0].from_addr) + ' · ' + when(ov.foryou[0].date) : 'Nothing right now.'} /> },
+    { key: 'needs', name: TILE_NAMES.needs, el: <Tile title="Needs you" sub="Mail waiting on a reply from you" bold={ov.needs.length > 0} tone="warning" onClick={() => go('rp-needs')} onClose={() => close('needs')}
+        nums={[[ov.needs.length, 'waiting', 'warning'], [ov.needs.filter(m => m.unread).length, 'unread', 'info']]}
+        foot={ov.needs[0] ? 'Newest: ' + (ov.needs[0].from_name || ov.needs[0].from_addr) + ' · ' + when(ov.needs[0].date) : 'Nothing waiting on you.'} /> },
+    { key: 'summary', name: TILE_NAMES.summary, el: <Tile title="Daily summary" sub={ov.summary ? ov.summary.day : 'Made each morning after 6'} tone="info" onClick={() => go('rp-sum')} onClose={() => close('summary')}
+        nums={[[s ? s.needs.length : 0, 'to reply', 'warning'], [s ? s.stale.length : 0, 'over 2 days', 'danger'], [s ? s.permits.length : 0, 'permits', 'info'], [s ? s.pos.length : 0, 'POs', 'success']]}
+        foot={s ? `${sinceYesterday} received since yesterday` : 'Not made yet.'} /> },
+  ]
+  // Blocks in the person's order; any they have not placed keep their usual spot after those.
+  const place = (k: string, i: number) => { const n = order.indexOf(k); return n < 0 ? 1000 + i : n }
+  const all = tiles.map((t, i) => ({ t, i })).sort((a, b) => place(a.t.key, a.i) - place(b.t.key, b.i)).map(x => x.t)
+  const shown = all.filter(t => !hidden.has(t.key))
+  const closed = all.filter(t => hidden.has(t.key))
+  const drop = (onto: string) => {
+    const from = dragging
+    setDragging(''); setOver('')
+    if (!from || from === onto) return
+    const keys = all.map(t => t.key).filter(k => k !== from)
+    keys.splice(keys.indexOf(onto), 0, from)
+    reorder(keys)
+  }
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
-        {boxes.filter(b => !hidden.has(b.id)).map(b => (
-          <Tile key={b.id} title={b.name} sub={b.address} bold={b.unread > 0} tone={b.connected && !b.last_error ? 'info' : 'warning'} icon={Mail} onClick={() => goBox(b.id)} onMenu={e => onBoxMenu(e, b)}
-            nums={b.connected ? [[b.inbox, 'in inbox'], [b.unread, 'unread', 'info'], [b.needs, 'need you', 'warning']] : [['-', 'not connected']]}
-            foot={!b.connected ? (b.last_error || 'Signed out. Open it to sign in with Google.') : b.loading ? `Loading mail: ${b.loading.total - b.loading.left} of ${b.loading.total}` : b.last_error ? b.last_error : 'Checked ' + ago(b.last_sync_at)} />
+      <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(205px,1fr))]">
+        {shown.map(t => (
+          <div key={t.key} draggable className={cn('group/tile rounded-xl transition-shadow', dragging === t.key && 'opacity-50', over === t.key && dragging !== t.key && 'ring-2 ring-primary')}
+            title="Drag to move this block"
+            onDragStart={e => { e.dataTransfer.setData(TILE_DRAG, t.key); e.dataTransfer.effectAllowed = 'move'; setDragging(t.key) }}
+            onDragEnd={() => { setDragging(''); setOver('') }}
+            onDragOver={e => { if (e.dataTransfer.types.includes(TILE_DRAG)) { e.preventDefault(); if (over !== t.key) setOver(t.key) } }}
+            onDragLeave={() => { if (over === t.key) setOver('') }}
+            onDrop={e => { if (e.dataTransfer.types.includes(TILE_DRAG)) { e.preventDefault(); drop(t.key) } }}>
+            {t.el}
+          </div>
         ))}
-        <Tile title="My Plate" sub="What is on you" tone="success" icon={ClipboardList} onClick={() => go('rp-plate')} nums={[[open.length, 'to do', 'info'], [P.length - open.length, 'waiting', 'warning'], [P.filter(t => t.priority === 1).length, 'hot', 'danger']]} foot={open[0]?.title ?? P[0]?.title ?? 'Nothing on your plate.'} />
-        <Tile title="Your jobs" sub="Mail tied to your work" bold={waitingJobs > 0} tone="info" icon={HardHat} onClick={() => go('rp-jobs')} nums={[[waitingJobs, 'waiting on a reply', 'warning'], [ov.foryou.length, 'last 14 days', 'info']]}
-          foot={ov.foryou[0] ? 'Newest: ' + (ov.foryou[0].from_name || ov.foryou[0].from_addr) + ' · ' + when(ov.foryou[0].date) : 'Nothing right now.'} />
-        <Tile title="Needs you" sub="Mail waiting on a reply" bold={ov.needs.some(m => m.unread)} tone="warning" icon={Reply} onClick={() => go('rp-needs')} nums={[[ov.needs.length, 'waiting', 'warning'], [ov.needs.filter(m => m.unread).length, 'unread', 'info']]}
-          foot={ov.needs[0] ? 'Newest: ' + (ov.needs[0].from_name || ov.needs[0].from_addr) + ' · ' + when(ov.needs[0].date) : 'Nothing waiting on you.'} />
-        <Tile title="Daily summary" sub={ov.summary ? 'Made ' + when(ov.summary.created) : 'Made each morning after 6'} tone="info" icon={Newspaper} onClick={() => go('rp-sum')}
-          nums={[[s ? s.boxes.reduce((n, b) => n + b.received, 0) : 0, 'received', 'info'], [s ? s.deadlines.length : 0, 'deadlines', 'danger']]} foot={s ? `${s.needs.length} new need a reply, ${s.stale.length} older` : 'Not made yet.'} />
       </div>
+      {closed.length > 0 && (
+        <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5">Closed blocks:
+          {closed.map(t => <button key={t.key} className="rp-chip" onClick={() => putBack(t.key)} title="Put it back on the dashboard">{t.name} · put back</button>)}
+        </p>
+      )}
+
+      <h2 className="rp-title !text-[1.75rem] border-b-2 border-foreground/70 pb-2 pt-3">Dashboard</h2>
 
       <Section id="rp-plate" title="My Plate" count={P.length} tone="success" right={<Link href="/my" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">Open My Plate <ExternalLink className="size-3" /></Link>}>
         {ov.plate.error && <Empty>{ov.plate.error}</Empty>}
@@ -729,12 +977,6 @@ function Dash({ ov, boxes, hidden, onBoxMenu, putBack, boxName, rowProps, goBox,
       </Section>
 
       <DoneSection boxName={many ? boxName : undefined} rowProps={rowProps} putBack={m => markDone(m, false)} stamp={ov.now} />
-
-      {closed.length > 0 && (
-        <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5">Closed boxes:
-          {closed.map(b => <button key={b.id} className="rp-chip" onClick={() => putBack(b.id)} title="Put it back on the dashboard">{b.name} · put back</button>)}
-        </p>
-      )}
 
       {ov.moves.length > 0 && (
         <Section title="Recently filed">
@@ -844,6 +1086,7 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProp
   labels: Label[]; canEdit: boolean; openOrganize: (ruleFrom?: string) => void; makeLabel: (name: string) => Promise<Label | null>; canSend: boolean
   openDraft: (draftId: string) => void; say: (text: string) => void }) {
   const views: [Filter['view'], string][] = [['inbox', 'Inbox'], ['needs', 'Needs you'], ['sent', 'Sent'], ['drafts', 'Drafts'], ['scheduled', 'Scheduled'], ['filed', 'Filed'], ['snoozed', 'Snoozed'], ['all', 'All']]
+  const win = useContext(Win)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const chosen = (list ?? []).filter(m => picked.has(m.id)).map(m => m.id)   // only what is on screen right now
   const toggle = (id: string) => setPicked(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
@@ -862,14 +1105,14 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProp
         <div className="flex items-center gap-1.5">
           <button className={btn('ghost', 'xs')} onClick={() => openOrganize()} title="Labels, rules for new mail, and blocked senders"><Tags />Labels and rules</button>
           <button className={btn('ghost', 'xs')} onClick={editSig}><Signature />Signature</button>
-          <a className={cn(btn('ghost', 'xs'), '!text-xs !font-medium')} href={`/api/rpmail/connect?mailbox=${box.id}`} title="Use this if mail has stopped arriving or Google asks for permission again">Sign in again</a>
+          <a className={cn(btn('ghost', 'xs'), '!text-xs !font-medium')} href={connectHref(box.id, win)} title="Use this if mail has stopped arriving or Google asks for permission again">Sign in again</a>
           {disconnect && <button className={btn('ghost', 'xs')} onClick={disconnect}><Unplug />Sign out</button>}
         </div>
       </div>
       {box.last_error && (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-hairline bg-warning-soft text-sm text-warning">
           <span className="min-w-0 flex-1">Mail is not arriving for this mailbox: {box.last_error}</span>
-          <a className={btn('default', 'xs')} href={`/api/rpmail/connect?mailbox=${box.id}`}>Sign in again</a>
+          <a className={btn('default', 'xs')} href={connectHref(box.id, win)}>Sign in again</a>
         </div>
       )}
       {/* On a phone the filters step aside while a conversation is open, so reading starts at the top of the screen. */}
@@ -896,7 +1139,8 @@ function BoxView({ box, filter, setFilter, list, sel, msg, msgErr, peek, rowProp
         </form>
       )}
       {labels.length > 0 && (
-        <div className={cn('flex items-center gap-1.5 px-3 py-2 border-b border-hairline overflow-x-auto', sel && 'hidden lg:flex')}>
+        // In the mail window the folders are in the menu on the left, so this row only shows where that menu is not (phones).
+        <div className={cn('flex items-center gap-1.5 px-3 py-2 border-b border-hairline overflow-x-auto', sel && 'hidden lg:flex', win && 'md:!hidden')}>
           <span className="shrink-0 text-xs text-muted-foreground">Labels</span>
           {labels.map(l => (
             <button key={l.id} className={cn('rp-chip shrink-0', over === l.id && 'ring-2 ring-primary')} data-on={filter.label === l.id} title="Click to see what carries this label. Drag a conversation onto it to move it there."
