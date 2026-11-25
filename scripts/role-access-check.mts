@@ -18,7 +18,7 @@ const ACCOUNTING_HR = ['/billing', '/billing/quotes', '/billing/invoices/abc', '
 const FIELD_OK = ['/my', '/dashboard', '/mobile', '/mobile/service-ticket/abc', '/maintenance', '/assets/abc', '/tickets/abc', '/shop/clock', '/time', '/service', '/service/abc',
   '/inventory', '/inventory/parts/abc', '/inventory/stock', '/calendar', '/notifications', '/help', '/help/notes-scanning',
   '/expenses/new', '/api/expenses/scan', '/api/assistant', '/api/upload', '/api/tickets/abc/status']
-const SHOP_OK = ['/my', '/maintenance', '/maintenance/oil-changes', '/assets', '/assets/abc', '/tickets', '/tickets/abc', '/shop', '/shop/clock', '/shop/my-tasks', '/time',
+const SHOP_OK = ['/my', '/maintenance', '/maintenance/service-due', '/assets', '/assets/abc', '/tickets', '/tickets/abc', '/shop', '/shop/clock', '/shop/my-tasks', '/time',
   '/mobile', '/mobile/report-issue', '/mobile/mileage', '/mobile/ticket/abc/work', '/notifications', '/help', '/help/notes-scanning', '/api/assistant', '/api/upload']
 const SHOP_NO = ['/dashboard', '/service', '/service/abc', '/inventory', '/inventory/parts', '/calendar', '/construction/surveys', '/expenses/new', '/mobile/service-ticket',
   '/mobile/daily-update', '/mobile/survey', '/api/inventory/parts/search', '/api/expenses/scan', '/forms', '/construction/surveys/tests', '/api/construction/surveys/abc/pdf']

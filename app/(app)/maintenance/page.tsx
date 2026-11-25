@@ -9,7 +9,7 @@ import { StatusBadge } from '@/components/assets/status-badge'
 import { calcDateDue, calcOilChangeDue, toBand, BAND_CONFIG, sortByUrgency, type DueStatus } from '@/lib/maintenance'
 import { checkOverdueMaintenanceNotifications, checkForgotClockOut } from '@/lib/notifications'
 import { createOverdueMaintenanceTickets } from '@/lib/auto-tickets'
-import { ClipboardList, AlertTriangle, Truck, Package, Wrench, Calendar, Users, Clock, Droplets, Circle, CircleDot, CalendarClock, FileText } from 'lucide-react'
+import { ClipboardList, AlertTriangle, Truck, Package, Wrench, Calendar, Users, Clock, Droplets, CalendarClock, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { RemindersCard } from './reminders-card'
@@ -69,9 +69,7 @@ function buildAlerts(assets: AssetRow[]): AlertItem[] {
     const label = [a.make, a.model].filter(Boolean).join(' ') || a.name || ''
     const base = { assetId: a.id, unitNumber: a.unit_number, vehicleLabel: label }
     const checks = [
-      { r: calcOilChangeDue(a.current_mileage, a.next_oil_change_mileage), category: 'Oil Change', href: `/assets/${a.id}/maintenance/oil-change` },
-      { r: calcDateDue(a.next_brake_inspection_date), category: 'Brake Inspection', href: `/assets/${a.id}/maintenance/brakes` },
-      { r: calcDateDue(a.next_tire_inspection_date), category: 'Tire Inspection', href: `/assets/${a.id}/maintenance/tires` },
+      { r: calcOilChangeDue(a.current_mileage, a.next_oil_change_mileage), category: 'Service Due', href: `/assets/${a.id}/maintenance/oil-change` },
       { r: calcDateDue(a.inspection_due_date), category: 'Inspection', href: `/assets/${a.id}/edit` },
       { r: calcDateDue(a.registration_due_date), category: 'Registration', href: `/assets/${a.id}/edit` },
     ]
@@ -249,9 +247,9 @@ export default async function MaintenancePage({
     { href: '/assets',                    label: 'Assets',        icon: Truck,         sub: 'Fleet & equipment' },
     { href: '/tickets',                   label: 'Tickets',       icon: ClipboardList, sub: 'Repairs & work orders' },
     { href: '/shop',                      label: 'Shop',          icon: Users,         sub: 'Clock, tasks & time' },
-    { href: '/maintenance/oil-changes',   label: 'Oil Changes',   icon: Droplets },
-    { href: '/maintenance/brakes',        label: 'Brakes',        icon: Circle },
-    { href: '/maintenance/tires',         label: 'Tires',         icon: CircleDot },
+    // Trae, 11/25/26: one "Service Due" (the shop's OCD, oil change due) instead of Oil Changes / Brakes / Tires.
+    // Everything is serviced off that one measurement.
+    { href: '/maintenance/service-due',   label: 'Service Due',   icon: Droplets,      sub: 'OCD (oil change due)' },
     { href: '/maintenance/inspections',   label: 'Inspections',   icon: CalendarClock },
     { href: '/maintenance/registrations', label: 'Registrations', icon: FileText },
   ]
@@ -325,11 +323,11 @@ export default async function MaintenancePage({
 
         <div className="rp-card overflow-hidden">
           <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
-            <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wide">🔧 Oil Change Due</h3>
+            <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wide">🔧 Service Due (OCD)</h3>
             <span className="text-xs font-bold text-amber-600">{oilChangeTickets?.length ?? 0}</span>
           </div>
           <div className="divide-y divide-gray-50 max-h-40 overflow-y-auto">
-            {oilChangeTickets?.length === 0 && <p className="px-4 py-3 text-xs text-gray-400">All oil changes current ✓</p>}
+            {oilChangeTickets?.length === 0 && <p className="px-4 py-3 text-xs text-gray-400">All service current ✓</p>}
             {(oilChangeTickets ?? []).map(t => (
               <Link key={t.id} href={`/tickets/${t.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors">
                 <span className="text-sm font-medium text-gray-900">{(t as any).assets?.unit_number ?? '—'}</span>

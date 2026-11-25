@@ -947,3 +947,7 @@ Trae, 11/25/26: "anything that has been archived from inbox on eshoptasks or mai
 - Daily summary "Still needs attention" is built by lib/summary-attention.ts (tests/summary-attention.test.ts): new
   unassigned tickets first, then review emails grouped by place (861, 211, 225 / office, Trucks and equipment), a job and
   its replies as one line with date and initials, 8 lines per group then "and N older". Add a property to `PLACES` there.
+- Maintenance & Fleet filters (Trae, 11/25/26): only **Service Due** (the shop's OCD, oil change due: everything is serviced
+  off that one measurement), **Inspections**, **Registrations**. /maintenance/service-due replaced oil-changes, brakes and
+  tires (old addresses redirect). "Coming Due" on the page no longer lists brake / tire dates. Not changed: the brake and
+  tire service records on an asset page, and lib/notifications.ts + lib/auto-tickets.ts, which still look at brake / tire dates.
