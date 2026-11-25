@@ -728,7 +728,7 @@ function MailSidebar({ boxes, view, filter, needs, stamp, newMessage, canWrite, 
                   <button className="rounded p-0.5 text-gray-500 hover:text-foreground" aria-label={(opened ? 'Fold ' : 'Open ') + b.name} aria-expanded={opened} onClick={() => flip(open, b.id, setOpen, 'rpmail:tree:open')}><ChevronRight className={cn('size-3.5 transition-transform', opened && 'rotate-90')} /></button>
                   <button className="min-w-0 flex-1 text-left" onClick={() => pick(b.id, { view: 'inbox' })} title={b.address}>
                     <span className="flex items-center gap-2">
-                      <span aria-hidden className={cn('size-2 shrink-0 rounded-full', b.connected && !b.last_error ? 'bg-success' : 'bg-danger')} />
+                      <Dot ok={b.connected && !b.last_error} />
                       <span className={cn('truncate text-sm', b.unread ? 'font-bold text-foreground' : 'font-semibold')}>{b.name}</span>
                     </span>
                     <span className="block truncate pl-4 text-[11px] text-gray-500 font-mono">{b.connected ? b.address : 'Not connected'}</span>
@@ -863,7 +863,12 @@ const Empty = ({ children }: { children: React.ReactNode }) => <p className="px-
 // Color by meaning (Trae, 11/24/26): red = hot, amber = waiting, green = done, blue = information.
 type Hue = 'info' | 'warning' | 'danger' | 'success'
 const HUE_TEXT: Record<Hue, string> = { info: 'text-info', warning: 'text-warning', danger: 'text-danger', success: 'text-success' }
-const HUE_TOP: Record<Hue, string> = { info: 'border-t-info', warning: 'border-t-warning', danger: 'border-t-danger', success: 'border-t-success' }
+/** The big numbers on the dashboard blocks, lit like LEDs (Trae, 11/25/26); the amber is the unread gold of the mail menu. */
+const HUE_LED: Record<Hue, string> = { info: 'rp-led rp-led-blue', warning: 'rp-led rp-led-amber', danger: 'rp-led rp-led-red', success: 'rp-led rp-led-green' }
+/** The connected / not connected dot, one for the dashboard blocks and the navy menu. The menu is drawn dark, so the dot
+ *  takes the page's colors (--status-ok / --status-bad, set on <html>), not the menu's own, and matches the blocks. */
+const Dot = ({ ok }: { ok: boolean }) => <span aria-hidden className={cn('size-2 shrink-0 rounded-full', ok ? 'bg-[var(--status-ok)]' : 'bg-[var(--status-bad)]')} />
+const HUE_TOP: Record<Hue, string> ={ info: 'border-t-info', warning: 'border-t-warning', danger: 'border-t-danger', success: 'border-t-success' }
 
 /**
  * One dashboard block, laid out like Trae's own RPMail (11/25/26): a status dot and the name in capitals, a read-only tag,
@@ -881,14 +886,14 @@ function Tile({ title, sub, mono, pill, dot, nums, foot, footTone, bold, tone = 
         {onClose && <button aria-label={'Close ' + title} title="Close this block (put it back from the bottom of the dashboard)" className="rounded p-1 text-muted-foreground hover:bg-raised hover:text-foreground" onClick={stop(() => onClose())}><X className="size-4" /></button>}
       </span>
       <div className="flex items-center gap-2 pr-14">
-        {dot && <span aria-hidden className={cn('size-2 shrink-0 rounded-full', dot === 'ok' ? 'bg-success' : 'bg-danger')} />}
+        {dot && <Dot ok={dot === 'ok'} />}
         <span className="rp-card-title !text-[1.1rem] leading-tight">{title}</span>
       </div>
       {pill && <span className="mt-1.5 self-start rounded-full bg-raised px-2 py-0.5 text-[11px] font-semibold text-muted-foreground ring-1 ring-border">{pill}</span>}
       <div className={cn('mt-1 truncate text-xs text-muted-foreground', mono && 'font-mono')}>{sub}</div>
       {/* The numbers sit side by side; each label wraps word by word under its number ("need / you"), as in Trae's own RPMail. */}
       <div className={cn('mt-3 flex', nums.length > 3 ? 'gap-x-3' : 'gap-x-5')}>
-        {nums.map(([n, l, h]) => <div key={l} className="w-min min-w-[2.25rem]"><div className={cn('rp-stat-value text-[1.8rem] leading-none', h && n !== 0 && n !== '-' && HUE_TEXT[h])}>{n}</div><div className="mt-1 text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">{l}</div></div>)}
+        {nums.map(([n, l, h]) => <div key={l} className="w-min min-w-[2.25rem]"><div className={cn('rp-stat-value text-[1.8rem] leading-none', h && n !== 0 && n !== '-' && HUE_LED[h])}>{n}</div><div className="mt-1 text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">{l}</div></div>)}
       </div>
       <div className={cn('mt-auto pt-3 text-xs', footTone ? HUE_TEXT[footTone] : bold ? 'font-bold text-foreground' : 'text-muted-foreground')}>
         <div className="border-t border-hairline pt-2 line-clamp-2">{foot}</div>

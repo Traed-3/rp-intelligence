@@ -154,6 +154,9 @@
   --success: oklch(0.52 0.13 160);  --success-soft: oklch(0.962 0.03 160);
   --warning: oklch(0.56 0.13 70);   --warning-soft: oklch(0.966 0.04 85);
   --danger:  oklch(0.53 0.2 27);    --danger-soft:  oklch(0.966 0.02 25);
+  /* The page's own connected / not connected colors, worked out on <html> (light or dark theme) and inherited as they are,
+     so the always-dark navy menu shows the same dot as the dashboard blocks beside it. Declared here only, never under .dark. */
+  --status-ok: var(--success);      --status-bad: var(--danger);
   --info:    oklch(0.5 0.13 250);   --info-soft:    oklch(0.96 0.02 250);
   --gold:    #b07c0c;               --gold-soft:    #fdf1d6;   /* RP gold (Forms icons), deepened so it reads on white */
 
@@ -479,6 +482,16 @@
   box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -1px 0 oklch(0 0 0 / 0.2), 0 6px 16px oklch(0 0 0 / 0.3); }
 .dark .rp-round-green, .dark .rp-round-red { --round-hi: 55%; --round-mid: 82%; color: oklch(0.2 0.04 160); text-shadow: none; }
 .dark .rp-round-red { color: oklch(0.2 0.05 25); }
+/* RPMail dashboard numbers lit like LEDs (Trae, 11/25/26): Need you in the same bright amber as the unread counts in the
+   mail menu (the New message gold), Hot / Unread in a brighter red and blue, each with a soft glow of its own color. */
+.rp-led { text-shadow: 0 0 12px color-mix(in srgb, currentColor 38%, transparent); }
+.rp-led-amber { color: #f0b43a; }
+.rp-led-red   { color: #ff3b30; }
+.rp-led-blue  { color: #1f7aff; }
+.rp-led-green { color: #1fbf6a; }
+.dark .rp-led-red  { color: #ff5a50; }
+.dark .rp-led-blue { color: #4b9bff; }
+.dark .rp-led-green { color: #3edc8a; }
 .rp-sidebar { background: var(--sidebar-navy); --sidebar-accent: oklch(1 0 0 / 0.1); --sidebar-border: oklch(1 0 0 / 0.1); --border: oklch(1 0 0 / 0.12); --muted: oklch(1 0 0 / 0.07); --card: oklch(1 0 0 / 0.16); --brand: var(--amber); }
 
 /* ── Section headings: condensed caps, like the Action Board lanes. Unlayered on
