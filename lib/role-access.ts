@@ -37,7 +37,8 @@ const FORMS_PATHS = ['/forms', '/construction/surveys', '/api/construction/surve
 // '/training' = Training (company training videos): everyone.
 // '/rpmail' = RPMail: the page opens for any login, but it only does anything for a person who turned it on, and it
 // only shows mailboxes that are on that person's own login (per user, checked in lib/rpmail/access.ts).
-const SHOP_PAGES = ['/my', '/maintenance', '/assets', '/tickets', '/shop', '/time', '/notifications', '/help', '/training', '/rpmail']
+// '/mail' = the same RPMail in its own window (Trae, 11/25/26), with the same per-user checks.
+const SHOP_PAGES = ['/my', '/maintenance', '/assets', '/tickets', '/shop', '/time', '/notifications', '/help', '/training', '/rpmail', '/mail']
 const SHOP_MOBILE = ['/mobile/report-issue', '/mobile/mileage', '/mobile/ticket']
 const SHOP_API = ['/api/assistant', '/api/push', '/api/upload', '/api/tickets', '/api/auth', '/api/daily-summary', '/api/rpmail']
 

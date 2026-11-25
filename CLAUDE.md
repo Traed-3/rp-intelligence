@@ -788,6 +788,19 @@ is never changed from here). PER USER, NEVER PER ROLE.
   with `body_of`. Helper checks: `python3 -I scripts/rpmail-relay/test_relay.py` (stand-in Bridge, no real mail).
   After changing relay.py: `cp scripts/rpmail-relay/relay.py ~/rpmail-relay/ && launchctl kickstart -k gui/$(id -u)/com.trae.rpmail-relay`.
   The helper only works while the Mac Studio is on and Proton Bridge is running.
+- MAIL WINDOW (2026-11-25, Trae: "a seperate window open for mail so it does not have to keep loading" + "look more like this screenshot"
+  of his local RPMail): app/mail (OUTSIDE the (app) group, so the main menu is not drawn; '/mail' is in SHOP_PAGES in lib/role-access.ts).
+  `RpmailApp windowed` renders `MailSidebar` in the navy space (same `dark rp-sidebar` classes as components/app-nav.tsx): New message,
+  Dashboard (needs count), each mailbox (status dot, unread, arrow to open) with its folders: Inbox, Needs you, the label tree
+  (`folderTree` splits names on "/"; Proton folders come through as "RPS/Project Folders"), Sent, Drafts, Scheduled, Snoozed, Filed,
+  All mail. Counts = `labelList` now returns total / unread per label from SQL `rpmail_label_counts(p_mailbox)` (migration
+  rpmail_label_counts.sql, APPLIED). Opened / folded state is per browser (localStorage rpmail:tree:*). The RPMail entry in AppNav calls
+  `openMailWindow()` (lib/rpmail/window.ts): window.open('', 'rpmail', popup) finds the open window WITHOUT reloading it and only loads
+  /mail into a fresh one; blocked pop-ups fall back to /rpmail in the page. In the window, Settings / Help / the logo open in the main
+  window (`showInMain`), and Google sign-ins come back to /mail (`back=mail` sets a 15-minute `rpmail_back` cookie read by the OAuth
+  callback). Dashboard blocks: `Tile` (status dot, read-only pill, numbers whose labels wrap word by word) and every block is draggable
+  and closable; `prefs.order` / `prefs.hidden` take mailbox ids AND the keys in `TILE_KEYS` (prefs.ts): plate, jobs, needs, summary.
+  Try-out: add #window to the address (image-shim.tsx stands in for next/image; build.mjs copies the logo).
 - SCHEDULE SEND (2026-11-24, Trae: "Yes, build it"): lib/rpmail/schedule.ts. Schedule in the message box (compose.tsx `laterChoices`,
   `whenText`) -> op `schedule` -> `scheduleMail` -> `sendMail(..., schedule: true)` runs EVERY send check (confirm, addresses, maySend,
   pricing + blocked-content rules), then saves the message as a draft in that mailbox (Gmail Drafts / Proton Drafts) and returns its id;

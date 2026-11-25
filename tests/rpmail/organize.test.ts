@@ -35,7 +35,7 @@ describe('labels', () => {
   it('makes a label in Gmail, puts it on a conversation, and finds the conversation by it', async () => {
     const { label } = await labelSave(me, { mailbox: box, name: '  Vendors  ' })
     expect(label.name).toBe('Vendors')
-    expect((await labelList(me, { mailbox: box })).labels).toEqual([label])
+    expect((await labelList(me, { mailbox: box })).labels).toEqual([{ ...label, total: 0, unread: 0 }])
     expect((await labelSave(me, { mailbox: box, name: 'vendors' })).label).toEqual(label)      // the same name again is the same label, not a second one
     expect(world.gmail.labels.get('ann@gmail.com')!.length).toBe(1)
 
@@ -43,6 +43,8 @@ describe('labels', () => {
     expect(G(m1).labelIds).toContain(label.id)
     expect(G(m1).labelIds).toContain('INBOX')                                                    // a label alone does not move it
     expect(await subjects({ view: 'all', label: label.id })).toEqual(['Parts for 34006'])
+    // The folder tree counts what carries it: one message, still unread.
+    expect((await labelList(me, { mailbox: box })).labels).toEqual([{ ...label, total: 1, unread: 1 }])
     expect((await listMessages(me, { mailbox: box, view: 'inbox' })).messages.find(m => m.id === m1)!.labels).toEqual([label.id])
 
     await labelApply(me, { mailbox: box, id: m1, label: label.id, on: false })

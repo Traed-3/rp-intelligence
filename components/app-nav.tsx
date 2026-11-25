@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { buildNav, type NavItem } from '@/lib/nav-items'
 import { visible, MAX_TABS, type UiPrefs } from '@/lib/ui-prefs'
+import { openMailWindow } from '@/lib/rpmail/window'
 
 export default function AppNav({ email, role, userId, blockedModules, complianceGranted, prefs, hasRpmail }: { email: string; role?: string; userId?: string; blockedModules?: string[]; complianceGranted?: boolean; prefs?: UiPrefs; hasRpmail?: boolean }) {
   const pathname = usePathname()
@@ -74,6 +75,10 @@ export default function AppNav({ email, role, userId, blockedModules, compliance
               <Link
                 key={item.href}
                 href={item.href}
+                // RPMail opens in a window of its own (Trae, 11/25/26), so it stays loaded while the rest of the app is used.
+                // A second press brings that window back without reloading it. Ctrl / Cmd / middle click still opens a tab.
+                onClick={item.href === '/rpmail' ? e => { if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && openMailWindow()) e.preventDefault() } : undefined}
+                title={item.href === '/rpmail' ? 'Opens in its own window' : undefined}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   'group relative flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-sm transition-colors',
