@@ -35,7 +35,7 @@ export async function mySnoozes(profileId: string, mailboxId: string): Promise<M
   return new Map((data ?? []).map(z => [z.thread_id as string, { kind: z.kind as 'snooze' | 'remind', until: Date.parse(z.until as string), woke: !!z.woke_at }]))
 }
 export const LIST_COLS = 'mailbox_id, gmail_id, thread_id, date, from_name, from_addr, to_addrs, subject, snippet, unread, starred, has_att, in_inbox, sent, site, po, labels'
-type Row = Pick<IndexRow, 'mailbox_id' | 'gmail_id' | 'thread_id' | 'date' | 'from_name' | 'from_addr' | 'to_addrs' | 'subject' | 'snippet' | 'unread' | 'starred' | 'has_att' | 'in_inbox' | 'sent' | 'site' | 'po'> & { labels?: string[] | null }
+export type Row = Pick<IndexRow, 'mailbox_id' | 'gmail_id' | 'thread_id' | 'date' | 'from_name' | 'from_addr' | 'to_addrs' | 'subject' | 'snippet' | 'unread' | 'starred' | 'has_att' | 'in_inbox' | 'sent' | 'site' | 'po'> & { labels?: string[] | null }
 export const toItem = (r: Row): Item => ({
   mailbox_id: r.mailbox_id, id: r.gmail_id, thread_id: r.thread_id, date: Date.parse(r.date), from_name: r.from_name ?? '', from_addr: r.from_addr ?? '',
   to_addrs: r.to_addrs ?? '', subject: r.subject ?? '', snippet: r.snippet ?? '', unread: !!r.unread, starred: !!r.starred, has_att: !!r.has_att,
@@ -58,7 +58,7 @@ export function groupThreads(rows: Row[], max = 200): Item[] {
   return [...by.values()].slice(0, max)
 }
 
-const likeSafe = (w: string) => w.replace(/[,()%_*\\"']/g, ' ').trim()
+export const likeSafe = (w: string) => w.replace(/[,()%_*\\"']/g, ' ').trim()
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 /** The moment a calendar day starts in Eastern time. (Kept by name for the callers that are always Eastern.) */

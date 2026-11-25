@@ -801,6 +801,14 @@ is never changed from here). PER USER, NEVER PER ROLE.
   callback). Dashboard blocks: `Tile` (status dot, read-only pill, numbers whose labels wrap word by word) and every block is draggable
   and closable; `prefs.order` / `prefs.hidden` take mailbox ids AND the keys in `TILE_KEYS` (prefs.ts): plate, jobs, needs, summary.
   Try-out: add #window to the address (image-shim.tsx stands in for next/image; build.mjs copies the logo).
+- SEARCH EVERY MAILBOX (2026-11-25; an Anthropic email to finance.trae@ was filed by a Proton filter into RPS / Claude Anthropic, so it
+  was Work Proton mail and not in any inbox, and the per-mailbox search in Personal Proton could not see it): lib/rpmail/search.ts.
+  `searchAll` (GET op `search_all?q=`) searches the index across `myMailboxes(who)` (every word must match subject / from / to / snippet /
+  site / PO), groups by mailbox + thread, and tags each result `where` = Inbox / Sent / its deepest folder name (from `userLabels`, now
+  exported from organize.ts) / Filed. `searchAllFurther` (POST `search_all_further`) asks each connected mailbox itself (Gmail search /
+  Proton through the helper, 25 each, `tries: 2`), loads the hits into the index, and returns `missed` = mailboxes that did not answer.
+  UI: "Search every mailbox" box (id rp-search-all; "/" focuses it outside a mailbox), results as `view.kind === 'search'`, and a
+  "Back to the search" link after opening a result (cleared when the person moves on through the menu).
 - SCHEDULE SEND (2026-11-24, Trae: "Yes, build it"): lib/rpmail/schedule.ts. Schedule in the message box (compose.tsx `laterChoices`,
   `whenText`) -> op `schedule` -> `scheduleMail` -> `sendMail(..., schedule: true)` runs EVERY send check (confirm, addresses, maySend,
   pricing + blocked-content rules), then saves the message as a draft in that mailbox (Gmail Drafts / Proton Drafts) and returns its id;

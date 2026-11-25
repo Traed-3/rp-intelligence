@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import type { Item, ThreadItem } from '@/lib/rpmail/mail-ops'
 import type { BoxInfo } from '@/lib/rpmail/overview'
 import type { Label } from '@/lib/rpmail/organize'
+import type { Found } from '@/lib/rpmail/search'
 import type { Rule } from '@/lib/rpmail/arrival'
 import { makeZip } from '@/lib/rpmail/zip'
 import { buildStack, startOpen, shownOf, isForward, htmlHasQuote, splitPlainQuote, shownText, ownPictures, wantsRemotePictures, frameHeight, messageDoc } from '@/lib/rpmail/thread-view'
@@ -45,7 +46,7 @@ type Toast = { text: string; undo?: () => void } | null
 type Filter = { view: 'inbox' | 'needs' | 'sent' | 'filed' | 'all' | 'snoozed' | 'drafts' | 'scheduled'; q: string; unread: boolean; att: boolean; starred?: boolean; label?: string; from?: string; after?: string; before?: string }
 type LabelSet = { box: string; labels: Label[]; can_edit: boolean }
 type BulkAction = 'Archive' | 'Trash' | 'read' | 'unread' | 'done' | 'label'
-type View = { kind: 'dash' } | { kind: 'box'; id: string }
+type View = { kind: 'dash' } | { kind: 'box'; id: string } | { kind: 'search' }
 /** The time zones a person can pick in Settings (the same list the server accepts). */
 export const ZONE_NAMES: Record<string, string> = { 'America/New_York': 'Eastern', 'America/Chicago': 'Central', 'America/Denver': 'Mountain', 'America/Phoenix': 'Arizona', 'America/Los_Angeles': 'Pacific', 'America/Anchorage': 'Alaska', 'Pacific/Honolulu': 'Hawaii' }
 /** Which list a set of rows belongs to, so a list for another mailbox or filter is never shown under the wrong heading. */
@@ -89,6 +90,9 @@ export function RpmailApp({ localUrl, connected, connectError, windowed = false 
   const [msg, setMsg] = useState<Full | null>(null)
   const [msgErr, setMsgErr] = useState('')
   const [peek, setPeek] = useState<Item | null>(null)   // the list line of the message being opened, shown until the message arrives
+  // Search every mailbox: what was asked, what came back (null while looking), and whether the mailboxes themselves were asked too.
+  const [found, setFound] = useState<{ q: string; items: Found[] | null; further?: boolean; busy?: boolean; missed?: string[] } | null>(null)
+  const [allQ, setAllQ] = useState('')
   const selNow = useRef(sel)                       // what is open right now, for work that finishes later (a send)
   useEffect(() => { selNow.current = sel })
   const [toast, setToast] = useState<Toast>(connected ? { text: 'Connected. Your mail is loading.' } : null)
@@ -386,7 +390,7 @@ export function RpmailApp({ localUrl, connected, connectError, windowed = false 
       switch (e.key) {
         case '?': setHelp(h => !h); return done()
         case 'c': { const from = k.view.kind === 'box' && first?.can_send ? first : k.boxes.find(b => b.id === k.def && b.connected && b.can_send) ?? k.boxes.find(b => b.connected && b.can_send); if (from) setCompose({ mode: 'new', mailbox: from.id }); return done() }
-        case '/': document.getElementById('rp-search')?.focus(); return done()
+        case '/': (document.getElementById(k.view.kind === 'box' ? 'rp-search' : 'rp-search-all') ?? document.getElementById('rp-search-all'))?.focus(); return done()
         case 'j': step(1); return done()
         case 'k': step(-1); return done()
         case 'u': setSel(null); setMsg(null); return done()
@@ -415,7 +419,7 @@ export function RpmailApp({ localUrl, connected, connectError, windowed = false 
   if (!st.enabled) return <div className={cn(windowed && 'rp-main min-h-dvh')}><Setup st={st} localUrl={localUrl} onOn={boot} /></div>
 
   const onBoxMenu = (e: React.MouseEvent, b: BoxInfo) => { e.preventDefault(); e.stopPropagation(); setMenu(null); setBoxMenu({ x: e.clientX, y: e.clientY, box: b }) }
-  const goBox = (id: string) => { setFilter({ view: 'inbox', q: '', unread: false, att: false }); setView({ kind: 'box', id }); setSel(null); setMsg(null) }
+  const goBox = (id: string) => { setFilter({ view: 'inbox', q: '', unread: false, att: false }); setView({ kind: 'box', id }); setSel(null); setMsg(null); setFound(null) }
   const signOut = (b: BoxInfo) => void ask({ text: `Sign ${b.address} out of RPMail? Nothing in Gmail is touched. ${b.kind === 'shared' ? 'Everyone who has this shared mailbox loses it here until someone signs it in again.' : 'You can sign in again any time.'}`, yes: 'Sign out' }).then(ok => { if (ok) void act(async () => { await api('disconnect', { mailbox: b.id }); await boot(); say('Signed out.') }) })
   const canSignOut = (b: BoxInfo) => b.connected && (b.kind === 'personal' || st.role === 'owner')
   const rowProps = { onStar: (it: Item) => void toggleStar(it, !it.starred), onOpen: (it: Item) => { setPeek(it); if (view.kind !== 'box' || view.id !== it.mailbox_id) { setFilter({ view: 'all', q: '', unread: false, att: false }); setView({ kind: 'box', id: it.mailbox_id }) } void openMsg(it.mailbox_id, it.id) },
@@ -426,10 +430,36 @@ export function RpmailApp({ localUrl, connected, connectError, windowed = false 
   const newMessage = () => setCompose({ mode: 'new', mailbox: cur?.connected && cur.can_send ? cur.id : boxes.find(b => b.id === st.prefs?.default_from && b.connected && b.can_send)?.id ?? boxes.find(b => b.connected && b.can_send)?.id ?? '' })
   const canWrite = boxes.some(b => b.connected && b.can_send)
   const writeTitle = boxes.some(b => b.connected) && !canWrite ? 'You can read your mailboxes here but not send from them. An owner can change that.' : undefined
-  const goDash = () => { setView({ kind: 'dash' }); setSel(null); setMsg(null) }
-  const pickFolder = (id: string, f: Partial<Filter>) => { setFilter({ view: 'inbox', q: '', unread: false, att: false, ...f }); setView({ kind: 'box', id }); setSel(null); setMsg(null) }
+  const goDash = () => { setView({ kind: 'dash' }); setSel(null); setMsg(null); setFound(null) }
+  const pickFolder = (id: string, f: Partial<Filter>) => { setFilter({ view: 'inbox', q: '', unread: false, att: false, ...f }); setView({ kind: 'box', id }); setSel(null); setMsg(null); setFound(null) }
   const closeMenus = () => { if (menu) setMenu(null); if (boxMenu) setBoxMenu(null) }
   const ownWindow = () => { if (!openMailWindow()) say('Your browser stopped the new window. Allow pop-ups for rpintelligence.app, then press it again.') }
+  const searchAll = async (q: string) => {
+    setView({ kind: 'search' }); setSel(null); setMsg(null); setFound({ q, items: null })
+    try { const r = await api<{ messages: Found[] }>('search_all', undefined, { q }); setFound({ q, items: r.messages }) }
+    catch (e) { setFound(f => f && f.q === q ? { q, items: [] } : f); say((e as Error).message) }
+  }
+  const searchFurther = async () => {
+    if (!found?.items) return
+    const q = found.q
+    setFound(f => f && { ...f, busy: true })
+    try {
+      const r = await api<{ messages: Found[]; missed: string[] }>('search_all_further', { q })
+      setFound(f => {
+        if (!f || f.q !== q) return f
+        const key = (m: Found) => m.mailbox_id + ':' + m.thread_id
+        const have = new Set((f.items ?? []).map(key))
+        const items = [...(f.items ?? []), ...r.messages.filter(m => !have.has(key(m)))].sort((a, b) => b.date - a.date)
+        return { q, items, further: true, missed: r.missed }
+      })
+    } catch (e) { setFound(f => f && { ...f, busy: false }); say((e as Error).message) }
+  }
+  const searchBox = (
+    <form className="flex min-w-0 items-center gap-1.5" onSubmit={e => { e.preventDefault(); const q = allQ.trim(); if (q.length > 1) void searchAll(q) }}>
+      <input id="rp-search-all" className="rp-input !w-52 sm:!w-72" placeholder="Search every mailbox" value={allQ} onChange={e => setAllQ(e.target.value)} aria-label="Search every mailbox" />
+      <button className={btn('outline', 'sm')} type="submit" title="Search every mailbox (press / to jump here)"><Search /></button>
+    </form>
+  )
 
   const tools = (
     <div className="flex flex-wrap items-center gap-2">
@@ -459,6 +489,22 @@ export function RpmailApp({ localUrl, connected, connectError, windowed = false 
   </>
   const views = (
         <div className="flex-1 min-w-0">
+          {view.kind === 'search' && found && (
+            <Section title={'Search: ' + found.q} count={found.items?.length} tone="info" right={<button className={btn('ghost', 'xs')} onClick={() => { setFound(null); goDash() }}><X />Close</button>}>
+              {found.items === null && <Empty>Looking in every mailbox...</Empty>}
+              {found.items && !found.items.length && <Empty>Nothing found in what RPMail has loaded: each inbox, its folders and the last 90 days. Press the button below to ask every mailbox itself.</Empty>}
+              {found.items?.map(m => <Row key={m.mailbox_id + m.id} m={m} boxLabel={boxName(m.mailbox_id) + ' · ' + m.where} {...rowProps} />)}
+              {found.items && (
+                <div className="flex flex-wrap items-center gap-2 px-4 py-3 text-xs text-muted-foreground">
+                  {found.further
+                    ? <span>Every mailbox was asked too{found.missed?.length ? `; no answer from ${found.missed.join(', ')}` : ''}.</span>
+                    : <><button className={btn('outline', 'sm')} disabled={found.busy} onClick={() => void searchFurther()}><Search />{found.busy ? 'Asking every mailbox...' : 'Look further back in every mailbox'}</button>
+                      <span>Searches each mailbox itself, past the last 90 days (up to 25 matches each).</span></>}
+                </div>
+              )}
+            </Section>
+          )}
+          {view.kind === 'box' && found && <button className={cn(btn('ghost', 'xs'), 'mb-2')} onClick={() => { setView({ kind: 'search' }); setSel(null); setMsg(null) }}><ArrowLeft />Back to the search for &ldquo;{found.q}&rdquo;</button>}
           {view.kind === 'dash' && ov && <Dash ov={ov} boxes={boxes} hidden={hidden} order={st.prefs?.order ?? []} reorder={order => void savePrefs({ order })} close={id => setHidden(id, true)} onBoxMenu={onBoxMenu} putBack={id => setHidden(id, false)} boxName={boxName} rowProps={rowProps} goBox={goBox}
             markDone={markDone} plateDone={plateDone} undo={id => void act(async () => { const u = await api<{ back_to: string }>('undo', { move: id }); await refresh(); say('Back in ' + u.back_to + '.') })} />}
           {view.kind === 'dash' && !ov && <p className="text-sm text-muted-foreground">Loading...</p>}
@@ -539,7 +585,7 @@ export function RpmailApp({ localUrl, connected, connectError, windowed = false 
           goDash={goDash} pick={pickFolder} onBoxMenu={onBoxMenu} />
         <main className="rp-main flex-1 min-w-0 overflow-y-auto">
           <div className="p-3 sm:p-5 max-w-[1700px] mx-auto">
-            <div className="mb-3 flex flex-wrap items-center justify-end gap-2">{tools}</div>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">{searchBox}{tools}</div>
             {/* On a phone the menu on the left steps aside; the mailboxes are a row across the top instead. */}
             <nav className="md:hidden mb-3 flex gap-1.5 overflow-x-auto pb-1">{boxButtons}</nav>
             {alerts}
@@ -557,6 +603,7 @@ export function RpmailApp({ localUrl, connected, connectError, windowed = false 
           </div>
           {tools}
         </div>
+        <div className="mb-3">{searchBox}</div>
         {alerts}
         <div className="flex flex-col lg:flex-row gap-4">
           <nav className="lg:w-56 shrink-0 flex lg:flex-col gap-1.5 overflow-x-auto pb-1 lg:pb-0">{boxButtons}</nav>

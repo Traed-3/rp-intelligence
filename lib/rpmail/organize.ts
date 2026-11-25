@@ -21,7 +21,7 @@ type GLabel = { id: string; name: string; type?: string }
 export const mayReshape = (who: Pick<Me, 'id' | 'role'>, box: Pick<Mailbox, 'kind' | 'owner_id'>) =>
   box.kind === 'personal' ? box.owner_id === who.id : isMailAdmin(who.role)
 
-async function userLabels(box: Mailbox): Promise<Label[]> {
+export async function userLabels(box: Mailbox): Promise<Label[]> {
   const d = await gmail<{ labels?: GLabel[] }>(box.id, 'labels')
   return (d?.labels ?? []).filter(l => l.type === 'user' && LABEL.test(l.id)).map(l => ({ id: l.id, name: l.name })).sort((a, b) => a.name.localeCompare(b.name))
 }
