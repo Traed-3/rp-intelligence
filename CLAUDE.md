@@ -917,7 +917,7 @@ Nobody types materials in, so both tabs are now built from the paperwork already
   an invoice (same rules as ~/rps-jobs/jobctl.py): labor = man-hours x the customer's rate, one trip per tech per day
   (two tickets on one day = the bigger crew), ONE disposables line for the job (`disposablesFor`: $17.50 / $35 / $75),
   materials from parts vendors at cost +20% and everything else at cost +15% (`PARTS_VENDOR`, `PART_MARKUP`,
-  `OTHER_MARKUP`), other expenses at cost +15%. Rates: `INVOICE_RATES` in lib/job-costs.ts (7-Eleven $78 / trip $102.50,
+  `OTHER_MARKUP`), other expenses (hotels, permits, subcontractors) at cost +15% (Trae confirmed 11/25/26: "Yes, keep 15%"). Rates: `INVOICE_RATES` in lib/job-costs.ts (7-Eleven $78 / trip $102.50,
   Sunoco $80 / $120, Global $82.50 / $82.50, Wawa $78 / $102.50, Independent $95 / $110), picked by the job's brand.
   There is NO labor-cost-per-hour box and no margin on the page: do not bring them back. (`companies.labor_cost_rate`
   still exists and is unused.) Not in the preview: equipment lines (compressor, lift), tax, and bid jobs' approved price.
