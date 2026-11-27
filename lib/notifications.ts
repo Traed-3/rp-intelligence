@@ -351,52 +351,7 @@ export async function notifyTicketAssigned(
   }
 }
 
-// ── Rule: forgot to clock out ─────────────────────────────────────────────────
-
-export async function checkForgotClockOut(
-  admin: AdminClient,
-  companyId: string
-) {
-  const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
-
-  const { data: staleEntries } = await admin
-    .from('time_clock_entries')
-    .select('id, profile_id, clock_in')
-    .eq('company_id', companyId)
-    .is('clock_out', null)
-    .lte('clock_in', cutoff)
-
-  for (const e of staleEntries ?? []) {
-    const hoursAgo = Math.floor((Date.now() - new Date(e.clock_in).getTime()) / 3600000)
-
-    const yesterday = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString()
-    const { data: existing } = await admin
-      .from('notifications')
-      .select('id')
-      .eq('company_id', companyId)
-      .eq('type', 'clock_out_reminder')
-      .eq('recipient_id', e.profile_id)
-      .gte('created_at', yesterday)
-      .maybeSingle()
-
-    if (existing) continue
-
-    const title   = 'Did you forget to clock out?'
-    const message = `You've been clocked in for ${hoursAgo}+ hours. Please go to RP Intelligence and clock out now.`
-    const link    = '/shop/clock'
-
-    await admin.from('notifications').insert({
-      company_id:   companyId,
-      recipient_id: e.profile_id,
-      type:         'clock_out_reminder',
-      title,
-      message,
-      link,
-    })
-
-    await deliverAlert(admin, { recipientIds: [e.profile_id], type: 'clock_out_reminder', title, message, link })
-  }
-}
+// Forgot to clock out: moved to lib/clock-guard.ts (runs every 10 minutes from pg_cron, not on a page load).
 
 // ── Construction: project notification reminders ──────────────────────────────
 /**

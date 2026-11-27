@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { parseClockReminder, type ClockReminder } from '@/lib/time-clock'
 
 /**
  * Per-person layout choices, stored in profiles.ui_prefs and edited on
@@ -17,7 +18,8 @@ export type CardStyle = typeof CARD_STYLES[number]['key']
 export const DEFAULT_CARD_STYLE: CardStyle = 'gold-icons'
 const isCardStyle = (v: unknown): v is CardStyle => CARD_STYLES.some(c => c.key === v)
 
-export type UiPrefs = { dashboard?: ListPref; nav?: ListPref; tabs?: string[]; cardStyle?: CardStyle }
+/** `clock_reminder` is the person's own "remind me to clock out" time, set on the Time Clock page (lib/time-clock.ts). */
+export type UiPrefs = { dashboard?: ListPref; nav?: ListPref; tabs?: string[]; cardStyle?: CardStyle; clock_reminder?: ClockReminder }
 
 /** The person's square style, or the standard one. */
 export const cardStyleOf = (prefs: UiPrefs): CardStyle => prefs.cardStyle ?? DEFAULT_CARD_STYLE
@@ -44,6 +46,7 @@ export function parsePrefs(raw: unknown): UiPrefs {
   const n = listPref(o.nav); if (n) out.nav = n
   const t = strings(o.tabs, MAX_TABS); if (t.length) out.tabs = t
   if (isCardStyle(o.cardStyle) && o.cardStyle !== DEFAULT_CARD_STYLE) out.cardStyle = o.cardStyle
+  const r = parseClockReminder(o.clock_reminder); if (r) out.clock_reminder = r
   return out
 }
 

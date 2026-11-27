@@ -23,7 +23,7 @@ const ALERT_DEFS = [
   {
     type: 'clock_out_reminder',
     label: 'Forgot to Clock Out',
-    desc: 'Reminder if you stay clocked in for more than 12 hours without clocking out.',
+    desc: 'Reminder when you are still clocked in after 12 hours, or past your own reminder time (set on the Time Clock page). Push is on unless you untick it.',
     icon: '⏰',
   },
   {
@@ -154,7 +154,7 @@ export default async function AlertsPage() {
                   <input
                     type="checkbox"
                     name={`${def.type}_push`}
-                    defaultChecked={pref?.push_enabled ?? false}
+                    defaultChecked={pref?.push_enabled ?? def.type === 'clock_out_reminder'}
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                 </div>

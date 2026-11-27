@@ -20,6 +20,8 @@ const TYPE_ICON: Record<string, string> = {
   maintenance_overdue: '🔧',
   asset_unsafe:        '⚠️',
   clock_out_reminder:  '⏰',
+  time_needs_fixing:  '⏰',
+  time_fixed:         '⏰',
   ticket_assigned:     '🎫',
   repeat_purchase:     '🔁',
   default:             '🔔',

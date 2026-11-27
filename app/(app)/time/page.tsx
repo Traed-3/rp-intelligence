@@ -1,13 +1,27 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { PageHeader } from '@/components/ui/page-header'
+import { StatusPill } from '@/components/ui/status-pill'
+import { buttonVariants } from '@/components/ui/button'
+import { FixFields, FormMessage } from '@/components/time/fix-form'
+import { PAYROLL_ROLES, addDaysTo, hoursText, isTimeManager, nyDateLabel, nyDay, nyRange, nyTime } from '@/lib/time-clock'
+import { requestTimeFix } from './actions'
+
+type Row = {
+  id: string; profile_id: string; clock_in: string; clock_out: string | null; total_minutes: number | null; break_minutes: number | null
+  is_approved: boolean; manually_adjusted: boolean; needs_review: boolean; review_reason: string | null; auto_clocked_out_at: string | null
+  source: string; store_number: string | null; fix_requested_at: string | null
+  profiles: { full_name: string } | null; con_jobs: { site_number: string | null } | null
+}
 
 export default async function TimeEntriesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ employee?: string; approved?: string }>
+  searchParams: Promise<{ employee?: string; approved?: string; done?: string; error?: string; fix?: string }>
 }) {
-  const { employee: empFilter, approved: approvedFilter } = await searchParams
+  const sp = await searchParams
+  const { employee: empFilter, approved: approvedFilter } = sp
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -16,74 +30,84 @@ export default async function TimeEntriesPage({
   const { data: profile } = await admin
     .from('profiles').select('company_id, role, id').eq('id', user!.id).single()
 
-  const isManager = ['owner', 'manager', 'shop_manager'].includes(profile?.role ?? '')
+  const isManager = isTimeManager(profile?.role)
+  const seesPayroll = PAYROLL_ROLES.includes(profile?.role ?? '')
 
-  const { data: employees } = isManager
-    ? await admin.from('profiles').select('id, full_name').eq('company_id', profile!.company_id).in('role', ['shop_employee', 'shop_manager']).order('full_name')
-    : { data: null }
-
-  // 30 day window
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  // Last 30 Eastern days
+  const today = nyDay(new Date())
+  const { from } = nyRange(addDaysTo(today, -30), today)
 
   let query = admin
     .from('time_clock_entries')
-    .select('id, profile_id, clock_in, clock_out, total_minutes, is_approved, manually_adjusted, profiles(full_name)')
+    .select('id, profile_id, clock_in, clock_out, total_minutes, break_minutes, is_approved, manually_adjusted, needs_review, review_reason, auto_clocked_out_at, source, store_number, fix_requested_at, profiles!time_clock_entries_profile_id_fkey(full_name), con_jobs(site_number)')
     .eq('company_id', profile!.company_id)
-    .gte('clock_in', thirtyDaysAgo.toISOString())
+    .gte('clock_in', from)
     .order('clock_in', { ascending: false })
-    .limit(100)
+    .limit(isManager ? 600 : 100)
 
   // Non-managers can only see their own
-  if (!isManager) query = (query as any).eq('profile_id', profile!.id)
-  else if (empFilter) query = (query as any).eq('profile_id', empFilter)
+  if (!isManager) query = query.eq('profile_id', profile!.id)
+  else if (empFilter) query = query.eq('profile_id', empFilter)
 
-  if (approvedFilter === 'pending') query = (query as any).eq('is_approved', false).not('clock_out', 'is', null)
-  if (approvedFilter === 'approved') query = (query as any).eq('is_approved', true)
+  if (approvedFilter === 'pending') query = query.eq('is_approved', false).not('clock_out', 'is', null)
+  if (approvedFilter === 'approved') query = query.eq('is_approved', true)
+  if (approvedFilter === 'fix') query = query.or('needs_review.eq.true,fix_requested_at.not.is.null')
 
-  const { data: entries } = await query
+  const { data } = await query
+  const entries = (data ?? []) as unknown as Row[]
 
-  const pendingCount = entries?.filter(e => !e.is_approved && e.clock_out).length ?? 0
+  // Everyone who has time in the window, for the manager's picker.
+  const { data: people } = isManager
+    ? await admin.from('profiles').select('id, full_name').eq('company_id', profile!.company_id).eq('is_active', true).order('full_name')
+    : { data: null }
+
+  const pendingCount = entries.filter(e => !e.is_approved && e.clock_out && !e.needs_review).length
+  const fixCount = entries.filter(e => e.needs_review || e.fix_requested_at).length
+  const cols = isManager ? 8 : 7
+  const href = (o: { approved?: string; employee?: string }) => {
+    const q = new URLSearchParams()
+    const a = o.approved ?? approvedFilter ?? '', e = o.employee ?? empFilter ?? ''
+    if (a) q.set('approved', a)
+    if (e) q.set('employee', e)
+    return `/time${q.size ? `?${q}` : ''}`
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="rp-title">Time Entries</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Last 30 days</p>
-        </div>
-        <div className="flex gap-2">
-          {isManager && pendingCount > 0 && (
-            <Link href="/time/approvals" className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors">
-              {pendingCount} Pending Approval
+      <PageHeader
+        title="Time Entries"
+        description={isManager ? 'Last 30 days, everyone.' : 'Your last 30 days. If a shift is wrong, press "My time is wrong" on it.'}
+        actions={<>
+          {isManager && (fixCount > 0 || pendingCount > 0) && (
+            <Link href="/time/approvals" className={buttonVariants({ variant: fixCount > 0 ? 'default' : 'outline' })}>
+              {fixCount > 0 ? `${fixCount} to fix` : `${pendingCount} to approve`}
             </Link>
           )}
-          <Link href="/reports/payroll" className="px-4 py-2 rounded-lg border border-gray-300 bg-card text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-            Payroll Report →
-          </Link>
-        </div>
-      </div>
+          {isManager && fixCount === 0 && pendingCount === 0 && <Link href="/time/approvals" className={buttonVariants({ variant: 'outline' })}>Fix &amp; Approve</Link>}
+          {seesPayroll && <Link href="/reports/payroll" className={buttonVariants({ variant: 'outline' })}>Payroll report</Link>}
+        </>}
+      />
+      <FormMessage done={sp.done} error={sp.error} />
 
       {/* Filters */}
       {isManager && (
-        <div className="flex flex-wrap gap-2 mb-5">
+        <div className="flex flex-wrap items-center gap-2 mb-5">
           {[
             { value: '', label: 'All' },
-            { value: 'pending', label: 'Pending' },
+            { value: 'fix', label: 'Needs fixing' },
+            { value: 'pending', label: 'Waiting for approval' },
             { value: 'approved', label: 'Approved' },
           ].map(f => (
-            <Link
-              key={f.value}
-              href={`/time?approved=${f.value}${empFilter ? `&employee=${empFilter}` : ''}`}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
-                (approvedFilter ?? '') === f.value
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-card text-gray-600 border-gray-200 hover:border-gray-400'
-              }`}
-            >
-              {f.label}
-            </Link>
+            <Link key={f.value} href={href({ approved: f.value })} className="rp-chip" aria-current={(approvedFilter ?? '') === f.value ? 'true' : undefined}>{f.label}</Link>
           ))}
+          <form action="/time" className="ml-auto flex items-center gap-2">
+            {approvedFilter && <input type="hidden" name="approved" value={approvedFilter} />}
+            <select name="employee" defaultValue={empFilter ?? ''} className="rp-input w-auto" aria-label="Employee">
+              <option value="">Everyone</option>
+              {(people ?? []).map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+            </select>
+            <button type="submit" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Show</button>
+          </form>
         </div>
       )}
 
@@ -91,45 +115,66 @@ export default async function TimeEntriesPage({
         <div className="overflow-x-auto">
           <table className="rp-table w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
+              <tr>
                 {isManager && <th className="text-left px-4 py-2.5">Employee</th>}
                 <th className="text-left px-4 py-2.5">Date</th>
                 <th className="text-left px-4 py-2.5">Clock In</th>
                 <th className="text-left px-4 py-2.5">Clock Out</th>
+                <th className="text-right px-4 py-2.5">Break</th>
                 <th className="text-right px-4 py-2.5">Hours</th>
-                <th className="text-center px-4 py-2.5">Status</th>
+                <th className="text-left px-4 py-2.5">Site</th>
+                <th className="text-left px-4 py-2.5">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {entries?.map(e => (
-                <tr key={e.id} className={`hover:bg-gray-50 ${!e.is_approved && e.clock_out ? 'bg-amber-50/50' : ''}`}>
-                  {isManager && <td className="px-4 py-3 text-gray-700">{(e as any).profiles?.full_name ?? '—'}</td>}
-                  <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
-                    {new Date(e.clock_in).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                    {e.manually_adjusted && <span className="ml-1 text-purple-600 text-xs">✎</span>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700 tabular-nums whitespace-nowrap">
-                    {new Date(e.clock_in).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums whitespace-nowrap">
-                    {e.clock_out
-                      ? <span className="text-gray-700">{new Date(e.clock_out).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
-                      : <span className="text-green-600 font-medium">Active</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                    {e.clock_out && e.total_minutes ? (e.total_minutes / 60).toFixed(2) : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {e.is_approved
-                      ? <span className="text-xs text-green-700 font-medium bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">Approved</span>
-                      : e.clock_out
-                        ? <Link href="/time/approvals" className="text-xs text-amber-700 font-medium bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full hover:bg-amber-100">Pending</Link>
-                        : <span className="text-xs text-gray-400">Open</span>}
-                  </td>
-                </tr>
-              ))}
-              {!entries?.length && (
-                <tr><td colSpan={isManager ? 6 : 5} className="px-4 py-8 text-center text-sm text-gray-400">No time entries found.</td></tr>
+            <tbody>
+              {entries.map(e => {
+                const mine = e.profile_id === profile!.id
+                const canAsk = mine && !!e.clock_out && !e.is_approved
+                return [
+                  <tr key={e.id} className="border-t border-hairline">
+                    {isManager && <td className="px-4 py-3 text-foreground whitespace-nowrap">{e.profiles?.full_name ?? '—'}</td>}
+                    <td className="px-4 py-3 text-foreground whitespace-nowrap">{nyDateLabel(e.clock_in)}</td>
+                    <td className="px-4 py-3 tabular-nums whitespace-nowrap">{nyTime(e.clock_in)}</td>
+                    <td className="px-4 py-3 tabular-nums whitespace-nowrap">
+                      {!e.clock_out ? <span className="font-medium text-success">On the clock</span>
+                        : e.auto_clocked_out_at ? <span className="text-danger">Never clocked out</span>
+                        : nyTime(e.clock_out)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{e.break_minutes ? `${e.break_minutes}m` : ''}</td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums">{e.clock_out ? hoursText(e.total_minutes) : '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{e.con_jobs?.site_number ?? e.store_number ?? ''}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {e.needs_review ? <StatusPill tone="danger">Needs fixing</StatusPill>
+                        : e.fix_requested_at ? <StatusPill tone="info">Correction sent</StatusPill>
+                        : e.is_approved ? <StatusPill tone="success">Approved</StatusPill>
+                        : e.clock_out ? <StatusPill tone="warning">Waiting</StatusPill>
+                        : <StatusPill tone="neutral">Open</StatusPill>}
+                      {e.manually_adjusted && e.source !== 'truck_log' && <span className="ml-1.5 text-xs text-muted-foreground" title="Changed by a manager">edited</span>}
+                      {isManager && !e.is_approved && e.clock_out && <Link href={`/time/approvals?edit=${e.id}`} className="ml-2 text-xs font-semibold text-brand hover:underline">Fix</Link>}
+                    </td>
+                  </tr>,
+                  (e.needs_review && e.review_reason) || canAsk ? (
+                    <tr key={e.id + ':more'}>
+                      <td colSpan={cols} className="px-4 pb-3">
+                        {e.needs_review && e.review_reason && <p className="text-xs text-danger">{e.review_reason}</p>}
+                        {canAsk && (
+                          <details className="mt-1" open={sp.fix === e.id}>
+                            <summary className="cursor-pointer select-none text-xs font-semibold text-brand">{e.fix_requested_at ? 'Change what I sent in' : 'My time is wrong'}</summary>
+                            <form action={requestTimeFix} className="mt-2 rounded-lg border border-hairline bg-raised p-4">
+                              <input type="hidden" name="id" value={e.id} />
+                              <FixFields clockIn={e.clock_in} clockOut={e.auto_clocked_out_at ? null : e.clock_out} breakMinutes={e.break_minutes}
+                                noteLabel="What happened" notePlaceholder="Forgot to clock out, left the shop at 5:15" />
+                              <button type="submit" className={buttonVariants({ className: 'mt-3', size: 'sm' })}>Send to my manager</button>
+                            </form>
+                          </details>
+                        )}
+                      </td>
+                    </tr>
+                  ) : null,
+                ]
+              })}
+              {!entries.length && (
+                <tr><td colSpan={cols} className="px-4 py-8 text-center text-sm text-muted-foreground">No time entries found.</td></tr>
               )}
             </tbody>
           </table>

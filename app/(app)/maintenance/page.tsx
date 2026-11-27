@@ -7,7 +7,7 @@ import { StatCard } from '@/components/dashboard/stat-card'
 import { TicketStatusBadge, PriorityBadge } from '@/components/tickets/ticket-badges'
 import { StatusBadge } from '@/components/assets/status-badge'
 import { calcDateDue, calcOilChangeDue, toBand, BAND_CONFIG, sortByUrgency, type DueStatus } from '@/lib/maintenance'
-import { checkOverdueMaintenanceNotifications, checkForgotClockOut } from '@/lib/notifications'
+import { checkOverdueMaintenanceNotifications } from '@/lib/notifications'
 import { createOverdueMaintenanceTickets } from '@/lib/auto-tickets'
 import { ClipboardList, AlertTriangle, Truck, Package, Wrench, Calendar, Users, Clock, Droplets, CalendarClock, FileText } from '@/components/icons/solar'
 import { cn } from '@/lib/utils'
@@ -227,7 +227,6 @@ export default async function MaintenancePage({
 
   // Fire-and-forget background tasks
   checkOverdueMaintenanceNotifications(admin, companyId).catch(() => {})
-  checkForgotClockOut(admin, companyId).catch(() => {})
   createOverdueMaintenanceTickets(admin, companyId).catch(() => {})
 
   // Close a reminder (Registration / State Inspection) from this page

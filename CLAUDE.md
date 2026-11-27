@@ -976,3 +976,41 @@ Trae, 11/25/26: "anything that has been archived from inbox on eshoptasks or mai
   off that one measurement), **Inspections**, **Registrations**. /maintenance/service-due replaced oil-changes, brakes and
   tires (old addresses redirect). "Coming Due" on the page no longer lists brake / tire dates. Not changed: the brake and
   tire service records on an asset page, and lib/notifications.ts + lib/auto-tickets.ts, which still look at brake / tire dates.
+
+---
+
+## TIME CLOCK: FORGOTTEN CLOCK-OUTS, MANAGER FIXES, PAYROLL BY PAY WEEK (added 2026-11-27)
+
+Trae, 11/27/26: "some kind of reminder or auto clock out to catch when someone forgets to clock out and a way to fix their
+time - maybe thru a manager", plus his own reminder at 7 PM Mon-Fri, plus two weeks of truck-log hours loaded to test payroll.
+- Rules are pure functions in lib/time-clock.ts (tests/time-clock.test.ts): Eastern-time helpers (`nyDay`, `nyTime`,
+  `nyToUtc`, `nyRange`; the server is UTC, so NEVER format a clock time or pick "today" without them), `payWeekOf`
+  (pay week = THURSDAY THROUGH WEDNESDAY, the crews' "EOW" day; checked against every tech's typed T= for 11/12-11/18),
+  `splitOvertime` (past 40 h in a pay week), `buildFix` (a typed day / in / out / break -> stored values; an earlier
+  clock-out = past midnight), `guardAction`.
+- Guard: lib/clock-guard.ts `runClockGuard`, GET /api/time/clock-guard (public path in proxy.ts; Vault token or CRON_SECRET),
+  pg_cron job `time-clock-guard` every 10 minutes (migration supabase/migrations/time_clock_guard.sql). For each open entry:
+  18 h (`AUTO_OUT_HOURS`) -> `autoClockOut`: closed, total_minutes 0, `needs_review`, `auto_clocked_out_at`; the person is told,
+  managers get a bell row. The person's own reminder (`profiles.ui_prefs.clock_reminder` {time, days}, set on /shop/clock;
+  Trae's is 19:00 Mon-Fri) -> push + email, repeated hourly. 12 h -> push, repeated every 2 h. Push goes to every device
+  the person registered unless they unticked push for "Forgot to Clock Out" in Alerts.
+  The old `checkForgotClockOut` only ran when someone opened /maintenance; it is gone.
+- BUG FIXED: `clockOut` selected `active_labor_entry_id` from time_clock_entries (no such column), so the lookup failed and the
+  entry was NEVER closed while the status flipped to clocked out. That is where the stale open entries came from. `clockIn` now
+  closes any stale open entry (flagged) before starting a new one; a clock-out 18+ hours late is held like an auto clock-out.
+- Fix & Approve Time (/time/approvals; `TIME_MANAGER_ROLES` = owner, manager, shop_manager, construction_manager): On the clock
+  now, Needs fixing, Add a day someone never clocked in for, Waiting for approval by person. `fixTimeEntry` needs a reason, keeps
+  `original_clock_in/out` from before the first fix, un-approves, tells the employee. `needs_review` entries cannot be approved
+  (single or Approve All). Delete = owner / manager, un-approved only, logged in activity_log (`time_entry_deleted`).
+- Employee side (/time): "My time is wrong" on their own un-approved shift -> `fix_requested_*` -> the manager presses
+  "Use these times" or "Leave it as it was".
+- Payroll report: everyone with time (it used to list shop roles only), Eastern days, pay-week buttons + any date range,
+  Regular / Overtime / Total, a red "Not ready for payroll" box while shifts need fixing or are still open, Site column.
+  CSV: same range, break, site, source, plus a per-person per-pay-week summary block.
+- Columns added to time_clock_entries: needs_review, review_reason, auto_clocked_out_at, reminded_at, remind_count,
+  fix_requested_at/_in/_out/_break, fix_request_note, original_clock_in/_out, source (app|manager|truck_log), site_log jsonb.
+- Truck-log import (11/9-11/25/26, 170 days, 14 people): ~/rps-timeclock on the Work Mac (parse_trucklog.py -> build.py ->
+  load.py --apply; raw logs trucklog.txt). const.log.rp is read in Chrome profile "RP Gmail - Claude" (Profile 4). One entry per
+  person per day from the last EOD / EOW line (a later line in the thread is a correction); break = span minus typed hours;
+  job = the job with a crew update that day, else the site's only open job; `site_log` holds every site with minutes on site.
+  Donald Sutphin and Anthony Rowe log hours but have no login, so theirs are parsed (entries.json "skipped") and not loaded.
