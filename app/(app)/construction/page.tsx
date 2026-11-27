@@ -5,6 +5,7 @@ import { CON_STAGES, money, fmtDate, projectNotificationStatus } from '@/lib/con
 import { loadPermitGraph, computeAlerts, loadHashEnteredAt } from '@/lib/permits-data'
 import { FOCUS_TILES, buildFocusTiles, tallyMaterials, daysSince, packingSlipSiteKey, type FocusJob, type PackingSlip } from '@/lib/construction-dashboard'
 import { StageBadge } from '@/components/construction/badges'
+import { OpenProjectsSearch, type OpenProject } from '@/components/construction/open-projects-search'
 import { Users, Contact, HardHat, FileText, Receipt, Package, CalendarDays, BarChart3, ClipboardList, ListChecks, Truck, Inbox, FileCheck2, AlertTriangle, Search } from 'lucide-react'
 
 function iso(d: Date) {
@@ -24,7 +25,7 @@ export default async function ConstructionDashboard() {
   // ever loads OPEN jobs (everything the dashboard shows is about active work
   // anyway) and gets the completed count separately, cheaply, via head:true.
   const [{ data: jobs }, { count: completeCount }, { data: invoices }, { data: materialRows }, { data: slipRows }, { data: schedule }, permitGraph, hashEnteredAt] = await Promise.all([
-    admin.from('con_jobs').select('id, site_number, job_number, work_order_number, stage, status_detail, scope_of_work, gas_brand, priority, date_received, project_start_date, updated_at, notification_sent_at, notification_waived, program, con_customers(name)').eq('company_id', company_id).neq('stage', 'complete'),
+    admin.from('con_jobs').select('id, site_number, job_number, work_order_number, stage, status_detail, scope_of_work, facility_address, gas_brand, priority, date_received, project_start_date, updated_at, notification_sent_at, notification_waived, program, con_customers(name)').eq('company_id', company_id).neq('stage', 'complete'),
     admin.from('con_jobs').select('*', { count: 'exact', head: true }).eq('company_id', company_id).eq('stage', 'complete'),
     admin.from('con_invoices').select('id, invoice_number, invoice_date, status, invoice_grand_total, con_customers(name)').eq('company_id', company_id).neq('status', 'void'),
     admin.from('con_job_materials').select('id, job_id, status').eq('company_id', company_id),
@@ -72,12 +73,25 @@ export default async function ConstructionDashboard() {
     .filter(i => String(i.invoice_date ?? '').startsWith(thisYear))
     .reduce((a, r) => a + (Number(r.invoice_grand_total) || 0), 0)
 
-  const [{ count: docReviewCount }, { count: ticketDraftCount }] = await Promise.all([
+  // Open-projects search box: each open job with an address to match the
+  // street number against. Jobs with no facility address borrow the site's.
+  const openSiteNumbers = [...new Set(allJobs.map(j => j.site_number).filter((s): s is string => !!s))]
+  const [{ count: docReviewCount }, { count: ticketDraftCount }, { data: siteRows }] = await Promise.all([
     admin.from('con_documents').select('id', { count: 'exact', head: true })
       .eq('company_id', company_id).eq('review_status', 'needs_review'),
     admin.from('con_daily_updates').select('id', { count: 'exact', head: true })
       .eq('company_id', company_id).eq('review_status', 'needs_review'),
+    openSiteNumbers.length
+      ? admin.from('con_sites').select('site_number, address, city, state').eq('company_id', company_id).in('site_number', openSiteNumbers)
+      : Promise.resolve({ data: [] as { site_number: string | null; address: string | null; city: string | null; state: string | null }[] }),
   ])
+  const siteAddress = new Map((siteRows ?? []).filter(s => s.site_number && s.address).map(s => [s.site_number as string, [s.address, s.city, s.state].filter(Boolean).join(', ')]))
+  const openProjects: OpenProject[] = allJobs.map(j => ({
+    id: j.id, site_number: j.site_number, job_number: (j as any).job_number, work_order_number: (j as any).work_order_number,
+    stage: j.stage, scope_of_work: (j as any).scope_of_work, gas_brand: (j as any).gas_brand,
+    customer_name: (j as any).con_customers?.name ?? null,
+    address: ((j as any).facility_address as string | null)?.trim() || (j.site_number ? siteAddress.get(j.site_number) ?? null : null),
+  }))
   const reviewCount = (docReviewCount ?? 0) + (ticketDraftCount ?? 0)
 
   const tiles = [
@@ -99,12 +113,12 @@ export default async function ConstructionDashboard() {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto overflow-x-hidden">
-      <div className="mb-6">
+      <OpenProjectsSearch projects={openProjects}>
         <h1 className="rp-title">
           Construction
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">Job pipeline, quotes, invoices & scheduling</p>
-      </div>
+      </OpenProjectsSearch>
 
       {/* Focus tiles — the five lists the department is run from (workbook legend colors) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mb-6 min-w-0">
