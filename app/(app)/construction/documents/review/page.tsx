@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { ReviewRow } from '@/components/construction/review-row'
-import { Inbox, ArrowLeft, FileSearch } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import { Inbox, FileSearch } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 // Company-wide triage queue for documents the importer (or an upload) couldn't

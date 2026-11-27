@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { PushToggle } from './push-toggle'
 import { saveAlertPreferences, updatePhone } from './actions'
-import { Bell } from 'lucide-react'
+import { Bell } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 const ALERT_DEFS = [

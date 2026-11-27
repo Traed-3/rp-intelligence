@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Mail, RefreshCw, History, CheckCircle, AlertCircle } from 'lucide-react'
+import { RefreshCw, History, CheckCircle, AlertCircle } from 'lucide-react'
+import { Mail } from '@/components/icons/solar'
 
 export function GmailSyncPanel() {
   const [syncing, setSyncing]     = useState(false)

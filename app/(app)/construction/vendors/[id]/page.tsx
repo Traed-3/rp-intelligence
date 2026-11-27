@@ -5,7 +5,7 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { VendorForm, type VendorRecord } from '@/components/construction/vendor-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { saveVendor, deleteVendor } from '../../actions'
-import { Store } from 'lucide-react'
+import { Store } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function VendorDetailPage({ params }: { params: Promise<{ id: string }> }) {

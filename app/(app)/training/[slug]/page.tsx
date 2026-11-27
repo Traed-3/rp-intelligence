@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ClipboardCheck, GraduationCap } from 'lucide-react'
+import { ClipboardCheck, GraduationCap } from '@/components/icons/solar'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { roleMayVisit } from '@/lib/role-access'

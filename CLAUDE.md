@@ -256,6 +256,14 @@ Done, Clock In/Out, Ask RPS).
 
 ---
 
+**Icons (Trae, 2026-11-27).** The menu, page-title chips (`TitleIcon`) and navy icon squares (`rp-icon-navy`, `rp-band-icon`)
+use Solar Bold Duotone from `components/icons/solar.tsx`, which exports them under the Lucide names (import `HardHat` from
+there instead of `lucide-react`). Colors are "two ambers": #f6c453 with the second tone (`.rp-i2`) #a8740f, set in
+app/globals.css. Small button glyphs (plus, x, trash, arrows, checks) stay Lucide. Solar is CC BY 4.0: keep the credit in
+that file's header. A new menu or tile icon: add it to solar.tsx (body from @iconify-json/solar, `<name>-bold-duotone`).
+
+---
+
 ## SESSION RULES
 
 1. Trae is a coding newbie — explain commands and where to click; give copy-paste-ready blocks.

@@ -6,7 +6,7 @@ import { PRETRIP_INTRO, pretripSections, pretripTitle, kindLabel, fmtDate, remar
 import { loadPretrip } from '@/lib/pretrip-pdf'
 import { PretripForm, PretripSignature, PretripEmail } from '@/components/forms/pretrip-form'
 import { submitInspection, saveSignature, emailInspection, reopenInspection, deleteInspection } from '../actions'
-import { Truck } from 'lucide-react'
+import { Truck } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'

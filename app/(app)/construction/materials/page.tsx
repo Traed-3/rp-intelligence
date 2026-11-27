@@ -6,7 +6,7 @@ import { MaterialStatusSelect } from '@/components/construction/material-status-
 import { MaterialForm } from '@/components/construction/material-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { setMaterialStatus, deleteMaterial, saveMaterial } from '../actions'
-import { Package } from 'lucide-react'
+import { Package } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function MaterialsPage({ searchParams }: { searchParams: Promise<{ job?: string }> }) {

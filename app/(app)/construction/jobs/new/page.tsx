@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { JobForm } from '@/components/construction/job-form'
 import { saveJob } from '../../actions'
-import { HardHat } from 'lucide-react'
+import { HardHat } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function NewJobPage() {

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { Mail, ExternalLink } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
+import { Mail } from '@/components/icons/solar'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { RpmailApp } from '@/components/rpmail/rpmail-app'

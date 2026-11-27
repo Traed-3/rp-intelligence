@@ -7,7 +7,7 @@ import { loadSiteSurvey } from '@/lib/site-survey-pdf'
 import { SiteSurveyForm, SiteSurveyEmail } from '@/components/forms/site-survey-form'
 import { SitePlanEditor } from '@/components/forms/site-plan-editor'
 import { findSites, saveSurvey, addPhotos, updatePhoto, removePhoto, finishSurvey, savePlan, loadAerial, removeAerial, scanPlan, drawFromSurvey, emailSurvey, reopenSurvey, deleteSurvey } from '../actions'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'

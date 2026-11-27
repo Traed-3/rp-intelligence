@@ -5,7 +5,7 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { SubcontractorForm, type SubcontractorRecord } from '@/components/construction/subcontractor-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { saveSubcontractor, deleteSubcontractor } from '../../actions'
-import { Users } from 'lucide-react'
+import { Users } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function SubcontractorDetailPage({ params }: { params: Promise<{ id: string }> }) {

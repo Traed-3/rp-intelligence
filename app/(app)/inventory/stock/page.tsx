@@ -3,7 +3,7 @@ import { ClickableRow } from '@/components/clickable-row'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireInventory } from '@/lib/inventory-guard'
 import { LOCATION_KINDS } from '@/lib/inventory'
-import { Boxes } from 'lucide-react'
+import { Boxes } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 const th = 'text-left px-4 py-3 font-medium text-gray-500'

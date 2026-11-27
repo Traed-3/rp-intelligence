@@ -8,7 +8,7 @@ import { arrange, cardStyleOf, loadUiPrefs, MAX_TABS } from '@/lib/ui-prefs'
 import { PageHeader } from '@/components/ui/page-header'
 import { hasRpmail } from '@/lib/rpmail/has'
 import { PersonalizeEditor } from './editor'
-import { SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'

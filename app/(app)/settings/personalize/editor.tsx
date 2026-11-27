@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useFormStatus } from 'react-dom'
-import { ArrowDown, ArrowUp, Check, Eye, EyeOff, Lock, Wrench } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Eye, EyeOff, Lock } from 'lucide-react'
+import { Wrench } from '@/components/icons/solar'
 import { cn } from '@/lib/utils'
 import { RingLoader } from '@/components/ui/ring-loader'
 import { savePrefs } from './actions'

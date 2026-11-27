@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { ChecklistCheck } from '@/components/construction/checklist-check'
-import { ListChecks } from 'lucide-react'
+import { ListChecks } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 type Item = {

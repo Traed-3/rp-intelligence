@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { DueBadge } from '@/components/maintenance/due-badge'
 import { calcDateDue, sortByUrgency } from '@/lib/maintenance'
-import { ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function InspectionsPage() {
