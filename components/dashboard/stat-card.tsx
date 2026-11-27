@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import type { LucideIcon } from 'lucide-react'
+import type { AppIcon } from '@/components/icons/solar'
 import { CountUp } from './count-up'
 
 type Color = 'blue' | 'red' | 'orange' | 'yellow' | 'green' | 'gray' | 'purple'
@@ -25,7 +25,7 @@ export function StatCard({
 }: {
   label: string
   value: string | number
-  icon: LucideIcon
+  icon: AppIcon
   color?: Color
   href?: string
   alert?: boolean

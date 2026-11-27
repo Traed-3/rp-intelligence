@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { PlayCircle, GraduationCap } from 'lucide-react'
+import { PlayCircle, GraduationCap } from '@/components/icons/solar'
 import { TRAINING_VIDEOS } from '@/lib/training'
 import { TitleIcon } from '@/components/ui/title-icon'
 

@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { DueBadge } from '@/components/maintenance/due-badge'
 import { calcOilChangeDue, sortByUrgency } from '@/lib/maintenance'
-import { Droplet } from 'lucide-react'
+import { Droplet } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function ServiceDuePage() {

@@ -5,7 +5,7 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { CustomerForm } from '@/components/construction/customer-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { saveCustomer, deleteCustomer } from '../../../actions'
-import { Building2 } from 'lucide-react'
+import { Building2 } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function EditCustomerPage({ params }: { params: Promise<{ id: string }> }) {

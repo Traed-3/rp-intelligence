@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import { ClipboardCheck, ClipboardList, Droplets, Receipt, ShieldCheck, Truck, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { ClipboardCheck, ClipboardList, Droplets, Receipt, ShieldCheck, Truck, TriangleAlert, type AppIcon } from '@/components/icons/solar'
 import { requireFieldSurveys } from '@/lib/construction-guard'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
 
-type Tile = { href?: string; icon: LucideIcon; title: string; body: string }
+type Tile = { href?: string; icon: AppIcon; title: string; body: string }
 
 // One place for every form a tech fills out in the field. Open to service techs, construction techs and the
 // construction roles (requireFieldSurveys). New forms get a tile here; `href` missing = not built yet.

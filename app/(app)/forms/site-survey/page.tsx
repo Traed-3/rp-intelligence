@@ -4,7 +4,7 @@ import { requireFieldSurveys } from '@/lib/construction-guard'
 import { type SiteSurveyRow, surveyTitle, surveyCounts, fmtDate } from '@/lib/site-survey'
 import { StartSurvey } from '@/components/forms/site-picker'
 import { createSurvey, findSites } from './actions'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'

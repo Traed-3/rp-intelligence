@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { fmtDate, projectNotificationStatus } from '@/lib/construction'
 import { PrintButton } from '@/components/construction/print-button'
-import { BellRing } from 'lucide-react'
+import { BellRing } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 const norm = (s: string | null | undefined) =>

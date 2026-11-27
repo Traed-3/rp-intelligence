@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { BookOpen } from 'lucide-react'
+import { BookOpen } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

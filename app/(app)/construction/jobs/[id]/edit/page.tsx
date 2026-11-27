@@ -5,7 +5,7 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { JobForm } from '@/components/construction/job-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { saveJob, deleteJob } from '../../../actions'
-import { HardHat } from 'lucide-react'
+import { HardHat } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function EditJobPage({ params }: { params: Promise<{ id: string }> }) {

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { me, isMailAdmin } from '@/lib/rpmail/access'
 import { RpmailAdmin } from '@/components/rpmail/rpmail-admin'
-import { Mail } from 'lucide-react'
+import { Mail } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 // Settings -> RPMail (owners only): who has RPMail turned on, which shared mailboxes each person gets, and the

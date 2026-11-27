@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Download, FileText, LifeBuoy } from 'lucide-react'
+import { Download } from 'lucide-react'
+import { FileText, LifeBuoy } from '@/components/icons/solar'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { HELP_BUCKET, helpGuideBySlug } from '@/lib/help'
 import { TitleIcon } from '@/components/ui/title-icon'

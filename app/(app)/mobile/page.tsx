@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 import { ShareAppButton } from '@/components/mobile/share-app-button'
 import { SignOutLink } from '@/components/mobile/sign-out-link'
-import { ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck } from '@/components/icons/solar'
 
 const STATUS_LABELS: Record<string, string> = {
   clocked_out: 'Clocked Out', at_shop: 'At Shop',

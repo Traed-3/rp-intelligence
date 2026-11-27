@@ -3,7 +3,8 @@ import { ClickableRow } from '@/components/clickable-row'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
 import { Button } from '@/components/ui/button'
-import { Plus, Building2 } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { Building2 } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function CustomersPage() {

@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { FileText, Receipt, Users, Package, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { FileText, Receipt, Users, Package } from '@/components/icons/solar'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireBilling } from '@/lib/billing-guard'
 import { money, fmtDate } from '@/lib/billing'

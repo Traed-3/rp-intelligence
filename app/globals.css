@@ -444,9 +444,14 @@
   h1:has(> .rp-title-chip) { display: flex; flex-wrap: wrap; align-items: center; gap: 0.625rem; }
   /* A thin colored bar down the left of a card header or row. */
   /* Navy chip with a gold icon (Trae, 11/24/26): every icon square in the app. Same in both themes. */
-  .rp-icon-navy { background: var(--sidebar-navy); color: #f0b43a; }
+  .rp-icon-navy { background: var(--sidebar-navy); color: #f6c453; }
+  /* Two-tone icons (components/icons/solar.tsx): the second tone is half strength everywhere, and deep bronze inside
+     the navy squares ("two ambers", Trae 11/27/26). */
+  .rp-i2 { opacity: 0.5; }
+  .rp-icon-navy .rp-i2, .rp-title-chip .rp-i2, .rp-band-icon .rp-i2 { opacity: 1; fill: #a8740f; }
+  [data-look="navy-header"] .rp-band-icon .rp-i2 { opacity: 0.5; fill: currentColor; }
   /* Every page-title icon is the navy chip with the gold icon, whatever tone the page asks for (Trae, 11/24/26). */
-  .rp-title-chip, .rp-title-chip[data-tone] { background: var(--sidebar-navy); color: #f0b43a; border-color: var(--sidebar-navy); }
+  .rp-title-chip, .rp-title-chip[data-tone] { background: var(--sidebar-navy); color: #f6c453; border-color: var(--sidebar-navy); }
   .rp-accent { box-shadow: inset 3px 0 0 var(--tone, var(--info)); }
 
   /* Empty state: one helpful line */

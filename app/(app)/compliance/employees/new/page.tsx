@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { requireCompliance } from '@/lib/compliance-guard'
 import { EmployeeForm } from '@/components/compliance/employee-form'
 import { createEmployee } from '../../actions'
-import { UserPlus } from 'lucide-react'
+import { UserPlus } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function NewEmployeePage() {

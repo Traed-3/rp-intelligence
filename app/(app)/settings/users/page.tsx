@@ -15,7 +15,7 @@ import { InviteMessageButton } from './invite-message-button'
 import { DEFAULT_INVITE_SUBJECT, DEFAULT_INVITE_INTRO, DEFAULT_WHATS_NEW, type InviteContent } from '@/lib/invite-email'
 import { canManageUser, canAssignRole } from '@/lib/user-admin-rules'
 import { updateUserRole, toggleUserActive, updateDefaultLandingPage } from './actions'
-import { Users } from 'lucide-react'
+import { Users } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function UsersSettingsPage() {

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { togglePaymentMethod } from '@/app/(app)/expenses/actions'
 import { addPaymentMethodDirect, saveExpenseCard, deleteExpenseCard, learnCardsFromPastReceipts } from './actions'
 import { PendingButton } from '@/components/expenses/pending-button'
-import { CreditCard } from 'lucide-react'
+import { CreditCard } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export const maxDuration = 300

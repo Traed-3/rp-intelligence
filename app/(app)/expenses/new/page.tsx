@@ -1,4 +1,5 @@
-import { CheckCircle2, Receipt } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
+import { Receipt } from '@/components/icons/solar'
 import { PageHeader } from '@/components/ui/page-header'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'

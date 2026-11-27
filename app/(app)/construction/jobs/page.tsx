@@ -5,7 +5,8 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { CON_STAGES, stageMeta, fmtDate, safeSearchTerm } from '@/lib/construction'
 import { StageBadge, ConPriorityBadge } from '@/components/construction/badges'
 import { Button } from '@/components/ui/button'
-import { Plus, LayoutGrid, List, HardHat } from 'lucide-react'
+import { Plus, LayoutGrid, List } from 'lucide-react'
+import { HardHat } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 type SearchParams = {

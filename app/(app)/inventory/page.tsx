@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Package, PackagePlus, Warehouse, ArrowLeftRight, ClipboardCheck, AlertTriangle } from 'lucide-react'
+import { Package, PackagePlus, Warehouse, ArrowLeftRight, ClipboardCheck, AlertTriangle } from '@/components/icons/solar'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireInventory } from '@/lib/inventory-guard'
 

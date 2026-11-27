@@ -3,10 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import {
-  Mail, LayoutDashboard, PenSquare, RefreshCw, Paperclip, Check, Archive, Trash2, ShieldAlert, Reply, ReplyAll, Forward, Inbox,
-  MailOpen, ListPlus, ArrowLeft, Search, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Bell, Tag, Tags, Ban, FileArchive, SlidersHorizontal, AlarmClock, BellRing, Wand2, Settings, CircleHelp, Clock, Send, ChevronRight, AppWindow,
-} from 'lucide-react'
+import { PenSquare, RefreshCw, Paperclip, Check, Archive, Trash2, ShieldAlert, Reply, ReplyAll, Forward, MailOpen, ListPlus, ArrowLeft, ExternalLink, Signature, Unplug, Image as ImageIcon, Download, Star, Printer, Keyboard, MoreVertical, X, Tag, Tags, Ban, FileArchive, AlarmClock, Wand2, CircleHelp, Send, ChevronRight, AppWindow } from 'lucide-react'
+import { Mail, LayoutDashboard, Inbox, Search, Bell, SlidersHorizontal, BellRing, Settings, Clock } from '@/components/icons/solar'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Item, ThreadItem } from '@/lib/rpmail/mail-ops'

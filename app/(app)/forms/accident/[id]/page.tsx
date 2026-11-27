@@ -6,7 +6,7 @@ import { ACCIDENT_INTRO, ACCIDENT_NOTIFY, fmtDate, accidentFlags } from '@/lib/a
 import { loadAccident } from '@/lib/accident-pdf'
 import { AccidentForm, AccidentPhotos, AccidentSignature, AccidentEmail } from '@/components/forms/accident-form'
 import { submitReport, addPhotos, deletePhoto, saveSignature, emailReport, reopenReport, deleteReport } from '../actions'
-import { TriangleAlert } from 'lucide-react'
+import { TriangleAlert } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'

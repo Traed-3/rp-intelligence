@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ClickableRow } from '@/components/clickable-row'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireConstruction } from '@/lib/construction-guard'
-import { MapPin, Landmark } from 'lucide-react'
+import { MapPin, Landmark } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 const th = 'text-left px-4 py-3 font-medium text-gray-500'

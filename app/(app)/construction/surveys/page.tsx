@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireFieldSurveys } from '@/lib/construction-guard'
 import { surveyTitle, surveyTypeLabel, SURVEY_TYPES, SUMP_TYPES } from '@/lib/survey'
 import { createSurvey } from './actions'
-import { ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'
