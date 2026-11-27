@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { BarChart3, Users, Clock, Wrench, Truck, ClipboardList } from 'lucide-react'
+import { BarChart3, Users, Clock, Wrench, Truck, ClipboardList } from '@/components/icons/solar'
 
 const REPORTS = [
   {

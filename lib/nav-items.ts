@@ -1,7 +1,4 @@
-import {
-  LayoutDashboard, Truck, Wrench, ClipboardList, Users, BarChart3, Settings, Receipt, FileText, Home, HardHat,
-  CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, Search, LifeBuoy, Mail, GraduationCap, ScrollText, type LucideIcon,
-} from 'lucide-react'
+import { LayoutDashboard, Truck, Wrench, ClipboardList, Users, BarChart3, Settings, Receipt, FileText, Home, HardHat, CalendarDays, Fuel, Package, ListChecks, ClipboardCheck, ShieldCheck, Search, LifeBuoy, Mail, GraduationCap, ScrollText, type AppIcon } from '@/components/icons/solar'
 import { canReadConstruction } from '@/lib/construction'
 import { canUseFieldSurveys, isSurveyOnly } from '@/lib/field-surveys'
 import { BILLING_READ_ROLES } from '@/lib/billing'
@@ -13,7 +10,7 @@ import { roleMayVisit, isFieldRole, noAccountingOrHr } from '@/lib/role-access'
  * Used by the sidebar / phone bar (components/app-nav.tsx) and by
  * Settings → Personalize, so the two can never disagree.
  */
-export type NavItem = { key: string; href: string; label: string; short?: string; icon: LucideIcon; match?: string[]; construction?: boolean; billing?: boolean; compliance?: boolean; module?: string; gold?: boolean }
+export type NavItem = { key: string; href: string; label: string; short?: string; icon: AppIcon; match?: string[]; construction?: boolean; billing?: boolean; compliance?: boolean; module?: string; gold?: boolean }
 
 const item = (i: Omit<NavItem, 'key'>): NavItem => ({ key: i.href, ...i })
 

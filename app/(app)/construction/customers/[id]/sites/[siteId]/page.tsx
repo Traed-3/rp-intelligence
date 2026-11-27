@@ -5,7 +5,7 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { SiteForm } from '@/components/construction/site-form'
 import { DeleteButton } from '@/components/construction/delete-button'
 import { saveSite, deleteSite } from '../../../../actions'
-import { MapPin } from 'lucide-react'
+import { MapPin } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function EditSitePage({ params }: { params: Promise<{ id: string; siteId: string }> }) {

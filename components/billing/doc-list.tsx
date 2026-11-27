@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Plus, FileText } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { FileText } from '@/components/icons/solar'
 import { ClickableRow } from '@/components/clickable-row'
 import { money, fmtDate } from '@/lib/billing'
 import { QuoteStatusBadge, InvoiceStatusBadge } from '@/components/construction/badges'

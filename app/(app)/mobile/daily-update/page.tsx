@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { canPostDailyUpdate, DAILY_UPDATE_ACTIVE_STAGES } from '@/lib/construction'
 import { DailyUpdateForm, type JobOption } from '@/components/construction/daily-update-form'
 import { addDailyUpdateForPickedJob } from '@/app/(app)/construction/actions'
-import { CalendarCheck } from 'lucide-react'
+import { CalendarCheck } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function MobileDailyUpdatePage() {

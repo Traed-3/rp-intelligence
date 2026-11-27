@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { BarChart3, CreditCard, FileText, Fuel, Plus, ReceiptText, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { BarChart3, CreditCard, FileText, Fuel, ReceiptText, Search } from '@/components/icons/solar'
 import { ClickableRow } from '@/components/clickable-row'
 import { buttonVariants } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'

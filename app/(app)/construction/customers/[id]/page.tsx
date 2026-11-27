@@ -6,7 +6,8 @@ import { requireConstruction } from '@/lib/construction-guard'
 import { Button } from '@/components/ui/button'
 import { SiteForm } from '@/components/construction/site-form'
 import { saveSite } from '../../actions'
-import { Pencil, MapPin, Building2 } from 'lucide-react'
+import { Pencil } from 'lucide-react'
+import { MapPin, Building2 } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {

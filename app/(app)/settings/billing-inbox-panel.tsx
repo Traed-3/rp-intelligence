@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Inbox } from 'lucide-react'
+import { Inbox } from '@/components/icons/solar'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { inboxStatus } from '@/lib/billing-gmail-client'
 import { InboxSyncButton } from '@/components/inventory/inbox-sync-button'

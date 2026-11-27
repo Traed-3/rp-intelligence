@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { TriangleAlert } from 'lucide-react'
+import { TriangleAlert } from '@/components/icons/solar'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireFieldSurveys } from '@/lib/construction-guard'
 import { type AccidentRow, ACCIDENT_INTRO, fmtDate, accidentFlags } from '@/lib/accident'

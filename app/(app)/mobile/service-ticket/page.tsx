@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { canWriteServiceTickets, ticketStatusMeta, completionLabel, BRANDS } from '@/lib/service-tickets'
 import { createServiceTicket } from '@/app/(app)/service/tickets/actions'
 import { canPostDailyUpdate } from '@/lib/construction'
-import { Wrench, Search } from 'lucide-react'
+import { Wrench, Search } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 const OPEN_WO = ['dispatched', 'new', 'on_site', 'in_progress', 'waiting_parts', 'rtn_needed']

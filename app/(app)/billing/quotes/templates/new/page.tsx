@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { requireBilling } from '@/lib/billing-guard'
 import { QuoteTemplateForm } from '@/components/billing/quote-template-form'
 import { saveQuoteTemplate } from '../../../actions'
-import { FileText } from 'lucide-react'
+import { FileText } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function NewQuoteTemplatePage() {

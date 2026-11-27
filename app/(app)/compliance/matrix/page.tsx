@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCompliance } from '@/lib/compliance-guard'
 import { loadFiles } from '@/lib/compliance-data'
 import { HEALTH_STYLE, fmtDate } from '@/lib/compliance'
-import { Grid3x3 } from 'lucide-react'
+import { Grid3x3 } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 const TABS = [

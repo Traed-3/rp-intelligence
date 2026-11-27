@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Truck, Caravan } from 'lucide-react'
+import { Caravan } from 'lucide-react'
+import { Truck } from '@/components/icons/solar'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireFieldSurveys } from '@/lib/construction-guard'
 import { type PretripRow, kindLabel, fmtDate, pretripItems, remarkItems } from '@/lib/pretrip'

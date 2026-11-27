@@ -6,7 +6,7 @@ import { type TestRow, type ItemRow, testTitle, stateInfo, overallResult, missin
 import { ContainmentItemCard } from '@/components/construction/containment-item-card'
 import { TestSignature, FinishBox } from '@/components/construction/containment-finish'
 import { saveTestHeader, addTestItem, saveTestItem, deleteTestItem, saveSignature, finishTest, reopenTest, deleteTest } from '../actions'
-import { Droplets } from 'lucide-react'
+import { Droplets } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'

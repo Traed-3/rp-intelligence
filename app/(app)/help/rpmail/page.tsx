@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { RPMAIL_GUIDE } from '@/lib/help'
-import { Mail } from 'lucide-react'
+import { Mail } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 // Technical Help > Using RPMail. Plain steps for staff, in the words the screens use. Open to everyone who signs in,

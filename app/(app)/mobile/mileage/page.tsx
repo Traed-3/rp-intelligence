@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { MileageForm } from '@/app/(app)/assets/[id]/mileage/mileage-form'
 import { addMileageEntry } from '@/app/(app)/assets/[id]/mileage/actions'
-import { Gauge } from 'lucide-react'
+import { Gauge } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function MobileMileagePage() {

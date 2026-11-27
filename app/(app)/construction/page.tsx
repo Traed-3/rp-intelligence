@@ -6,7 +6,7 @@ import { loadPermitGraph, computeAlerts, loadHashEnteredAt } from '@/lib/permits
 import { FOCUS_TILES, buildFocusTiles, tallyMaterials, daysSince, packingSlipSiteKey, type FocusJob, type PackingSlip } from '@/lib/construction-dashboard'
 import { StageBadge } from '@/components/construction/badges'
 import { OpenProjectsSearch, type OpenProject } from '@/components/construction/open-projects-search'
-import { Users, Contact, HardHat, FileText, Receipt, Package, CalendarDays, BarChart3, ClipboardList, ListChecks, Truck, Inbox, FileCheck2, AlertTriangle, Search } from 'lucide-react'
+import { Users, Contact, HardHat, FileText, Receipt, Package, CalendarDays, BarChart3, ClipboardList, ListChecks, Truck, Inbox, FileCheck2, AlertTriangle, Search } from '@/components/icons/solar'
 
 function iso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

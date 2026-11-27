@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AssetForm } from '@/components/assets/asset-form'
 import { createAsset } from '../actions'
 import { redirect } from 'next/navigation'
-import { Truck } from 'lucide-react'
+import { Truck } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export default async function NewAssetPage() {

@@ -5,7 +5,7 @@ import { requireFieldSurveys } from '@/lib/construction-guard'
 import { surveyTitle, surveyTypeLabel, SUMP_TYPES, type SurveyRow, type SumpRow, type PhotoRow } from '@/lib/survey'
 import { SurveySumpCard } from '@/components/construction/survey-sump-card'
 import { saveSurveyHeader, addSump, saveSump, deleteSump, addSurveyPhotos, deletePhoto, completeSurvey, reopenSurvey, deleteSurvey } from '../actions'
-import { ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck } from '@/components/icons/solar'
 import { TitleIcon } from '@/components/ui/title-icon'
 
 export const dynamic = 'force-dynamic'

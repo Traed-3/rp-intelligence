@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FileText, PlayCircle, Smartphone, Mail, LifeBuoy, HardHat } from 'lucide-react'
+import { FileText, PlayCircle, Smartphone, Mail, LifeBuoy, HardHat } from '@/components/icons/solar'
 import { HELP_GUIDES, HOME_SCREEN_GUIDE, RPMAIL_GUIDE, PLAYBOOK_GUIDE } from '@/lib/help'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
