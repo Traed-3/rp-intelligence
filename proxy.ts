@@ -72,7 +72,7 @@ export async function proxy(request: NextRequest) {
   // PWA manifest + service worker must be reachable without a session so the
   // app icon / theme apply on install.
   // /privacy is a plain public page (Google's sign-in setup needs a public privacy policy link).
-  const publicPaths = ['/login', '/auth/', '/api/auth/', '/api/gmail/', '/api/svc/', '/api/billing/', '/api/daily-summary', '/api/compliance/check', '/api/rpmail/cron', '/api/rpmail/relay', '/manifest.webmanifest', '/sw.js', '/privacy']
+  const publicPaths = ['/login', '/auth/', '/api/auth/', '/api/gmail/', '/api/svc/', '/api/billing/', '/api/daily-summary', '/api/compliance/check', '/api/rpmail/cron', '/api/time/clock-guard', '/api/rpmail/relay', '/manifest.webmanifest', '/sw.js', '/privacy']
   const isPublic = publicPaths.some((p) => pathname.startsWith(p))
 
   if (!user && !isPublic) {

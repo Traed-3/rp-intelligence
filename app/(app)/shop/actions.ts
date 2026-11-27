@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { AUTO_OUT_HOURS } from '@/lib/time-clock'
+import { autoClockOut } from '@/lib/clock-guard'
 
 async function getProfile() {
   const supabase = await createClient()
@@ -46,9 +48,15 @@ export async function clockIn(target?: ClockTarget) {
     .eq('profile_id', profile.id)
     .single()
 
-  if (existing?.clock_status === 'clocked_in') {
+  const { data: alreadyOpen } = await admin.from('time_clock_entries').select('id, clock_in').eq('profile_id', profile.id).is('clock_out', null)
+  if (existing?.clock_status === 'clocked_in' && alreadyOpen?.length) {
     revalidatePath('/shop/clock')
     return
+  }
+  // Shown as clocked out but an old shift was never closed: close it for a manager to fix, then start the new one.
+  for (const stale of alreadyOpen ?? []) {
+    const hrs = Math.floor((Date.now() - new Date(stale.clock_in).getTime()) / 3600000)
+    await autoClockOut(admin, { id: stale.id, profile_id: profile.id, company_id: profile.company_id, clock_in: stale.clock_in }, hrs)
   }
 
   // Create time clock entry
@@ -103,12 +111,12 @@ export async function clockOut() {
   // Find open clock entry
   const { data: clockEntry } = await admin
     .from('time_clock_entries')
-    .select('id, clock_in, active_labor_entry_id')
+    .select('id, clock_in')
     .eq('profile_id', profile.id)
     .is('clock_out', null)
     .order('clock_in', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   // Auto-close any active labor entry
   const { data: empStatus } = await admin
@@ -139,10 +147,15 @@ export async function clockOut() {
   if (clockEntry) {
     const clockIn = new Date(clockEntry.clock_in)
     const totalMins = Math.round((now.getTime() - clockIn.getTime()) / 60000)
-    await admin.from('time_clock_entries').update({
-      clock_out: now.toISOString(),
-      total_minutes: totalMins,
-    }).eq('id', clockEntry.id)
+    if (totalMins >= AUTO_OUT_HOURS * 60) {
+      // Clocking out a day late is a forgotten clock-out, not a shift that long: hold the hours for a manager.
+      await autoClockOut(admin, { id: clockEntry.id, profile_id: profile.id, company_id: profile.company_id, clock_in: clockEntry.clock_in }, Math.floor(totalMins / 60), now)
+    } else {
+      await admin.from('time_clock_entries').update({
+        clock_out: now.toISOString(),
+        total_minutes: totalMins,
+      }).eq('id', clockEntry.id).is('clock_out', null)
+    }
   }
 
   // Upsert employee status to clocked out
