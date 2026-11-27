@@ -48,32 +48,59 @@ function matchRank(p: OpenProject, raw: string): number {
   return hay.includes(q) ? 1 : 0
 }
 
+/** Which side of the slide button a job is on: still being quoted, or a project under way. */
+type Side = 'quote' | 'project'
+const QUOTE_STAGES = new Set(['survey', 'quoting'])
+const sideOf = (p: OpenProject): Side => (QUOTE_STAGES.has(p.stage) ? 'quote' : 'project')
+
 /**
  * Construction page header: the title on the left, the open-projects search
- * box to its right, and the matches listed underneath. Only open (not
+ * box to its right, and the matches listed underneath. The slide button picks
+ * which half is searched: Quote (Survey / Quote stage) or Project (the rest). Only open (not
  * Complete) jobs are ever passed in, so nothing finished can show up here.
  */
 export function OpenProjectsSearch({ projects, children }: { projects: OpenProject[]; children: React.ReactNode }) {
   const [text, setText] = useState('')
   const [applied, setApplied] = useState('')
+  const [side, setSide] = useState<Side>('project')
 
   const results = useMemo(() => {
     if (!applied.trim()) return []
     return projects
+      .filter(p => sideOf(p) === side)
       .map(p => ({ p, rank: matchRank(p, applied) }))
       .filter(x => x.rank > 0)
       .sort((a, b) => b.rank - a.rank || (a.p.site_number ?? '').localeCompare(b.p.site_number ?? '', undefined, { numeric: true }))
       .map(x => x.p)
-  }, [projects, applied])
+  }, [projects, applied, side])
 
   const clear = () => { setText(''); setApplied('') }
   const showing = applied.trim() !== ''
   const all = applied.trim() === '*'
+  const noun = side === 'quote' ? 'quotes' : 'projects'
+  const otherSide: Side = side === 'quote' ? 'project' : 'quote'
+  const otherCount = showing ? projects.filter(p => sideOf(p) === otherSide && matchRank(p, applied) > 0).length : 0
 
   return (
     <div className="mb-6">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="min-w-0">{children}</div>
+        {/* Slide button: Quote on one side, Project on the other */}
+        <div role="radiogroup" aria-label="Search quotes or projects" className="rp-flat relative grid grid-cols-2 shrink-0 rounded-full border border-gray-300 bg-gray-100 p-0.5 text-sm font-semibold select-none">
+          <span aria-hidden className={`absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-primary shadow-sm transition-transform duration-200 ease-out ${side === 'project' ? 'translate-x-full' : ''}`} />
+          {(['quote', 'project'] as const).map(v => (
+            <button
+              key={v}
+              type="button"
+              role="radio"
+              aria-checked={side === v}
+              onClick={() => setSide(v)}
+              className={`rp-flat relative z-10 px-4 py-1.5 rounded-full bg-transparent transition-colors ${side === v ? 'text-primary-foreground' : 'text-gray-600 hover:text-gray-900'}`}
+            >
+              {v === 'quote' ? 'Quote' : 'Project'}
+            </button>
+          ))}
+        </div>
         <form
           role="search"
           className="relative flex-1 min-w-[220px] max-w-md"
@@ -85,7 +112,7 @@ export function OpenProjectsSearch({ projects, children }: { projects: OpenProje
             inputMode="search"
             enterKeyHint="search"
             autoComplete="off"
-            aria-label="Search open projects"
+            aria-label={`Search open ${noun}`}
             value={text}
             onChange={e => {
               const v = e.target.value
@@ -95,7 +122,7 @@ export function OpenProjectsSearch({ projects, children }: { projects: OpenProje
               setApplied(t === '*' || t.length >= 2 ? v : '')
             }}
             onKeyDown={e => { if (e.key === 'Escape') clear() }}
-            placeholder="Open projects — site # or street #  (* = all)"
+            placeholder={`Open ${noun} — site # or street #  (* = all)`}
             className="w-full pl-9 pr-9 py-2 text-sm border border-gray-300 rounded-full bg-card focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-search-cancel-button]:hidden"
           />
           {text && (
@@ -110,14 +137,17 @@ export function OpenProjectsSearch({ projects, children }: { projects: OpenProje
         <section className="rp-card overflow-hidden mt-4" aria-live="polite">
           <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between gap-3">
             <h2 className="font-semibold text-gray-900 text-sm">
-              {all ? 'All open projects' : <>Open projects matching &ldquo;{applied.trim()}&rdquo;</>}
+              {all ? `All open ${noun}` : <>Open {noun} matching &ldquo;{applied.trim()}&rdquo;</>}
               <span className="ml-2 font-normal text-gray-400">{results.length}</span>
             </h2>
             <button type="button" onClick={clear} className="text-xs font-medium text-blue-600 hover:text-blue-800">Clear</button>
           </div>
           {results.length === 0 ? (
             <p className="px-4 py-6 text-sm text-gray-400">
-              No open project with that site number or street number. Enter * to list every open project.
+              No open {side} with that site number or street number.{' '}
+              {otherCount > 0
+                ? <button type="button" onClick={() => setSide(otherSide)} className="font-medium text-blue-600 hover:text-blue-800">{otherCount} on the {otherSide === 'quote' ? 'Quote' : 'Project'} side →</button>
+                : <>Enter * to list every open {side}.</>}
             </p>
           ) : (
             <ul className="divide-y divide-gray-50 max-h-[70vh] overflow-y-auto">
